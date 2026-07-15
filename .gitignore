@@ -1,0 +1,37 @@
+# Visual Studio and .NET build output
+.vs/
+.worktrees/
+**/bin/
+**/obj/
+TestResults/
+artifacts/
+
+# Local brainstorming and design previews
+.superpowers/
+
+# GamePMer runtime data
+data/
+backups/
+logs/
+cache/
+secrets/
+*.db
+*.db-shm
+*.db-wal
+*.key
+*.log
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+*.pfx
+*.snk
+
+# User-specific files and installers
+*.user
+*.suo
+*.msix
+*.msixbundle
+*.appinstaller
