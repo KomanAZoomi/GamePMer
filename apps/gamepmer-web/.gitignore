@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# The repository root ignores generic data/ folders; this app's source seed data is versioned.
+!src/data/
+!src/data/**
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
