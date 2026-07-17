@@ -59,6 +59,7 @@ nav { display: grid; gap: 7px; margin-top: 24px; }
 .schedule-bar { z-index: 1; min-height: 27px; margin: 0 5px; padding: 6px 9px; border-radius: 6px; color: #fff; font-size: 11px; font-weight: 700; }
 .bar-planned { background: #b5c2bb; }
 .bar-active { background: var(--amber); }
+.bar-draft { color: #7d4e13; background: repeating-linear-gradient(135deg, #e4a54e 0 5px, #fff0d5 5px 10px); border: 1px dashed #bc7920; }
 .schedule-footer { display: flex; justify-content: space-between; padding: 15px 20px; color: var(--muted); border-top: 1px solid var(--line); font-size: 12px; }
 .risk-chip { color: #8d5e20; background: var(--amber-soft); border-radius: 999px; padding: 4px 8px; }
 .feedback-status { color: #8d5e20; background: var(--amber-soft); border-radius: 999px; padding: 5px 8px; font-size: 11px; font-weight: 800; }
@@ -69,4 +70,5 @@ nav { display: grid; gap: 7px; margin-top: 24px; }
 .impact-card { display: grid; gap: 6px; margin: 22px 0 14px; padding: 14px; background: #e9f0ea; border-radius: 8px; }
 .impact-card strong { font-size: 14px; }.impact-card span { color: var(--muted); font-size: 12px; line-height: 1.5; }
 .full-width { width: 100%; margin-top: 8px; }
+.draft-flow { margin-top: 18px; }.draft-adjustments { display: grid; gap: 7px; margin: 12px 0; }.draft-row { display: grid; grid-template-columns: 40px 52px 1fr 52px; align-items: center; gap: 5px; color: var(--muted); font-size: 11px; }.draft-row button { min-height: 25px; border-radius: 5px; color: var(--sage-deep); background: #e9eee8; font-size: 11px; }.draft-row strong { color: var(--ink); font-size: 11px; text-align: center; }
 @media (max-width: 1250px) { .workspace-shell { padding: 16px; } .workspace-grid { grid-template-columns: 220px minmax(550px, 1fr) 280px; } }

@@ -1,8 +1,22 @@
+import { useSyncExternalStore, type DragEvent } from 'react'
+import { createWorkspaceStore } from './features/workspace/workspaceStore'
 import './App.css'
 
 const timelineDays = ['7/17', '7/18', '7/21', '7/22', '7/23', '7/24', '7/25']
+const workspaceStore = createWorkspaceStore()
 
 function App() {
+  const workspace = useSyncExternalStore(workspaceStore.subscribe, workspaceStore.getState, workspaceStore.getState)
+  const draftCodes = new Set(workspace.draft?.changes.map((change) => change.stageCode) ?? [])
+  const revisionCount = workspace.demo.revisions.length
+  const handleDraftDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const stageCode = event.dataTransfer.getData('text/plain')
+    const startColumn = Number(event.currentTarget.dataset.start)
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const targetColumn = Math.max(0, Math.min(6, Math.floor(((event.clientX - bounds.left) / bounds.width) * 7)))
+    if (stageCode) workspaceStore.moveDraft(stageCode as never, targetColumn - startColumn)
+  }
   return (
     <main className="workspace-shell">
       <header className="app-header">
@@ -68,17 +82,17 @@ function App() {
               <div className="timeline-labels" role="columnheader">{timelineDays.map((day) => <span key={day}>{day}</span>)}</div>
             </div>
             {[
-              ['中模', '已验收', 'bar-complete', 0, 2],
-              ['高模', '反馈中', 'bar-active', 2, 2],
-              ['低模', '待开始', 'bar-planned', 4, 2],
-              ['烘焙', '待开始', 'bar-planned', 5, 1],
-              ['贴图', '待开始', 'bar-planned', 5, 2],
-              ['LOD', '待开始', 'bar-planned', 6, 1],
-            ].map(([name, status, barClass, start, span]) => (
+              ['3D_MID', '中模', '已验收', 'bar-complete', 0, 2],
+              ['3D_HIGH', '高模', '反馈中', 'bar-active', 2, 2],
+              ['3D_LOW', '低模', '待开始', 'bar-planned', 4, 2],
+              ['3D_BAKE', '烘焙', '待开始', 'bar-planned', 5, 1],
+              ['3D_TEXTURE', '贴图', '待开始', 'bar-planned', 5, 2],
+              ['3D_LOD', 'LOD', '待开始', 'bar-planned', 6, 1],
+            ].map(([code, name, status, barClass, start, span]) => (
               <div className="gantt-row" role="row" key={name}>
                 <div className="stage-cell" role="cell"><strong>{name}</strong><span>{status}</span></div>
-                <div className="timeline" role="cell">
-                  <div className={`schedule-bar ${barClass}`} style={{ gridColumn: `${Number(start) + 1} / span ${span}` }}>{name === '高模' ? '高模调整中' : ''}</div>
+                <div className="timeline" role="cell" data-start={start} onDragOver={(event) => event.preventDefault()} onDrop={handleDraftDrop}>
+                  <div draggable={draftCodes.has(code as never)} onDragStart={(event) => event.dataTransfer.setData('text/plain', String(code))} className={`schedule-bar ${draftCodes.has(code as never) ? 'bar-draft' : barClass}`} style={{ gridColumn: `${Number(start) + 1} / span ${span}` }}>{draftCodes.has(code as never) ? '↕ 重排草案' : name === '高模' ? '高模调整中' : ''}</div>
                 </div>
               </div>
             ))}
@@ -103,13 +117,30 @@ function App() {
             <div><dt>关联节点</dt><dd>高模</dd></div>
             <div><dt>影响</dt><dd>后续 4 个节点</dd></div>
           </dl>
-          <div className="impact-card">
-            <p className="eyebrow">影响预览</p>
-            <strong>将生成重排草案</strong>
-            <span>系统只提出建议，不会修改已确认的基线。</span>
-          </div>
-          <button type="button" className="primary-button full-width">查看影响并生成草案</button>
-          <button type="button" className="quiet-button full-width">暂不处理</button>
+          {workspace.draft ? (
+            <div className="draft-flow">
+              <div className="impact-card">
+                <p className="eyebrow">重排草案</p>
+                <strong>低模、烘焙、贴图、LOD</strong>
+                <span>已生成 {workspace.draft.changes.length} 项建议。可直接拖动琥珀色条形，或用下方工作日微调。</span>
+              </div>
+              <div className="draft-adjustments">
+                {workspace.draft.changes.map((change) => <div className="draft-row" key={change.stageCode}><span>{change.stageCode.replace('3D_', '')}</span><button type="button" aria-label={`${change.stageCode} 提前一天`} onClick={() => workspaceStore.moveDraft(change.stageCode, -1)}>−1 天</button><strong>{change.newStart}</strong><button type="button" aria-label={`${change.stageCode} 延后一天`} onClick={() => workspaceStore.moveDraft(change.stageCode, 1)}>+1 天</button></div>)}
+              </div>
+              <button type="button" className="primary-button full-width" onClick={() => workspaceStore.confirmDraft('客户反馈延期', '肩甲比例返修')}>确认 {workspace.draft.changes.length} 项排期修订</button>
+              <button type="button" className="quiet-button full-width" onClick={() => workspaceStore.cancelDraft()}>放弃草案</button>
+            </div>
+          ) : (
+            <>
+              <div className="impact-card">
+                <p className="eyebrow">影响预览</p>
+                <strong>{revisionCount ? `已确认 ${revisionCount} 次修订` : '将生成重排草案'}</strong>
+                <span>系统只提出建议，不会修改已确认的基线。</span>
+              </div>
+              <button type="button" className="primary-button full-width" onClick={() => workspaceStore.startFeedback('F-017')}>查看影响并生成草案</button>
+              <button type="button" className="quiet-button full-width">暂不处理</button>
+            </>
+          )}
         </aside>
       </section>
     </main>
