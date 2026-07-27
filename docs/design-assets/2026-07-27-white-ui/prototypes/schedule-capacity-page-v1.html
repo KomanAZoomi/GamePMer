@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>排期管理与团队档期 · 原型 v1</title>
+<style>
+:root{
+  --surface-page:#f5f7f5;--surface-card:#fff;--surface-rail:#fbfcfb;--surface-muted:#f6f8f6;
+  --surface-field:#f8faf9;--surface-info:#f7faf8;--surface-group:#f4f7f5;
+  --border-strong:#d9dfdb;--border-default:#dde3df;--border-subtle:#e4e8e5;--border-faint:#edf0ee;
+  --text-primary:#25362e;--text-secondary:#4c5b53;--text-muted:#6f7d76;--text-faint:#8b968f;--text-inverse:#fff;
+  --accent:#42755f;--accent-strong:#2f6d50;--accent-ink:#285c47;--accent-soft:#e7f1ec;--accent-softer:#eff6f2;--accent-border:#c6dacf;
+  --amber:#c8802f;--amber-ink:#8c5a24;--amber-soft:#fdf3e7;--amber-border:#e6c8a4;
+  --danger:#b4553c;--danger-ink:#8f3f2b;--danger-soft:#fbeae4;--danger-border:#e8c4b6;
+  --bar-baseline:#b3bdb8;--bar-current:#4b8065;--bar-actual:#263b31;--bar-wait:#d8c39c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-page);color:var(--text-primary);
+  font-family:'Segoe UI','Microsoft YaHei UI','Microsoft YaHei',system-ui,sans-serif;font-size:14px;line-height:1.55}
+h1,h2,h3,p,dl,dd,ol,ul{margin:0}
+ol,ul{padding:0;list-style:none}
+button{font:inherit;color:inherit;cursor:pointer}
+
+.note{max-width:1880px;margin:20px auto 14px;padding:14px 18px;border:1px solid #dfe7e2;border-radius:12px;
+  background:#f7faf8;color:#516159;font-size:13px;line-height:1.7}
+.note strong{color:#24382f}
+.note code{font-family:Consolas,monospace;font-size:12px;background:#fff;padding:1px 5px;border-radius:4px;border:1px solid #e3e9e5}
+
+.app{max-width:1880px;margin:0 auto 24px;display:grid;grid-template-columns:216px 1fr;
+  border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;background:#fff}
+
+/* 左导航 */
+.rail{display:flex;flex-direction:column;padding:16px 10px;background:var(--surface-rail);border-right:1px solid var(--border-subtle)}
+.brand{padding:0 8px;margin-bottom:16px;font-size:17px;font-weight:800;color:var(--text-primary)}
+.brand span{display:block;margin-top:3px;color:var(--text-faint);font-size:12px;font-weight:550;letter-spacing:.08em}
+.nav{display:grid;gap:2px}
+.nav a{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;
+  color:var(--text-secondary);font-size:14px;font-weight:550;text-decoration:none;border:1px solid transparent}
+.nav a.active{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent-border);font-weight:700}
+.nav em{font-style:normal;font-size:11px;color:var(--text-faint);background:var(--surface-muted);padding:1px 5px;border-radius:6px}
+.user{margin-top:auto;display:flex;gap:8px;align-items:center;padding:8px;border:1px solid var(--border-default);border-radius:8px;background:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);
+  display:grid;place-items:center;font-size:12px;font-weight:800}
+.user b{display:block;font-size:14px}.user small{color:var(--text-faint);font-size:12px}
+
+/* 主区 */
+.main{display:grid;grid-template-rows:60px 1fr;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border-subtle);background:#fff}
+.search{flex:1;max-width:420px;padding:8px 12px;border:1px solid var(--border-default);border-radius:999px;
+  background:var(--surface-field);color:var(--text-faint);font-size:14px}
+.top-actions{margin-left:auto;display:flex;gap:8px}
+.btn{padding:6px 10px;border:1px solid var(--border-default);border-radius:8px;background:#fff;color:var(--text-secondary);font-size:13px;font-weight:550;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.amber{background:var(--amber-soft);border-color:var(--amber-border);color:var(--amber-ink)}
+
+.content{padding:12px 16px;background:var(--surface-page);display:grid;gap:12px;align-content:start}
+
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.page-head h1{font-size:21px;font-weight:800}
+.page-head p{margin-top:3px;color:var(--text-muted);font-size:13px}
+
+.tabs{display:flex;gap:6px}
+.tab{padding:7px 14px;border:1px solid var(--border-default);border-radius:8px;background:#fff;color:var(--text-muted);font-size:14px}
+.tab.active{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent-ink);font-weight:700}
+
+.card{border:1px solid var(--border-default);border-radius:12px;background:#fff}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border-faint)}
+.card-head h2{font-size:15px;font-weight:700;display:flex;flex-direction:column;gap:2px}
+.card-head small{color:var(--text-faint);font-size:12px;font-weight:400}
+.count{padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;align-items:start}
+.stack{display:grid;gap:12px;min-width:0}
+
+/* 容量表 */
+.cap-table{width:100%;border-collapse:collapse}
+.cap-table th,.cap-table td{padding:9px 12px;border-bottom:1px solid var(--border-faint);text-align:left;font-size:13px}
+.cap-table th{color:var(--text-faint);font-size:12px;font-weight:800;background:var(--surface-rail)}
+.cap-table td.group{font-weight:700;color:var(--text-primary);font-size:14px}
+.cap-table td.group small{display:block;color:var(--text-faint);font-size:12px;font-weight:400}
+.cell{display:grid;gap:3px}
+.bar-wrap{position:relative;height:8px;border-radius:4px;background:var(--surface-muted);overflow:hidden}
+.bar-fill{position:absolute;inset:0 auto 0 0;background:var(--bar-current)}
+.bar-fill.over{background:var(--danger)}
+.bar-fill.tight{background:var(--amber)}
+.cell b{font-size:13px}
+.cell small{color:var(--text-faint);font-size:12px}
+.over-text{color:var(--danger-ink);font-weight:700}
+.tight-text{color:var(--amber-ink);font-weight:700}
+.free-text{color:var(--accent-ink)}
+
+/* 冲突 */
+.conflict{display:grid;gap:8px;padding:12px 14px}
+.conflict-item{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;padding:10px;border-radius:8px;border:1px solid var(--border-default);background:#fff}
+.conflict-item.err{border-color:var(--danger-border);background:var(--danger-soft)}
+.conflict-item.warn{border-color:var(--amber-border);background:var(--amber-soft)}
+.sev{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff}
+.sev.err{background:var(--danger)}.sev.warn{background:var(--amber)}
+.conflict-item b{display:block;font-size:13px}
+.conflict-item span{display:block;color:var(--text-secondary);font-size:12px;line-height:1.5}
+.conflict-item a{display:inline-block;margin-top:4px;font-size:12px;color:var(--accent-ink);text-decoration:underline}
+
+/* 节点清单 */
+.node-table{width:100%;border-collapse:collapse}
+.node-table th,.node-table td{padding:8px 12px;border-bottom:1px solid var(--border-faint);text-align:left;font-size:13px}
+.node-table th{color:var(--text-faint);font-size:12px;font-weight:800;background:var(--surface-rail)}
+.node-table td.date{font-weight:700;white-space:nowrap}
+.node-table tr.today td{background:var(--accent-softer)}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill.kick{background:var(--accent-soft);color:var(--accent-ink)}
+.pill.accept{background:var(--surface-muted);color:var(--text-secondary)}
+.pill.fb{background:var(--amber-soft);color:var(--amber-ink)}
+.pill.deliver{background:#e8eef5;color:#3c5570}
+.pill.risk{background:var(--danger-soft);color:var(--danger-ink)}
+
+/* 录入抽屉 */
+.drawer{border:1px solid var(--accent-border);border-radius:12px;background:#fff;box-shadow:0 16px 40px rgba(41,59,50,.14)}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border-faint);background:var(--accent-softer)}
+.drawer-head h2{font-size:15px;font-weight:800}
+.drawer-head small{display:block;color:var(--text-muted);font-size:12px;font-weight:400;margin-top:2px}
+.entry-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border-faint);background:var(--surface-rail)}
+.entry-toolbar span{color:var(--text-muted);font-size:12px}
+.sel{padding:5px 9px;border:1px solid var(--border-default);border-radius:6px;background:#fff;font-size:13px}
+.entry-table{width:100%;border-collapse:collapse}
+.entry-table th,.entry-table td{padding:7px 9px;border-bottom:1px solid var(--border-faint);font-size:13px;text-align:left}
+.entry-table th{color:var(--text-faint);font-size:12px;font-weight:800;background:var(--surface-rail);white-space:nowrap}
+.entry-table tr.asset-row td{background:var(--surface-group);font-weight:700;font-size:13px}
+.inp{width:100%;padding:5px 7px;border:1px solid var(--border-default);border-radius:6px;background:#fff;font-size:13px;font-family:inherit}
+.inp.date{width:112px}
+.inp.num{width:62px;text-align:right}
+.inp.err{border-color:var(--danger);background:var(--danger-soft)}
+.inp.warn{border-color:var(--amber-border);background:var(--amber-soft)}
+.chk{width:16px;height:16px;accent-color:var(--accent)}
+.row-flag{font-size:12px;font-weight:700;white-space:nowrap}
+.row-flag.ok{color:var(--accent-ink)}
+.row-flag.err{color:var(--danger-ink)}
+.row-flag.warn{color:var(--amber-ink)}
+.drawer-foot{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--border-faint);background:var(--surface-rail)}
+.foot-summary{font-size:12px;color:var(--text-secondary);line-height:1.6}
+.foot-summary b{color:var(--text-primary)}
+.foot-actions{margin-left:auto;display:flex;gap:8px}
+
+/* 组合排期时间轴 */
+.combo{display:grid;grid-template-columns:280px minmax(0,1fr)}
+.combo-left{border-right:1px solid var(--border-default)}
+.combo-head-l,.combo-grouprow,.combo-stagerow{display:grid;grid-template-columns:minmax(0,1fr) 66px 54px;
+  align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid var(--border-faint);font-size:13px}
+.combo-head-l{height:44px;color:var(--text-faint);font-size:12px;font-weight:800;background:var(--surface-rail)}
+.combo-grouprow{height:32px;background:var(--surface-group);font-weight:700}
+.combo-grouprow .grp-cap{font-size:12px;color:var(--text-muted);font-weight:400;text-align:right;grid-column:2/4}
+.combo-stagerow{height:38px}
+.combo-stagerow b{font-weight:550;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.combo-stagerow small{display:block;color:var(--text-faint);font-size:12px}
+.combo-right{overflow-x:auto}
+.combo-canvas{width:1120px;position:relative}
+.axis{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;height:44px;background:var(--surface-rail);border-bottom:1px solid var(--border-faint)}
+.axis div{display:grid;place-content:center;gap:1px;border-left:1px solid var(--border-faint);font-size:11px;color:var(--text-muted);text-align:center}
+.axis div.off{background:var(--surface-group);color:var(--text-faint)}
+.axis div.hol{background:var(--amber-soft);color:var(--amber-ink)}
+.axis div.today{background:var(--accent);color:#fff;font-weight:800}
+.axis small{font-size:10px}
+.lanes{position:relative}
+.lane,.lane-group{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-bottom:1px solid var(--border-faint)}
+.lane-group{height:32px;background:var(--surface-group)}
+.lane{height:38px}
+.lane i{border-left:1px solid var(--border-faint)}
+.lane i.off{background:rgba(0,0,0,.025)}
+.today-line{position:absolute;top:0;bottom:0;width:2px;background:var(--accent-strong);z-index:4}
+.b{position:absolute;border-radius:3px;font-size:11px;line-height:15px;color:#fff;padding-left:6px;white-space:nowrap;overflow:hidden}
+.b.cur{top:12px;height:15px;background:var(--bar-current)}
+.b.cur.plan{background:var(--bar-baseline)}
+.b.cur.wait{background:var(--bar-wait);color:var(--text-primary)}
+.b.cur.fb{background:var(--amber)}
+.b.cur.risk{background:var(--danger)}
+.b.base{top:4px;height:6px;background:var(--bar-baseline)}
+.b.act{top:29px;height:5px;background:var(--bar-actual)}
+.overload{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(135deg,rgba(180,85,60,.14) 0 6px,transparent 6px 12px);
+  border-left:1px dashed var(--danger);border-right:1px dashed var(--danger);z-index:1}
+.overload span{position:absolute;top:2px;left:4px;font-size:11px;font-weight:800;color:var(--danger-ink)}
+
+.legend{display:flex;flex-wrap:wrap;gap:14px;padding:8px 14px;border-top:1px solid var(--border-faint);background:var(--surface-rail);font-size:12px;color:var(--text-muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.mk{width:16px;border-radius:3px}
+.mk.base{height:6px;background:var(--bar-baseline)}
+.mk.cur{height:12px;background:var(--bar-current)}
+.mk.act{height:5px;background:var(--bar-actual)}
+.mk.ov{height:12px;background:repeating-linear-gradient(135deg,rgba(180,85,60,.35) 0 4px,transparent 4px 8px);border:1px dashed var(--danger)}
+
+.hint{padding:10px 14px;border-top:1px solid var(--border-faint);background:var(--surface-info);color:var(--text-muted);font-size:12px;line-height:1.6}
+.q{max-width:1880px;margin:0 auto 40px;padding:16px 20px;border:1px solid var(--accent-border);border-radius:12px;background:var(--accent-softer)}
+.q h3{font-size:15px;color:var(--accent-ink);margin-bottom:8px}
+.q ol{list-style:decimal;padding-left:20px;color:var(--text-secondary);font-size:13px;line-height:1.9}
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>排期管理与团队档期 · 原型 v1（C3a）</strong><br>
+  这是七个核心页面里唯一没有原型的一个，也是 M1 失败点 3「录入排期和档期太过简单」的正面回应。
+  <b>先请你确认这一版结构，我再写代码。</b><br>
+  数字全部来自当前种子数据（今天 <code>2026-07-27</code>，<code>2026-08-05</code> 为公司休息日）。
+  与项目甘特的分工：项目甘特按<b>资产</b>分组回答「这个项目排得怎么样」；本页按<b>制作组</b>分组回答「团队装不装得下」。
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand">GamePMer<span>GAME ART PM WORKSPACE</span></div>
+    <nav class="nav">
+      <a href="#">任务管理</a>
+      <a href="#">项目总览</a>
+      <a href="#">候选收件箱<em>切片 3</em></a>
+      <a href="#" class="active">排期管理</a>
+      <a href="#">反馈中心<em>C4</em></a>
+      <a href="#">报价与变更<em>切片 5</em></a>
+      <a href="#">结项中心<em>切片 6</em></a>
+      <a href="#">文件与归档<em>切片 6</em></a>
+      <a href="#">智能分析<em>切片 7</em></a>
+      <a href="#">设置中心<em>切片 7</em></a>
+    </nav>
+    <div class="user"><span class="avatar">PM</span><span><b>Brandon</b><small>游戏美术 PM</small></span></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="search">搜索项目、资产、阶段、制作组…</div>
+      <div class="top-actions">
+        <button class="btn">导入 Excel</button>
+        <button class="btn">导出排期</button>
+        <button class="btn primary">批量录入计划</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <div class="page-head">
+        <div>
+          <h1>排期管理与团队档期</h1>
+          <p>2026-07-27（周一）· 4 个在管项目 · 3 个制作组 · 本周检出 <b style="color:var(--danger-ink)">1 项冲突</b> 与 <b style="color:var(--amber-ink)">2 项预警</b></p>
+        </div>
+        <div class="tabs">
+          <span class="tab active">组合排期</span>
+          <span class="tab">团队档期</span>
+          <span class="tab">节点清单</span>
+        </div>
+      </div>
+
+      <!-- ============ 视图一：组合排期（按制作组分组） ============ -->
+      <div class="card">
+        <div class="card-head">
+          <h2>组合排期 · 按制作组<small>同一个制作组横跨多个项目的阶段排在一起，冲突才看得见</small></h2>
+          <div style="display:flex;gap:6px;align-items:center">
+            <select class="sel"><option>按制作组分组</option><option>按项目分组</option><option>按资产分组</option></select>
+            <select class="sel"><option>日</option><option>周</option><option>月</option></select>
+            <button class="btn">定位今天</button>
+          </div>
+        </div>
+
+        <div class="combo">
+          <div class="combo-left">
+            <div class="combo-head-l"><span>制作组 / 阶段</span><span>项目</span><span>人天</span></div>
+
+            <div class="combo-grouprow"><span>3D 角色 A 组 · Leo</span><span class="grp-cap">1.5 人天/日 · 本周超载 1.5</span></div>
+            <div class="combo-stagerow"><b>MECH-01 低模<small>Chen · 可能延期</small></b><span>P-3D-024</span><span>3</span></div>
+            <div class="combo-stagerow"><b>MECH-01 烘焙<small>Chen</small></b><span>P-3D-024</span><span>1</span></div>
+            <div class="combo-stagerow"><b>MECH-01 贴图<small>Mei</small></b><span>P-3D-024</span><span>3</span></div>
+            <div class="combo-stagerow"><b>MECH-01 LOD<small>Mei</small></b><span>P-3D-024</span><span>2</span></div>
+            <div class="combo-stagerow"><b>PROP-03 中模<small>Chen</small></b><span>P-3D-031</span><span>2</span></div>
+            <div class="combo-stagerow"><b>PROP-03 高模<small>Chen</small></b><span>P-3D-031</span><span>2</span></div>
+
+            <div class="combo-grouprow"><span>3D 场景 B 组 · Rui</span><span class="grp-cap">3 人天/日 · 本周余 2</span></div>
+            <div class="combo-stagerow"><b>MECH-02 中模<small>Rui · 制作中</small></b><span>P-3D-024</span><span>2</span></div>
+            <div class="combo-stagerow"><b>PROP-01 中模<small>Lin · 明日到期</small></b><span>P-3D-031</span><span>2</span></div>
+            <div class="combo-stagerow"><b>PROP-02 中模<small>Lin</small></b><span>P-3D-031</span><span>2</span></div>
+
+            <div class="combo-grouprow"><span>2D 角色 A 组 · Yuki</span><span class="grp-cap">2 人天/日 · 本周余 2</span></div>
+            <div class="combo-stagerow"><b>CHAR-08 完成稿<small>Yuki · 已修订 +1</small></b><span>P-2D-018</span><span>3</span></div>
+            <div class="combo-stagerow"><b>CHAR-09 草图<small>Mika · 制作中</small></b><span>P-2D-018</span><span>2</span></div>
+          </div>
+
+          <div class="combo-right">
+            <div class="combo-canvas">
+              <div class="axis">
+                <div>7/20<small>一</small></div><div>7/21<small>二</small></div><div>7/22<small>三</small></div>
+                <div>7/23<small>四</small></div><div>7/24<small>五</small></div>
+                <div class="off">7/25<small>六</small></div><div class="off">7/26<small>日</small></div>
+                <div class="today">7/27<small>今天</small></div><div>7/28<small>二</small></div><div>7/29<small>三</small></div>
+                <div>7/30<small>四</small></div><div>7/31<small>五</small></div>
+                <div class="off">8/1<small>六</small></div><div class="off">8/2<small>日</small></div>
+                <div>8/3<small>一</small></div><div>8/4<small>二</small></div>
+                <div class="hol">8/5<small>休</small></div><div>8/6<small>四</small></div><div>8/7<small>五</small></div>
+                <div class="off">8/8<small>六</small></div>
+              </div>
+
+              <div class="lanes">
+                <div class="today-line" style="left:37.5%"></div>
+                <!-- 3D-A 组超载区间：7/27-7/31 -->
+                <div class="overload" style="left:35%;width:25%;height:264px">
+                  <span>3D-A 组本周超载 1.5 人天</span>
+                </div>
+
+                <div class="lane-group"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i class="hol"></i><i></i><i></i><i class="off"></i></div>
+
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur risk" style="left:35%;width:15%">低模</span></div>
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur plan" style="left:50%;width:5%">烘焙</span></div>
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur plan" style="left:55%;width:25%">贴图</span></div>
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur plan" style="left:85%;width:10%">LOD</span></div>
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur plan" style="left:50%;width:10%">中模</span></div>
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur plan" style="left:70%;width:10%">高模</span></div>
+
+                <div class="lane-group"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i class="hol"></i><i></i><i></i><i class="off"></i></div>
+
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur" style="left:35%;width:10%">中模</span><span class="b act" style="left:35%;width:5%"></span></div>
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur" style="left:35%;width:10%">中模</span><span class="b act" style="left:35%;width:5%"></span></div>
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur plan" style="left:45%;width:10%">中模</span></div>
+
+                <div class="lane-group"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i class="hol"></i><i></i><i></i><i class="off"></i></div>
+
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b base" style="left:35%;width:15%"></span>
+                  <span class="b cur" style="left:40%;width:15%">完成稿</span></div>
+                <div class="lane"><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i><i class="off"></i><i></i><i></i><i></i><i></i><i></i><i class="off"></i>
+                  <span class="b cur" style="left:35%;width:10%">草图</span><span class="b act" style="left:35%;width:5%"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="legend">
+          <span><i class="mk base"></i>基准</span>
+          <span><i class="mk cur"></i>当前计划</span>
+          <span><i class="mk act"></i>实际</span>
+          <span><i class="mk ov"></i>容量超载区间</span>
+          <span style="margin-left:auto">灰底列为周末，琥珀列为公司休息日（8/5）</span>
+        </div>
+      </div>
+
+      <div class="layout">
+        <div class="stack">
+
+          <!-- ============ 视图二：团队档期 ============ -->
+          <div class="card">
+            <div class="card-head">
+              <h2>团队档期 · 按周<small>可用人天来自制作组容量日历；已排人天按阶段的当前计划落在该周的工作日折算</small></h2>
+              <select class="sel"><option>未来 4 周</option><option>未来 8 周</option></select>
+            </div>
+            <table class="cap-table">
+              <thead>
+                <tr><th style="width:190px">制作组</th><th>7/20 当周</th><th>7/27 当周（本周）</th><th>8/3 当周</th><th>8/10 当周</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="group">3D 角色 A 组<small>组长 Leo · 1.5 人天/日</small></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:67%"></div></div>
+                    <b>5.0 / 7.5</b><small class="free-text">余 2.5 人天</small></div></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill over" style="width:100%"></div></div>
+                    <b class="over-text">9.0 / 7.5</b><small class="over-text">超 1.5 人天 · 含未确认返修 2</small></div></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill tight" style="width:100%"></div></div>
+                    <b class="tight-text">6.0 / 6.0</b><small class="tight-text">满载 · 本周有休息日</small></div></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:0%"></div></div>
+                    <b>0 / 7.5</b><small class="free-text">全部空闲</small></div></td>
+                </tr>
+                <tr>
+                  <td class="group">3D 场景 B 组<small>组长 Rui · 3 人天/日</small></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:0%"></div></div>
+                    <b>0 / 15.0</b><small class="free-text">全部空闲</small></div></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:87%"></div></div>
+                    <b>13.0 / 15.0</b><small class="free-text">余 2.0 人天</small></div></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:58%"></div></div>
+                    <b>7.0 / 12.0</b><small class="free-text">余 5.0 人天</small></div></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:0%"></div></div>
+                    <b>0 / 15.0</b><small class="free-text">全部空闲</small></div></td>
+                </tr>
+                <tr>
+                  <td class="group">2D 角色 A 组<small>组长 Yuki · 2 人天/日</small></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:50%"></div></div>
+                    <b>5.0 / 10.0</b><small class="free-text">余 5.0 人天</small></div></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:80%"></div></div>
+                    <b>8.0 / 10.0</b><small class="free-text">余 2.0 人天</small></div></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:37%"></div></div>
+                    <b>3.0 / 8.0</b><small class="free-text">余 5.0 人天</small></div></td>
+                  <td><div class="cell"><div class="bar-wrap"><div class="bar-fill" style="width:0%"></div></div>
+                    <b>0 / 10.0</b><small class="free-text">全部空闲</small></div></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="hint">
+              点任一格展开占用明细：3D 角色 A 组本周 9.0 人天 =
+              MECH-01 低模 3 + 烘焙 1 + 贴图 1（跨周折算）+ PROP-03 中模 2 + <b style="color:var(--amber-ink)">F-017 返修 2（未确认草案）</b>。
+              客户等待与等待变更报价不消耗人天，但仍占项目时间线。<br>
+              容量只到制作组层级，不记录具体制作人员，也不做个人绩效。
+            </div>
+          </div>
+
+          <!-- ============ 视图三：节点清单 ============ -->
+          <div class="card">
+            <div class="card-head">
+              <h2>节点清单<small>开工、阶段验收、客户反馈截止、重提与最终交付集中在一处</small></h2>
+              <div style="display:flex;gap:6px">
+                <select class="sel"><option>全部类型</option></select>
+                <select class="sel"><option>未来 14 天</option></select>
+              </div>
+            </div>
+            <table class="node-table">
+              <thead><tr><th style="width:96px">日期</th><th style="width:104px">类型</th><th>项目 / 资产 / 阶段</th><th style="width:88px">制作组</th><th style="width:72px">负责人</th><th style="width:150px">状态</th></tr></thead>
+              <tbody>
+                <tr class="today"><td class="date">7/27 一</td><td><span class="pill fb">客户反馈</span></td><td>P-3D-024 / MECH-01 / 高模</td><td>3D-A</td><td>Chen</td><td><span class="pill risk">3 项待分流</span></td></tr>
+                <tr class="today"><td class="date">7/27 一</td><td><span class="pill kick">计划开工</span></td><td>P-3D-024 / MECH-01 / 低模</td><td>3D-A</td><td>Chen</td><td><span class="pill risk">可能延期 · 前置未验收</span></td></tr>
+                <tr><td class="date">7/28 二</td><td><span class="pill accept">阶段交付</span></td><td>P-3D-031 / PROP-01 / 中模</td><td>3D-B</td><td>Lin</td><td><span class="pill fb">T-1 提醒草稿已生成</span></td></tr>
+                <tr><td class="date">7/28 二</td><td><span class="pill accept">阶段交付</span></td><td>P-3D-024 / MECH-02 / 中模</td><td>3D-B</td><td>Rui</td><td>制作中</td></tr>
+                <tr><td class="date">7/28 二</td><td><span class="pill kick">计划开工</span></td><td>P-2D-018 / CHAR-08 / 完成稿</td><td>2D-A</td><td>Yuki</td><td>已修订 v1 · +1 工作日</td></tr>
+                <tr><td class="date">7/29 三</td><td><span class="pill accept">阶段交付</span></td><td>P-3D-024 / MECH-01 / 低模</td><td>3D-A</td><td>Chen</td><td>受 F-017 影响待重排</td></tr>
+                <tr><td class="date">7/30 四</td><td><span class="pill accept">阶段交付</span></td><td>P-3D-031 / PROP-01 / 高模</td><td>3D-B</td><td>Lin</td><td>未开始</td></tr>
+                <tr><td class="date">7/31 五</td><td><span class="pill accept">阶段交付</span></td><td>P-2D-018 / CHAR-09 / 细化 50%</td><td>2D-A</td><td>Mika</td><td>未开始</td></tr>
+                <tr><td class="date">8/4 二</td><td><span class="pill accept">阶段交付</span></td><td>P-3D-024 / MECH-01 / 贴图</td><td>3D-A</td><td>Mei</td><td>未开始</td></tr>
+                <tr><td class="date">8/7 五</td><td><span class="pill deliver">最终交付</span></td><td>P-3D-024 / MECH-01 / LOD</td><td>3D-A</td><td>Mei</td><td>跨 8/5 休息日</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 右侧：冲突检查 -->
+        <div class="stack">
+          <div class="card">
+            <div class="card-head"><h2>冲突检查<small>确认写入前必须清空阻断项</small></h2><span class="count">3</span></div>
+            <div class="conflict">
+              <div class="conflict-item err">
+                <span class="sev err">!</span>
+                <span><b>依赖倒置</b>
+                  <span>MECH-01 低模计划 7/27 开工，但前置「高模」仍在等待客户验收，且已收到反馈 F-017。</span>
+                  <a href="#">查看 MECH-01 甘特 →</a></span>
+              </div>
+              <div class="conflict-item warn">
+                <span class="sev warn">!</span>
+                <span><b>同组超载</b>
+                  <span>3D 角色 A 组 7/27 当周已排 9.0 人天，超出可用 7.5 人天。其中 2 人天来自尚未确认的 F-017 返修草案。</span>
+                  <a href="#">查看占用明细 →</a></span>
+              </div>
+              <div class="conflict-item warn">
+                <span class="sev warn">!</span>
+                <span><b>人天与日期不匹配</b>
+                  <span>MECH-01 贴图 3 人天，当前区间 7/31—8/4 含 3 个工作日，恰好持平；若返修顺延 2 天将跨 8/5 公司休息日，需重新核对。</span>
+                  <a href="#">打开批量录入 →</a></span>
+              </div>
+            </div>
+            <div class="hint">
+              还会检查：结束日早于开始日、日期落在非工作日、同一资产阶段区间重叠、客户等待与制作区间重叠、
+              验收节点缺少负责人。<b>阻断项不清空不允许确认写入。</b>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>本周容量摘要</h2></div>
+            <div class="conflict">
+              <div class="conflict-item"><span class="sev" style="background:var(--danger)">A</span>
+                <span><b>3D 角色 A 组</b><span>9.0 / 7.5 人天 · <b class="over-text">超 1.5</b><br>确认 F-017 返修后超载将固化，建议同时顺延贴图或调配 PROP-03。</span></span></div>
+              <div class="conflict-item"><span class="sev" style="background:var(--accent)">B</span>
+                <span><b>3D 场景 B 组</b><span>13.0 / 15.0 人天 · 余 2.0<br>可承接 2 人天以内的插入需求。</span></span></div>
+              <div class="conflict-item"><span class="sev" style="background:var(--accent)">2D</span>
+                <span><b>2D 角色 A 组</b><span>8.0 / 10.0 人天 · 余 2.0<br>CHAR-08 完成稿因客户等待已顺延 1 个工作日。</span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 批量计划录入抽屉 ============ -->
+      <div class="drawer">
+        <div class="drawer-head">
+          <h2>批量录入计划 · P-3D-024 / MECH-01
+            <small>每个资产必须展开到可验收阶段。不允许只填项目开始日和结束日。</small></h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn">从 Excel 粘贴</button>
+            <button class="btn">关闭</button>
+          </div>
+        </div>
+
+        <div class="entry-toolbar">
+          <span>阶段模板</span>
+          <select class="sel"><option>3D PBR：中模 → 高模 → 低模 → 烘焙 → 贴图 → LOD</option><option>2D：草图 → 细化 50% → 完成稿</option></select>
+          <button class="btn">按模板生成阶段行</button>
+          <span style="margin-left:12px">批量设置</span>
+          <select class="sel"><option>制作组：3D 角色 A 组</option></select>
+          <select class="sel"><option>工作日历：公司日历 2026</option></select>
+          <button class="btn">应用到选中行</button>
+          <span style="margin-left:auto;color:var(--amber-ink);font-weight:700">草案未写入正式计划</span>
+        </div>
+
+        <table class="entry-table">
+          <thead>
+            <tr>
+              <th style="width:34px"><input type="checkbox" class="chk"></th>
+              <th style="width:104px">阶段</th>
+              <th style="width:132px">制作组</th>
+              <th style="width:72px">预估人天</th>
+              <th style="width:124px">开始</th>
+              <th style="width:124px">结束</th>
+              <th style="width:72px">工作日</th>
+              <th style="width:132px">依赖</th>
+              <th style="width:82px">客户验收</th>
+              <th style="width:76px">负责人</th>
+              <th>校验</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="asset-row"><td colspan="11">MECH-01 · 主角机甲（3D）· 6 个阶段 · 合计 14 人天</td></tr>
+            <tr>
+              <td><input type="checkbox" class="chk"></td>
+              <td>中模</td><td><select class="sel" style="width:100%"><option>3D 角色 A 组</option></select></td>
+              <td><input class="inp num" value="3"></td>
+              <td><input class="inp date" value="2026-07-20"></td>
+              <td><input class="inp date" value="2026-07-22"></td>
+              <td>3</td><td>—</td><td style="text-align:center"><input type="checkbox" class="chk" checked></td><td>Chen</td>
+              <td><span class="row-flag ok">已验收 · 锁定</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="chk"></td>
+              <td>高模</td><td><select class="sel" style="width:100%"><option>3D 角色 A 组</option></select></td>
+              <td><input class="inp num" value="2"></td>
+              <td><input class="inp date" value="2026-07-23"></td>
+              <td><input class="inp date" value="2026-07-24"></td>
+              <td>2</td><td>中模</td><td style="text-align:center"><input type="checkbox" class="chk" checked></td><td>Chen</td>
+              <td><span class="row-flag warn">等待客户 · 有反馈</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="chk" checked></td>
+              <td>低模</td><td><select class="sel" style="width:100%"><option>3D 角色 A 组</option></select></td>
+              <td><input class="inp num" value="3"></td>
+              <td><input class="inp date err" value="2026-07-27"></td>
+              <td><input class="inp date" value="2026-07-29"></td>
+              <td>3</td><td>高模</td><td style="text-align:center"><input type="checkbox" class="chk" checked></td><td>Chen</td>
+              <td><span class="row-flag err">依赖倒置</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="chk"></td>
+              <td>烘焙</td><td><select class="sel" style="width:100%"><option>3D 角色 A 组</option></select></td>
+              <td><input class="inp num" value="1"></td>
+              <td><input class="inp date" value="2026-07-30"></td>
+              <td><input class="inp date" value="2026-07-30"></td>
+              <td>1</td><td>低模</td><td style="text-align:center"><input type="checkbox" class="chk"></td><td>Chen</td>
+              <td><span class="row-flag ok">通过</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="chk"></td>
+              <td>贴图</td><td><select class="sel" style="width:100%"><option>3D 角色 A 组</option></select></td>
+              <td><input class="inp num warn" value="3"></td>
+              <td><input class="inp date" value="2026-07-31"></td>
+              <td><input class="inp date" value="2026-08-04"></td>
+              <td>3</td><td>烘焙</td><td style="text-align:center"><input type="checkbox" class="chk" checked></td><td>Mei</td>
+              <td><span class="row-flag warn">人天与区间持平</span></td>
+            </tr>
+            <tr>
+              <td><input type="checkbox" class="chk"></td>
+              <td>LOD</td><td><select class="sel" style="width:100%"><option>3D 角色 A 组</option></select></td>
+              <td><input class="inp num" value="2"></td>
+              <td><input class="inp date" value="2026-08-06"></td>
+              <td><input class="inp date" value="2026-08-07"></td>
+              <td>2</td><td>贴图</td><td style="text-align:center"><input type="checkbox" class="chk" checked></td><td>Mei</td>
+              <td><span class="row-flag ok">已跳过 8/5 休息日</span></td>
+            </tr>
+
+            <tr class="asset-row"><td colspan="11">MECH-02 · 轻型载具（3D）· 3 个阶段 · 合计 7 人天</td></tr>
+            <tr>
+              <td><input type="checkbox" class="chk"></td>
+              <td>中模</td><td><select class="sel" style="width:100%"><option>3D 场景 B 组</option></select></td>
+              <td><input class="inp num" value="2"></td>
+              <td><input class="inp date" value="2026-07-27"></td>
+              <td><input class="inp date" value="2026-07-28"></td>
+              <td>2</td><td>—</td><td style="text-align:center"><input type="checkbox" class="chk" checked></td><td>Rui</td>
+              <td><span class="row-flag ok">制作中 · 通过</span></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="drawer-foot">
+          <div class="foot-summary">
+            本次改动影响 <b>1 个资产 · 1 个阶段</b>；3D 角色 A 组本周已排将从 <b>7.0</b> 变为 <b class="over-text">9.0 / 7.5（超 1.5）</b>。<br>
+            <b style="color:var(--danger-ink)">1 项阻断</b> · <b style="color:var(--amber-ink)">1 项预警</b> · 阻断未清空不可确认。基准日期不会被本次录入覆盖。
+          </div>
+          <div class="foot-actions">
+            <button class="btn">放弃草案</button>
+            <button class="btn amber">重新校验</button>
+            <button class="btn" style="opacity:.5;cursor:not-allowed">确认写入（被阻断）</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="q">
+  <h3>请你确认这一版，重点是这几条</h3>
+  <ol>
+    <li><b>组合排期按「制作组」分组</b>是不是你要的？项目甘特已经按资产分组了，这里按制作组才能看出跨项目抢人。也可切换为按项目/资产。</li>
+    <li><b>团队档期用「周 × 制作组」的人天矩阵</b>够不够？还是你更想看每天的？</li>
+    <li><b>批量录入用表格式、每个资产展开到每个阶段</b>，带模板生成、批量设置制作组、逐行校验——这是不是你说的「录排期顺手」？还缺哪一列？</li>
+    <li><b>冲突分「阻断」和「预警」两级</b>，阻断不清空不允许写入。这个门禁强度合适吗？</li>
+    <li>节点清单的类型（计划开工 / 阶段交付 / 客户反馈 / 最终交付）够不够？漏了哪种节点？</li>
+  </ol>
+</div>
+
+</body>
+</html>
