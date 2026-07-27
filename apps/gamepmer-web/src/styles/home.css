@@ -358,13 +358,18 @@
 }
 
 .gp-axis-day.is-today {
-  background: var(--accent-soft);
-  color: var(--accent-ink);
+  background: var(--accent);
+  color: var(--text-inverse);
   font-weight: var(--weight-bold);
 }
 
 .gp-axis-weekday {
   font-size: 10px;
+}
+
+.gp-axis-day.is-today .gp-axis-weekday {
+  font-size: 11px;
+  font-weight: var(--weight-bold);
 }
 
 .gp-timeline-rows {
@@ -434,18 +439,6 @@
   z-index: 3;
   width: 2px;
   background: var(--accent-strong);
-}
-
-.gp-today-line span {
-  position: absolute;
-  top: -32px;
-  left: -18px;
-  padding: 2px var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--accent-strong);
-  color: var(--text-inverse);
-  font-size: 11px;
-  font-weight: var(--weight-bold);
 }
 
 .gp-legend {

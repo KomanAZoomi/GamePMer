@@ -92,15 +92,21 @@ export function HomeTimeline({ state, today, onOpenSchedule }: HomeTimelineProps
                 className={`gp-axis-day${day.isWorkday ? '' : ' is-off'}${day.date === today ? ' is-today' : ''}`}
               >
                 <span>{monthDayLabel(day.date)}</span>
-                <span className="gp-axis-weekday">{weekdayLabel(day.date)}</span>
+                {/* 今天标在表头格里，不做悬浮胶囊——胶囊会盖住相邻日期 */}
+                <span className="gp-axis-weekday">
+                  {day.date === today ? '今天' : weekdayLabel(day.date)}
+                </span>
               </div>
             ))}
           </div>
 
           <div className="gp-timeline-rows">
-            <div className="gp-today-line" style={{ left: `${todayLeft}%` }}>
-              <span>今天</span>
-            </div>
+            <div
+              className="gp-today-line"
+              style={{ left: `${todayLeft}%` }}
+              role="presentation"
+              title={`今天 ${today}`}
+            />
 
             {rows.map((row) => (
               <div key={`${row.project.code}/${row.asset.id}`} className="gp-timeline-row">
