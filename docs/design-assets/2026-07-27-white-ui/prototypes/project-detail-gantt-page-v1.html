@@ -1,0 +1,191 @@
+<style>
+  .design-note{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:18px;padding:14px 16px;border:1px solid #dfe7e2;border-radius:12px;background:#f7faf8;color:#5f6f67;font-size:12px;line-height:1.6}
+  .design-note strong{color:#2b4438}.design-note .focus{flex:0 0 340px;padding-left:16px;border-left:1px solid #dbe4df;color:#3d6c56;font-weight:800}
+  .scroll-shell{overflow-x:auto;padding-bottom:8px}
+  .gantt-stage{min-width:1220px;padding:18px;border:1px solid #dfe4e1;border-radius:20px;background:#f2f5f3;box-shadow:0 22px 60px rgba(45,67,57,.10)}
+  .app{height:770px;display:grid;grid-template-columns:174px 1fr;border:1px solid #d9dfdb;border-radius:16px;overflow:hidden;background:#fff}
+  .sidebar{display:flex;flex-direction:column;padding:18px 13px;background:#fbfcfb;border-right:1px solid #e2e7e4}
+  .brand{font-size:16px;font-weight:900;letter-spacing:.02em;color:#24372e;margin:0 8px 18px}.brand span{display:block;margin-top:3px;color:#7b8a82;font-size:10px;font-weight:600;letter-spacing:.08em}
+  .nav-list{display:grid;gap:4px}.nav-item{padding:9px 10px;border-radius:8px;color:#53635b;font-size:12px;font-weight:650}.nav-item.active{color:#285c47;background:#e7f1ec}.nav-section{margin:18px 10px 7px;color:#9aa59f;font-size:9px;font-weight:800;letter-spacing:.1em}
+  .user-card{margin-top:auto;padding:10px;border:1px solid #e0e5e2;border-radius:10px;background:#fff;color:#43544c;font-size:11px}.avatar{display:inline-grid;width:26px;height:26px;margin-right:7px;border-radius:50%;place-items:center;background:#dce9e2;color:#315e4b;font-weight:900}
+  .app-main{display:grid;grid-template-rows:58px 1fr;min-width:0}
+  .topbar{display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid #e4e8e5;background:#fff}.search{flex:1;max-width:360px;padding:9px 12px;border:1px solid #dde3df;border-radius:999px;background:#f8faf9;color:#88938d;font-size:11px}.top-actions{margin-left:auto;display:flex;gap:8px}.top-action{padding:8px 11px;border:1px solid #dde3df;border-radius:8px;color:#56665e;font-size:10px;background:#fff}.top-action.primary{color:#fff;background:#42755f;border-color:#42755f}
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) 284px;gap:12px;padding:14px;overflow:hidden;background:#f5f7f5}
+  .workspace-main{display:grid;grid-template-rows:auto auto auto minmax(0,1fr);gap:9px;min-width:0}
+  .project-head{display:flex;justify-content:space-between;align-items:flex-start}.project-id{color:#85918b;font-size:8px}.project-title{margin:3px 0 0;color:#26382f;font-size:19px;font-weight:900}.project-sub{margin-top:4px;color:#7d8a83;font-size:9px}.project-actions{display:flex;gap:6px}.chip{padding:6px 9px;border:1px solid #dce3df;border-radius:999px;background:#fff;color:#607068;font-size:8px}.chip.active{border-color:#9fbead;background:#eaf3ee;color:#36664f;font-weight:800}
+  .project-tabs{display:flex;gap:4px;padding:4px;border:1px solid #e0e5e2;border-radius:9px;background:#fff}.project-tab{padding:7px 11px;border-radius:7px;color:#718078;font-size:8px;font-weight:750}.project-tab.active{background:#e8f2ed;color:#37674f}
+  .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.metric{padding:9px 10px;border:1px solid #dde3df;border-radius:10px;background:#fff}.metric.warn{border-color:#e8c9a7}.metric-label{color:#7a8780;font-size:7px}.metric-value{margin-top:4px;color:#293b32;font-size:18px;font-weight:900}.metric-note{margin-left:4px;color:#4c8367;font-size:7px}.metric.warn .metric-note{color:#9a642e}
+  .gantt-card{display:grid;grid-template-rows:42px 1fr 73px;border:1px solid #dce3df;border-radius:12px;background:#fff;overflow:hidden}
+  .gantt-toolbar{display:flex;align-items:center;gap:7px;padding:0 11px;border-bottom:1px solid #e4e8e5}.gantt-toolbar strong{color:#34463d;font-size:10px}.legend{display:flex;gap:8px;margin-left:10px}.legend-item{display:flex;align-items:center;gap:4px;color:#748179;font-size:7px}.legend-mark{width:17px;height:5px;border-radius:3px;background:#b6bfba}.legend-mark.current{background:#477b61}.legend-mark.actual{height:3px;background:#273b32}.legend-mark.feedback{background:#d69a5d}.toolbar-actions{display:flex;gap:5px;margin-left:auto}.toolbar-button{padding:5px 7px;border:1px solid #dce3df;border-radius:6px;color:#69776f;background:#fff;font-size:7px}.toolbar-button.active{background:#edf5f1;color:#386a53}
+  .gantt-body{display:grid;grid-template-columns:274px minmax(650px,1fr);min-height:0;overflow:auto}
+  .row-table{border-right:1px solid #dfe5e1;background:#fff}.table-head{height:40px;display:grid;grid-template-columns:1fr 46px 48px;align-items:center;padding:0 9px;border-bottom:1px solid #e3e8e5;color:#8a9690;font-size:7px;font-weight:800}.task-row{height:38px;display:grid;grid-template-columns:1fr 46px 48px;align-items:center;padding:0 9px;border-bottom:1px solid #eef1ef;color:#607068;font-size:7px}.task-row.group{height:31px;background:#f5f8f6;color:#33473d;font-weight:900}.task-row.stage.selected{background:#eef6f2}.task-name{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.task-name .indent{padding-left:12px;color:#53645b}.task-name small{display:block;margin-top:2px;color:#9aa49f;font-size:6px}.owner{color:#7f8b85}.status{display:inline-block;padding:3px 5px;border-radius:999px;background:#edf2ef;color:#5f7167;text-align:center}.status.done{background:#e5f1ea;color:#3e7659}.status.wait{background:#fff0df;color:#956128}.status.risk{background:#f7e6df;color:#a55542}
+  .calendar{position:relative;min-width:650px}.calendar-head{height:40px;display:grid;grid-template-columns:repeat(15,1fr);border-bottom:1px solid #e3e8e5;background:#fbfcfb}.day{display:grid;place-items:center;border-left:1px solid #eef1ef;color:#7d8983;font-size:7px;line-height:1.25;text-align:center}.day.weekend{background:#f3f5f4;color:#a6afaa}.day.today{color:#2f6d50;font-weight:900}.calendar-rows{position:relative}.cal-row{position:relative;height:38px;border-bottom:1px solid #eef1ef;background:repeating-linear-gradient(90deg,transparent 0 calc(6.666% - 1px),#eef1ef calc(6.666% - 1px) 6.666%)}.cal-row.group{height:31px;background:#f5f8f6}.cal-row.week-pattern:after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent 0 26.66%,rgba(238,241,239,.62) 26.66% 40%,transparent 40% 73.33%,rgba(238,241,239,.62) 73.33% 86.66%,transparent 86.66%)}
+  .today-line{position:absolute;left:23.33%;top:0;bottom:0;width:1px;background:#4b8065;z-index:4}.today-line:before{content:'今天';position:absolute;top:-15px;left:-12px;padding:2px 5px;border-radius:999px;background:#4b8065;color:#fff;font-size:6px}
+  .bar{position:absolute;z-index:2;height:8px;border-radius:4px;white-space:nowrap}.bar.baseline{top:5px;background:#b9c1bd}.bar.current{top:16px;background:#4b8065}.bar.actual{top:28px;height:3px;background:#293d33}.bar.feedback{top:14px;height:11px;background:#d59b61;color:#fff;padding:2px 4px;font-size:6px}.bar.draft{background:repeating-linear-gradient(135deg,#477b61 0 4px,#82aa96 4px 8px);outline:1px dashed #35684f}.bar .bar-label{position:absolute;left:4px;top:-1px;color:#fff;font-size:6px}.shift{position:absolute;top:5px;height:29px;border:1px dashed #d29a5f;border-radius:5px;background:rgba(224,172,111,.08);z-index:1}
+  .gantt-footer{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;padding:8px 10px;border-top:1px solid #e3e8e5;background:#fafbfa}.footer-block{padding:7px 9px;border:1px solid #e1e6e3;border-radius:8px;background:#fff}.footer-block strong{display:block;color:#35483f;font-size:8px}.footer-block span{display:block;margin-top:3px;color:#7a8780;font-size:7px;line-height:1.5}.footer-block.risk{border-color:#e1c198;background:#fffaf4}.footer-block.risk strong{color:#8e612d}
+  .inspector{display:grid;grid-template-rows:minmax(0,1fr) 160px;gap:9px;min-height:0}.detail-card,.impact-card{border:1px solid #dde3df;border-radius:12px;background:#fff}.detail-card{padding:14px;overflow:hidden}.detail-kicker{color:#6f8178;font-size:8px;font-weight:800}.detail-id{margin-top:8px;color:#8b9690;font-size:8px}.detail-title{margin:4px 0 9px;color:#25372f;font-size:17px;font-weight:850}.status-pill{display:inline-block;padding:4px 7px;border-radius:999px;background:#fff0df;color:#966329;font-size:7px;font-weight:800}
+  .date-compare{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:11px}.date-box{padding:8px;border:1px solid #e0e6e2;border-radius:8px}.date-box span{display:block;color:#929c97;font-size:6px}.date-box strong{display:block;margin-top:3px;color:#43554c;font-size:8px}.date-box.changed{border-color:#e2bd8f;background:#fffaf4}.date-box.changed strong{color:#95612d}
+  .dependency{margin-top:9px;padding:8px;border:1px solid #e1e6e3;border-radius:8px;background:#f8faf9}.dependency strong{display:block;color:#41544a;font-size:8px}.dependency span{display:block;margin-top:4px;color:#78867f;font-size:7px;line-height:1.5}
+  .assistant-box{margin-top:9px;padding:9px;border:1px solid #d9e4de;border-radius:9px;background:#f4f8f6;color:#596a61;font-size:7px;line-height:1.55}.assistant-box strong{display:block;margin-bottom:4px;color:#315b48;font-size:9px}.draft-label{display:inline-block;margin-top:6px;padding:3px 6px;border-radius:5px;background:#e4ede8;color:#4d6659;font-size:6px;font-weight:850}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}.button{padding:8px;border:1px solid #dce2de;border-radius:7px;color:#516159;background:#fff;text-align:center;font-size:7px;font-weight:800}.button.primary{color:#fff;background:#477a62;border-color:#477a62}
+  .impact-card{padding:10px}.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:#31433a;font-size:9px;font-weight:850}.impact-row{display:grid;grid-template-columns:1fr 40px;gap:8px;padding:7px 0;border-bottom:1px solid #edf0ee;color:#65736c;font-size:7px}.impact-row:last-child{border-bottom:0}.impact-row strong{display:block;margin-bottom:2px;color:#405249;font-size:8px}.delta{color:#9a642e;text-align:right;font-weight:850}
+  .rules{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px}.rule{padding:13px;border:1px solid #dfe4e1;border-radius:11px;background:#fff}.rule strong{display:block;color:#2d4037;font-size:12px}.rule span{display:block;margin-top:6px;color:#728078;font-size:10px;line-height:1.5}
+  .confirm-option{margin-top:18px;padding:14px 18px;border:1px solid #cbdcd3;border-radius:12px;background:#eef6f2;color:#315d49;text-align:center;font-size:13px;font-weight:850;cursor:pointer}.confirm-option.selected{outline:3px solid #477a62}
+</style>
+
+<h2>模块 02：项目详情与完整甘特图</h2>
+<p class="subtitle">首页阶段牌负责快速扫视；项目详情页负责真正的排期管理、反馈重排和节点追溯。</p>
+
+<div class="design-note">
+  <div><strong>页面目标</strong>在一个视图里同时看清资产、PBR 阶段、负责人、基线排期、当前排期、实际完成和客户反馈造成的偏移。</div>
+  <div class="focus">关键原则：任何重排先形成草案；对比原基线和影响节点后，由 PM 确认，才能成为新的当前排期。</div>
+</div>
+
+<div class="scroll-shell">
+  <div class="gantt-stage">
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">GamePMer<span>GAME ART PM WORKSPACE</span></div>
+        <div class="nav-list">
+          <div class="nav-item">任务管理</div>
+          <div class="nav-item active">项目总览</div>
+          <div class="nav-item">候选收件箱</div>
+          <div class="nav-item">排期管理</div>
+          <div class="nav-item">反馈中心</div>
+          <div class="nav-item">报价与变更</div>
+          <div class="nav-item">结项中心</div>
+          <div class="nav-item">文件与归档</div>
+          <div class="nav-item">智能分析</div>
+          <div class="nav-item">设置中心</div>
+        </div>
+        <div class="nav-section">我的工作区</div>
+        <div class="nav-item">产品美术中心</div>
+        <div class="user-card"><span class="avatar">PM</span>Brandon<br><span style="color:#95a09a">游戏美术 PM</span></div>
+      </aside>
+
+      <section class="app-main">
+        <header class="topbar">
+          <div class="search">搜索项目、资产、阶段、负责人或反馈编号…</div>
+          <div class="top-actions"><div class="top-action">导出排期</div><div class="top-action">发送提醒</div><div class="top-action primary">新增资产</div></div>
+        </header>
+
+        <div class="workspace">
+          <div class="workspace-main">
+            <div class="project-head">
+              <div>
+                <div class="project-id">P-3D-024 · 3D PBR 制作</div>
+                <div class="project-title">蒸汽守卫角色资产包</div>
+                <div class="project-sub">客户：Northstar Studio · 艺术总监：Evan · 组长：Leo · 当前阶段：高模返修</div>
+              </div>
+              <div class="project-actions"><span class="chip">项目健康 需关注</span><span class="chip active">当前排期 v3</span><span class="chip">更多</span></div>
+            </div>
+
+            <div class="project-tabs">
+              <span class="project-tab">项目概览</span><span class="project-tab active">排期甘特</span><span class="project-tab">资产清单</span><span class="project-tab">反馈记录</span><span class="project-tab">文件路径</span><span class="project-tab">报价变更</span><span class="project-tab">结项记录</span>
+            </div>
+
+            <div class="metrics">
+              <div class="metric"><div class="metric-label">总体完成</div><div class="metric-value">47% <span class="metric-note">12 / 26 节点</span></div></div>
+              <div class="metric warn"><div class="metric-label">可能延期</div><div class="metric-value">2 <span class="metric-note">等待 PM 判断</span></div></div>
+              <div class="metric"><div class="metric-label">等待客户</div><div class="metric-value">1 <span class="metric-note">高模复审</span></div></div>
+              <div class="metric"><div class="metric-label">节点前 1 天</div><div class="metric-value">3 <span class="metric-note">提醒草稿已生成</span></div></div>
+              <div class="metric warn"><div class="metric-label">相对基线</div><div class="metric-value">+2 <span class="metric-note">工作日</span></div></div>
+            </div>
+
+            <div class="gantt-card">
+              <div class="gantt-toolbar">
+                <strong>项目排期 · 2026 年 7 月 27 日—8 月 10 日</strong>
+                <div class="legend">
+                  <span class="legend-item"><i class="legend-mark"></i>基线</span>
+                  <span class="legend-item"><i class="legend-mark current"></i>当前</span>
+                  <span class="legend-item"><i class="legend-mark actual"></i>实际</span>
+                  <span class="legend-item"><i class="legend-mark feedback"></i>客户等待 / 反馈</span>
+                </div>
+                <div class="toolbar-actions"><span class="toolbar-button active">阶段</span><span class="toolbar-button">资产</span><span class="toolbar-button">负责人</span><span class="toolbar-button">周视图</span><span class="toolbar-button">今天</span></div>
+              </div>
+
+              <div class="gantt-body">
+                <div class="row-table">
+                  <div class="table-head"><span>资产 / 阶段</span><span>负责人</span><span>状态</span></div>
+                  <div class="task-row group"><span class="task-name">MECH-01 · 主角色机甲</span><span>Leo</span><span>6 / 8</span></div>
+                  <div class="task-row stage"><span class="task-name"><span class="indent">中模</span><small>依赖：需求确认</small></span><span class="owner">Chen</span><span class="status done">已验收</span></div>
+                  <div class="task-row stage selected"><span class="task-name"><span class="indent">高模</span><small>反馈 F-017 · 返修复审</small></span><span class="owner">Chen</span><span class="status wait">客户反馈</span></div>
+                  <div class="task-row stage"><span class="task-name"><span class="indent">低模</span><small>依赖：高模验收</small></span><span class="owner">Mia</span><span class="status risk">待重排</span></div>
+                  <div class="task-row stage"><span class="task-name"><span class="indent">烘焙</span><small>依赖：低模完成</small></span><span class="owner">Mia</span><span class="status">未开始</span></div>
+                  <div class="task-row stage"><span class="task-name"><span class="indent">贴图</span><small>依赖：烘焙完成</small></span><span class="owner">Ray</span><span class="status">未开始</span></div>
+                  <div class="task-row stage"><span class="task-name"><span class="indent">LOD</span><small>依赖：贴图验收</small></span><span class="owner">Ray</span><span class="status">未开始</span></div>
+                  <div class="task-row group"><span class="task-name">MECH-02 · 敌方机甲</span><span>Nina</span><span>3 / 7</span></div>
+                  <div class="task-row stage"><span class="task-name"><span class="indent">高模</span><small>完成邮件已收到</small></span><span class="owner">Nina</span><span class="status done">已完成</span></div>
+                  <div class="task-row stage"><span class="task-name"><span class="indent">低模 / 烘焙</span><small>节点前 1 天</small></span><span class="owner">Bo</span><span class="status">进行中</span></div>
+                </div>
+
+                <div class="calendar">
+                  <div class="calendar-head">
+                    <div class="day today">7/27<br>一</div><div class="day">7/28<br>二</div><div class="day">7/29<br>三</div><div class="day">7/30<br>四</div><div class="day">7/31<br>五</div>
+                    <div class="day weekend">8/1<br>六</div><div class="day weekend">8/2<br>日</div><div class="day">8/3<br>一</div><div class="day">8/4<br>二</div><div class="day">8/5<br>三</div>
+                    <div class="day">8/6<br>四</div><div class="day">8/7<br>五</div><div class="day weekend">8/8<br>六</div><div class="day weekend">8/9<br>日</div><div class="day">8/10<br>一</div>
+                  </div>
+                  <div class="calendar-rows">
+                    <div class="today-line"></div>
+                    <div class="cal-row group"></div>
+                    <div class="cal-row week-pattern"><div class="bar baseline" style="left:0;width:13.33%"></div><div class="bar current" style="left:0;width:13.33%"></div><div class="bar actual" style="left:0;width:13.33%"></div></div>
+                    <div class="cal-row week-pattern"><div class="bar baseline" style="left:6.66%;width:20%"></div><div class="bar current" style="left:6.66%;width:20%"></div><div class="bar actual" style="left:6.66%;width:16%"></div><div class="bar feedback" style="left:26.66%;width:13.33%"><span class="bar-label">F-017</span></div></div>
+                    <div class="cal-row week-pattern"><div class="shift" style="left:40%;width:13.33%"></div><div class="bar baseline" style="left:33.33%;width:20%"></div><div class="bar current draft" style="left:46.66%;width:20%"><span class="bar-label">草案 +2 工作日</span></div></div>
+                    <div class="cal-row week-pattern"><div class="shift" style="left:53.33%;width:13.33%"></div><div class="bar baseline" style="left:46.66%;width:13.33%"></div><div class="bar current draft" style="left:60%;width:13.33%"></div></div>
+                    <div class="cal-row week-pattern"><div class="shift" style="left:66.66%;width:13.33%"></div><div class="bar baseline" style="left:60%;width:20%"></div><div class="bar current draft" style="left:73.33%;width:20%"></div></div>
+                    <div class="cal-row week-pattern"><div class="shift" style="left:80%;width:13.33%"></div><div class="bar baseline" style="left:73.33%;width:20%"></div><div class="bar current draft" style="left:86.66%;width:13.33%"></div></div>
+                    <div class="cal-row group"></div>
+                    <div class="cal-row week-pattern"><div class="bar baseline" style="left:0;width:20%"></div><div class="bar current" style="left:0;width:20%"></div><div class="bar actual" style="left:0;width:20%"></div></div>
+                    <div class="cal-row week-pattern"><div class="bar baseline" style="left:20%;width:33.33%"></div><div class="bar current" style="left:20%;width:33.33%"></div></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="gantt-footer">
+                <div class="footer-block"><strong>基线 v1 · 7 月 21 日冻结</strong><span>保存首次确认的阶段节点，后续任何调整都不覆盖基线。</span></div>
+                <div class="footer-block risk"><strong>重排草案 v4 · 尚未生效</strong><span>客户反馈 F-017 导致低模、烘焙、贴图、LOD 顺延 2 个工作日。</span></div>
+                <div class="footer-block"><strong>工作日规则</strong><span>周一至周五；周末自动跳过，节假日由项目日历单独配置。</span></div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="inspector">
+            <div class="detail-card">
+              <div class="detail-kicker">阶段详情</div>
+              <div class="detail-id">MECH-01 / STAGE-LOW</div>
+              <div class="detail-title">低模制作</div>
+              <span class="status-pill">重排草案</span>
+              <div class="date-compare">
+                <div class="date-box"><span>基线排期</span><strong>7/31—8/4</strong></div>
+                <div class="date-box changed"><span>草案排期</span><strong>8/4—8/6</strong></div>
+                <div class="date-box"><span>实际开始</span><strong>尚未开始</strong></div>
+                <div class="date-box"><span>偏移原因</span><strong>客户反馈 F-017</strong></div>
+              </div>
+              <div class="dependency"><strong>前置依赖：高模客户验收</strong><span>当前仍在高模返修复审；确认验收后低模才能正式开始。</span></div>
+              <div class="assistant-box"><strong>AI 排期建议</strong>按项目工作日历顺延 2 个工作日，保持各阶段串行依赖；MECH-02 未受影响，不调整其排期。<span class="draft-label">建议 → 草案 → 待 PM 确认</span></div>
+              <div class="actions"><div class="button">查看新旧对比</div><div class="button primary">确认重排草案</div></div>
+            </div>
+            <div class="impact-card">
+              <div class="section-title"><span>受影响节点</span><span>4 项</span></div>
+              <div class="impact-row"><div><strong>低模</strong>7/31 → 8/4</div><span class="delta">+2 工作日</span></div>
+              <div class="impact-row"><div><strong>烘焙</strong>8/4 → 8/6</div><span class="delta">+2 工作日</span></div>
+              <div class="impact-row"><div><strong>贴图</strong>8/5 → 8/7</div><span class="delta">+2 工作日</span></div>
+              <div class="impact-row"><div><strong>LOD</strong>8/7 → 8/11</div><span class="delta">+2 工作日</span></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="rules">
+  <div class="rule"><strong>三套日期并存</strong><span>基线用于追责与复盘，当前用于执行，实际用于判断真实进度，三者不能相互覆盖。</span></div>
+  <div class="rule"><strong>按资产展开阶段</strong><span>每个资产可套用 2D 或 3D 流程模板，也允许单独增删阶段和调整依赖。</span></div>
+  <div class="rule"><strong>反馈只影响关联节点</strong><span>重排必须先计算受影响资产，未受影响的资产继续按原排期制作。</span></div>
+  <div class="rule"><strong>延期由 PM 判断</strong><span>超过计划日期但未收到完成邮件只标记“可能延期”，系统不自动认定团队逾期。</span></div>
+</div>
+
+<div class="confirm-option" data-choice="confirm-project-gantt-v1" onclick="toggleSelect(this)">确认：项目甘特图采用“资产分组 + 阶段行 + 基线/当前/实际三套日期 + 反馈重排草案”</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">确认后继续设计反馈中心与客户反馈重排操作页。</p>

@@ -1,0 +1,214 @@
+<style>
+  .design-note{display:flex;justify-content:space-between;gap:20px;align-items:center;margin-bottom:18px;padding:14px 16px;border:1px solid #dfe7e2;border-radius:12px;background:#f7faf8;color:#5f6f67;font-size:12px;line-height:1.6}
+  .design-note strong{color:#2b4438}.design-note .focus{flex:0 0 360px;padding-left:16px;border-left:1px solid #dbe4df;color:#3d6c56;font-weight:800}
+  .scroll-shell{overflow-x:auto;padding-bottom:8px}
+  .feedback-stage{min-width:1220px;padding:18px;border:1px solid #dfe4e1;border-radius:20px;background:#f2f5f3;box-shadow:0 22px 60px rgba(45,67,57,.10)}
+  .app{height:770px;display:grid;grid-template-columns:174px 1fr;border:1px solid #d9dfdb;border-radius:16px;overflow:hidden;background:#fff}
+  .sidebar{display:flex;flex-direction:column;padding:18px 13px;background:#fbfcfb;border-right:1px solid #e2e7e4}
+  .brand{font-size:16px;font-weight:900;letter-spacing:.02em;color:#24372e;margin:0 8px 18px}.brand span{display:block;margin-top:3px;color:#7b8a82;font-size:10px;font-weight:600;letter-spacing:.08em}
+  .nav-list{display:grid;gap:4px}.nav-item{padding:9px 10px;border-radius:8px;color:#53635b;font-size:12px;font-weight:650}.nav-item.active{color:#285c47;background:#e7f1ec}.nav-section{margin:18px 10px 7px;color:#9aa59f;font-size:9px;font-weight:800;letter-spacing:.1em}
+  .user-card{margin-top:auto;padding:10px;border:1px solid #e0e5e2;border-radius:10px;background:#fff;color:#43544c;font-size:11px}.avatar{display:inline-grid;width:26px;height:26px;margin-right:7px;border-radius:50%;place-items:center;background:#dce9e2;color:#315e4b;font-weight:900}
+  .app-main{display:grid;grid-template-rows:58px 1fr;min-width:0}
+  .topbar{display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid #e4e8e5;background:#fff}.search{flex:1;max-width:360px;padding:9px 12px;border:1px solid #dde3df;border-radius:999px;background:#f8faf9;color:#88938d;font-size:11px}.top-actions{margin-left:auto;display:flex;gap:8px}.top-action{padding:8px 11px;border:1px solid #dde3df;border-radius:8px;color:#56665e;font-size:10px;background:#fff}.top-action.primary{color:#fff;background:#42755f;border-color:#42755f}
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) 286px;gap:12px;padding:14px;overflow:hidden;background:#f5f7f5}
+  .workspace-main{display:grid;grid-template-rows:auto auto minmax(0,1fr) 132px;gap:9px;min-width:0}
+  .page-head{display:flex;justify-content:space-between;align-items:flex-end}.page-head h3{margin:0;color:#26382f;font-size:20px}.page-head p{margin:4px 0 0;color:#7d8a83;font-size:9px}.page-actions{display:flex;gap:6px}.chip{padding:6px 9px;border:1px solid #dce3df;border-radius:999px;background:#fff;color:#607068;font-size:8px}.chip.active{border-color:#9fbead;background:#eaf3ee;color:#36664f;font-weight:800}
+  .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.metric{padding:9px 10px;border:1px solid #dde3df;border-radius:10px;background:#fff}.metric.warn{border-color:#e8c9a7}.metric-label{color:#7a8780;font-size:7px}.metric-value{margin-top:4px;color:#293b32;font-size:18px;font-weight:900}.metric-note{margin-left:4px;color:#4c8367;font-size:7px}.metric.warn .metric-note{color:#9a642e}
+  .feedback-zone{display:grid;grid-template-columns:258px minmax(0,1fr);gap:9px;min-height:0}
+  .batch-list,.batch-main,.detail-card,.activity-card,.replan-card{border:1px solid #dde3df;border-radius:12px;background:#fff}
+  .batch-list{padding:10px;overflow:hidden}.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:#31433a;font-size:10px;font-weight:850}.count{padding:2px 6px;border-radius:999px;background:#e9f2ed;color:#40705b;font-size:8px}
+  .list-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px;padding:3px;border-radius:8px;background:#f1f4f2}.list-tab{padding:5px;text-align:center;color:#7a8780;font-size:8px}.list-tab.active{border-radius:6px;background:#fff;color:#3b6e56;font-weight:800;box-shadow:0 2px 6px rgba(45,65,55,.06)}
+  .batch{margin-top:5px;padding:8px;border:1px solid transparent;border-radius:8px;background:#f7f9f7}.batch.active{border-color:#9bbcab;background:#eaf3ee}.batch-top{display:flex;justify-content:space-between;color:#7a8780;font-size:7px}.batch-title{margin-top:4px;color:#3d4f46;font-size:9px;font-weight:800}.batch-meta{margin-top:4px;color:#8d9892;font-size:7px}.batch-tag{padding:2px 5px;border-radius:999px;background:#fff0df;color:#956229}.batch-tag.scope{background:#e8eef6;color:#4d6d8b}
+  .batch-main{display:grid;grid-template-rows:auto auto 1fr;overflow:hidden}.batch-head{display:flex;justify-content:space-between;align-items:flex-start;padding:11px 12px;border-bottom:1px solid #e6eae7}.batch-head h4{margin:0;color:#2d4037;font-size:14px}.batch-head p{margin:4px 0 0;color:#87928c;font-size:8px}.batch-status{padding:5px 7px;border-radius:999px;background:#fff0df;color:#966229;font-size:8px;font-weight:850}
+  .source-strip{display:grid;grid-template-columns:1.45fr .55fr;gap:8px;padding:9px 12px;border-bottom:1px solid #e6eae7;background:#fafbfa}.source-summary{padding:8px;border:1px solid #e1e6e3;border-radius:8px;background:#fff}.source-summary strong{display:block;color:#3b4e45;font-size:9px}.source-summary span{display:block;margin-top:4px;color:#78867f;font-size:7px;line-height:1.5}.archive-box{padding:8px;border:1px solid #d8e3dd;border-radius:8px;background:#f3f8f5}.archive-box strong{display:block;color:#37614d;font-size:8px}.archive-box span{display:block;margin-top:4px;color:#738179;font-size:7px;line-height:1.4}
+  .feedback-table{padding:0 12px 10px;overflow:hidden}.table-head,.feedback-row{display:grid;grid-template-columns:38px 1.25fr 72px 74px 74px;gap:6px;align-items:center}.table-head{height:31px;color:#8c9791;font-size:7px;font-weight:800}.feedback-row{min-height:49px;padding:7px 0;border-top:1px solid #edf0ee;color:#6d7b74;font-size:7px}.feedback-row.selected{margin:0 -6px;padding:7px 6px;border-radius:8px;background:#eef6f2}.item-no{display:grid;width:24px;height:24px;border-radius:50%;place-items:center;background:#edf2ef;color:#52645b;font-size:7px;font-weight:900}.feedback-row.selected .item-no{background:#d9ebe1;color:#35694f}.item-title strong{display:block;color:#374a40;font-size:8px}.item-title span{display:block;margin-top:3px;color:#8b9690;line-height:1.4}.scope-pill,.state-pill{display:inline-block;padding:4px 6px;border-radius:999px;text-align:center;font-size:7px;font-weight:800}.scope-pill.normal{background:#e6f1eb;color:#3e7659}.scope-pill.extra{background:#fff0df;color:#97632a}.scope-pill.check{background:#edf1ef;color:#627169}.state-pill{background:#edf1ef;color:#627169}.state-pill.risk{background:#f7e6df;color:#a55542}
+  .bottom-zone{display:grid;grid-template-columns:1.4fr .6fr;gap:9px}.replan-card{padding:10px 12px}.replan-head{display:flex;justify-content:space-between;color:#405249;font-size:9px;font-weight:850}.compare-timeline{position:relative;height:81px;margin-top:7px;padding-left:74px;background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),#edf0ee calc(10% - 1px) 10%)}.timeline-label{position:absolute;left:0;color:#748179;font-size:7px}.timeline-label.one{top:9px}.timeline-label.two{top:34px}.timeline-label.three{top:59px}.line-bar{position:absolute;height:14px;padding:3px 6px;border-radius:5px;color:#fff;font-size:6px}.line-bar.base{left:18%;top:5px;width:32%;background:#aeb8b3}.line-bar.feedback{left:41%;top:30px;width:17%;background:#d49a5d}.line-bar.draft{left:46%;top:55px;width:37%;background:repeating-linear-gradient(135deg,#4c8066 0 5px,#81aa95 5px 10px)}.today-line{position:absolute;left:42%;top:0;bottom:0;width:1px;background:#4b8065}
+  .route-card{padding:10px;border:1px solid #dde3df;border-radius:12px;background:#fff}.route-card strong{display:block;color:#34483e;font-size:9px}.route-step{margin-top:7px;padding:7px;border-radius:7px;background:#f6f8f7;color:#69776f;font-size:7px;line-height:1.45}.route-step.normal{border-left:3px solid #4f8268}.route-step.extra{border-left:3px solid #d09657}
+  .side{display:grid;grid-template-rows:minmax(0,1fr) 157px;gap:9px;min-height:0}.detail-card{padding:14px;overflow:hidden}.detail-kicker{color:#6f8178;font-size:8px;font-weight:800}.detail-id{margin-top:8px;color:#8b9690;font-size:8px}.detail-title{margin:4px 0 9px;color:#25372f;font-size:17px;font-weight:850}.status-pill{display:inline-block;padding:4px 7px;border-radius:999px;background:#e6f1eb;color:#3d7457;font-size:7px;font-weight:800}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:11px}.detail-box{padding:8px;border:1px solid #e0e6e2;border-radius:8px}.detail-box span{display:block;color:#929c97;font-size:6px}.detail-box strong{display:block;margin-top:3px;color:#43554c;font-size:8px}.detail-box.changed{border-color:#e3c095;background:#fffaf4}.detail-box.changed strong{color:#94612e}
+  .evidence{margin-top:9px;padding:8px;border:1px solid #e1e6e3;border-radius:8px;background:#f8faf9}.evidence strong{display:block;color:#41544a;font-size:8px}.evidence span{display:block;margin-top:4px;color:#78867f;font-size:7px;line-height:1.5}
+  .assistant-box{margin-top:9px;padding:9px;border:1px solid #d9e4de;border-radius:9px;background:#f4f8f6;color:#596a61;font-size:7px;line-height:1.55}.assistant-box strong{display:block;margin-bottom:4px;color:#315b48;font-size:9px}.draft-label{display:inline-block;margin-top:6px;padding:3px 6px;border-radius:5px;background:#e4ede8;color:#4d6659;font-size:6px;font-weight:850}
+  .scope-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:9px}.button{padding:8px;border:1px solid #dce2de;border-radius:7px;color:#516159;background:#fff;text-align:center;font-size:7px;font-weight:800}.button.primary{color:#fff;background:#477a62;border-color:#477a62}.button.extra{border-color:#ddb98c;color:#95612c;background:#fffaf4}
+  .activity-card{padding:10px}.activity-row{padding:7px 0;border-bottom:1px solid #edf0ee;color:#68766f;font-size:7px}.activity-row:last-child{border-bottom:0}.activity-row strong{display:block;margin-bottom:2px;color:#405249;font-size:8px}
+  .rules{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:18px}.rule{padding:13px;border:1px solid #dfe4e1;border-radius:11px;background:#fff}.rule strong{display:block;color:#2d4037;font-size:12px}.rule span{display:block;margin-top:6px;color:#728078;font-size:10px;line-height:1.5}
+  .confirm-option{margin-top:18px;padding:14px 18px;border:1px solid #cbdcd3;border-radius:12px;background:#eef6f2;color:#315d49;text-align:center;font-size:13px;font-weight:850;cursor:pointer}.confirm-option.selected{outline:3px solid #477a62}
+</style>
+
+<h2>模块 03：反馈中心与客户反馈重排</h2>
+<p class="subtitle">反馈以“批次”进入，再拆成资产级修改项；普通返修和追加需求从这里正式分流。</p>
+
+<div class="design-note">
+  <div><strong>页面目标</strong>让 PM 一次看清客户原文、反馈盘位置、影响资产、修改负责人、是否超范围，以及反馈会把哪些排期节点向后推。</div>
+  <div class="focus">关键原则：先保存证据和分类，再生成返修任务或变更单；不能点击一个“处理反馈”按钮就直接改排期。</div>
+</div>
+
+<div class="scroll-shell">
+  <div class="feedback-stage">
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">GamePMer<span>GAME ART PM WORKSPACE</span></div>
+        <div class="nav-list">
+          <div class="nav-item">任务管理</div>
+          <div class="nav-item">项目总览</div>
+          <div class="nav-item">候选收件箱</div>
+          <div class="nav-item">排期管理</div>
+          <div class="nav-item active">反馈中心</div>
+          <div class="nav-item">报价与变更</div>
+          <div class="nav-item">结项中心</div>
+          <div class="nav-item">文件与归档</div>
+          <div class="nav-item">智能分析</div>
+          <div class="nav-item">设置中心</div>
+        </div>
+        <div class="nav-section">我的工作区</div>
+        <div class="nav-item">产品美术中心</div>
+        <div class="user-card"><span class="avatar">PM</span>Brandon<br><span style="color:#95a09a">游戏美术 PM</span></div>
+      </aside>
+
+      <section class="app-main">
+        <header class="topbar">
+          <div class="search">搜索反馈编号、项目、资产、客户或原始邮件…</div>
+          <div class="top-actions"><div class="top-action">导入截图</div><div class="top-action">打开反馈盘</div><div class="top-action primary">新建反馈批次</div></div>
+        </header>
+
+        <div class="workspace">
+          <div class="workspace-main">
+            <div class="page-head">
+              <div><h3>反馈中心</h3><p>批次归档 · 资产拆分 · 范围判断 · 返修重排</p></div>
+              <div class="page-actions"><span class="chip active">全部项目</span><span class="chip">反馈状态</span><span class="chip">责任原因</span><span class="chip">本周</span></div>
+            </div>
+
+            <div class="metrics">
+              <div class="metric warn"><div class="metric-label">等待处理</div><div class="metric-value">6 <span class="metric-note">今日 +2</span></div></div>
+              <div class="metric"><div class="metric-label">范围内返修</div><div class="metric-value">14 <span class="metric-note">本周</span></div></div>
+              <div class="metric warn"><div class="metric-label">待追加报价</div><div class="metric-value">3 <span class="metric-note">已冻结资产</span></div></div>
+              <div class="metric"><div class="metric-label">等待客户</div><div class="metric-value">4 <span class="metric-note">复审中</span></div></div>
+              <div class="metric warn"><div class="metric-label">客户原因偏移</div><div class="metric-value">+7 <span class="metric-note">累计工作日</span></div></div>
+            </div>
+
+            <div class="feedback-zone">
+              <div class="batch-list">
+                <div class="section-title">反馈批次 <span class="count">17</span></div>
+                <div class="list-tabs"><span class="list-tab active">待处理</span><span class="list-tab">修改中</span><span class="list-tab">已关闭</span></div>
+                <div class="batch active">
+                  <div class="batch-top"><span class="batch-tag">待分流</span><span>10:42</span></div>
+                  <div class="batch-title">F-017 · 高模评审反馈</div>
+                  <div class="batch-meta">P-3D-024 · 3 项修改</div>
+                </div>
+                <div class="batch">
+                  <div class="batch-top"><span class="batch-tag scope">追加需求</span><span>昨天</span></div>
+                  <div class="batch-title">F-016 · 新增武器挂件</div>
+                  <div class="batch-meta">P-3D-024 · 变更单待报价</div>
+                </div>
+                <div class="batch">
+                  <div class="batch-top"><span class="batch-tag">修改中</span><span>昨天</span></div>
+                  <div class="batch-title">F-015 · 贴图材质调整</div>
+                  <div class="batch-meta">P-3D-019 · 负责人 Ray</div>
+                </div>
+                <div class="batch">
+                  <div class="batch-top"><span class="batch-tag">等待客户</span><span>7.25</span></div>
+                  <div class="batch-title">F-014 · 草图二次评审</div>
+                  <div class="batch-meta">P-2D-018 · 已提交复审</div>
+                </div>
+                <div class="batch">
+                  <div class="batch-top"><span class="batch-tag scope">需判断</span><span>7.24</span></div>
+                  <div class="batch-title">F-013 · 追加表情需求</div>
+                  <div class="batch-meta">P-2D-021 · 等待总监确认</div>
+                </div>
+              </div>
+
+              <div class="batch-main">
+                <div class="batch-head">
+                  <div><h4>F-017 · P-3D-024 高模评审反馈</h4><p>客户 Northstar Studio · 2026-07-27 10:42 · 来源：Outlook 邮件与 3 张批注图</p></div>
+                  <span class="batch-status">等待 PM 确认分流</span>
+                </div>
+                <div class="source-strip">
+                  <div class="source-summary"><strong>客户原文摘要</strong><span>肩甲比例需要缩小并向身体收拢；背部新增一处能源模块；头盔边缘需要圆滑。修改后请重新提交高模评审。</span></div>
+                  <div class="archive-box"><strong>反馈盘已建立</strong><span>\\P-3D-024\Feedback\F-017\20260727<br>原文、附件和批注图已归档</span></div>
+                </div>
+                <div class="feedback-table">
+                  <div class="table-head"><span>序号</span><span>资产级修改项</span><span>范围判断</span><span>负责人</span><span>处理状态</span></div>
+                  <div class="feedback-row selected">
+                    <span class="item-no">01</span>
+                    <div class="item-title"><strong>MECH-01 / 高模 · 缩小肩甲比例</strong><span>原方案比例调整，不新增结构</span></div>
+                    <span class="scope-pill normal">范围内返修</span><span>Chen / Leo</span><span class="state-pill">待确认</span>
+                  </div>
+                  <div class="feedback-row">
+                    <span class="item-no">02</span>
+                    <div class="item-title"><strong>MECH-01 / 高模 · 新增背部能源模块</strong><span>原需求和报价清单中不存在该结构</span></div>
+                    <span class="scope-pill extra">追加需求</span><span>待总监评估</span><span class="state-pill risk">冻结</span>
+                  </div>
+                  <div class="feedback-row">
+                    <span class="item-no">03</span>
+                    <div class="item-title"><strong>MECH-02 / 高模 · 头盔边缘圆滑</strong><span>局部造型调整，不影响低模拓扑计划</span></div>
+                    <span class="scope-pill normal">范围内返修</span><span>Nina / Leo</span><span class="state-pill">待确认</span>
+                  </div>
+                  <div class="feedback-row">
+                    <span class="item-no">04</span>
+                    <div class="item-title"><strong>批次回复期限</strong><span>客户未给出明确回复期限</span></div>
+                    <span class="scope-pill check">需要补全</span><span>Brandon</span><span class="state-pill">待填写</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bottom-zone">
+              <div class="replan-card">
+                <div class="replan-head"><span>客户反馈导致重排 · F-017</span><span>草案尚未生效</span></div>
+                <div class="compare-timeline">
+                  <span class="timeline-label one">原当前排期</span><span class="timeline-label two">客户等待/反馈</span><span class="timeline-label three">重排草案</span>
+                  <div class="today-line"></div>
+                  <div class="line-bar base">低模 7/31—8/4 · 烘焙 8/4—8/5</div>
+                  <div class="line-bar feedback">反馈整理与高模返修</div>
+                  <div class="line-bar draft">低模 8/4—8/6 · 烘焙 8/6—8/7 · 后续顺延 2 工作日</div>
+                </div>
+              </div>
+              <div class="route-card">
+                <strong>确认分流后自动生成</strong>
+                <div class="route-step normal">范围内返修 → 修改任务、重排草案、组长与艺术总监通知邮件草稿</div>
+                <div class="route-step extra">追加需求 → 变更单 CQ-004、追加报价、受影响资产冻结</div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="side">
+            <div class="detail-card">
+              <div class="detail-kicker">反馈项详情</div>
+              <div class="detail-id">F-017 / ITEM-01</div>
+              <div class="detail-title">缩小肩甲比例</div>
+              <span class="status-pill">建议：范围内返修</span>
+              <div class="detail-grid">
+                <div class="detail-box"><span>关联项目</span><strong>P-3D-024</strong></div>
+                <div class="detail-box"><span>资产 / 阶段</span><strong>MECH-01 / 高模</strong></div>
+                <div class="detail-box"><span>修改负责人</span><strong>Chen</strong></div>
+                <div class="detail-box"><span>审核负责人</span><strong>Leo</strong></div>
+                <div class="detail-box changed"><span>影响节点</span><strong>后续 4 项</strong></div>
+                <div class="detail-box changed"><span>排期偏移</span><strong>+2 工作日</strong></div>
+              </div>
+              <div class="evidence"><strong>原始证据</strong><span>review_03.jpg 批注区域 2；可打开客户原始邮件、附件和反馈盘路径。</span></div>
+              <div class="assistant-box"><strong>AI 判断依据</strong>客户要求调整原有肩甲比例，未增加新结构，建议归类为合同范围内返修；预计修改 1.5 人日。<span class="draft-label">建议 · 需要 PM 确认</span></div>
+              <div class="scope-actions"><div class="button extra">改为追加需求</div><div class="button primary">确认为范围内返修</div><div class="button">编辑反馈项</div><div class="button">查看排期影响</div></div>
+            </div>
+            <div class="activity-card">
+              <div class="section-title">批次处理记录 <span class="count">4</span></div>
+              <div class="activity-row"><strong>10:42 · 客户邮件进入候选箱</strong>原文与附件已保存</div>
+              <div class="activity-row"><strong>10:45 · PM 确认创建 F-017</strong>反馈盘与批次记录已建立</div>
+              <div class="activity-row"><strong>10:46 · AI 拆分 3 项反馈</strong>其中 1 项疑似追加需求</div>
+              <div class="activity-row"><strong>当前 · 等待 PM 确认分流</strong>尚未发送通知或修改排期</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="rules">
+  <div class="rule"><strong>批次与修改项分离</strong><span>一封客户反馈可以关联多个资产和阶段，每条修改项拥有独立负责人、范围和状态。</span></div>
+  <div class="rule"><strong>反馈盘自动建索引</strong><span>系统保存路径和证据索引，不替代公司内网盘的真实文件存储。</span></div>
+  <div class="rule"><strong>分流决定后续流程</strong><span>普通返修进入制作与重排；追加需求进入报价与变更，不能直接混入原排期。</span></div>
+  <div class="rule"><strong>通知先生成草稿</strong><span>给组长和艺术总监的修改邮件由系统生成，PM 检查后再正式发送。</span></div>
+</div>
+
+<div class="confirm-option" data-choice="confirm-feedback-center-v1" onclick="toggleSelect(this)">确认：反馈中心采用“批次归档 → 资产级拆分 → 范围分流 → 返修重排 / 追加报价”</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">确认后继续设计报价与变更页面。</p>

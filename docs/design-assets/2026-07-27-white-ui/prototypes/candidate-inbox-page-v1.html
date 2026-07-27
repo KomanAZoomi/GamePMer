@@ -1,0 +1,199 @@
+<style>
+  .page-note{display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:18px;padding:14px 16px;border:1px solid #dfe7e2;border-radius:12px;background:#f7faf8;color:#5f6f67;font-size:12px;line-height:1.6}
+  .page-note strong{color:#2b4438}
+  .page-note .rule{flex:0 0 310px;padding-left:16px;border-left:1px solid #dbe4df;color:#3e7059;font-weight:800}
+  .mock-shell{overflow-x:auto;padding-bottom:8px}
+  .mock-stage{min-width:1160px;padding:18px;border:1px solid #dfe4e1;border-radius:20px;background:#f2f5f3;box-shadow:0 22px 60px rgba(45,67,57,.10)}
+  .mock-app{height:735px;display:grid;grid-template-columns:174px 1fr;border:1px solid #d9dfdb;border-radius:16px;overflow:hidden;background:#fff}
+  .sidebar{display:flex;flex-direction:column;padding:18px 13px;background:#fbfcfb;border-right:1px solid #e2e7e4}
+  .brand{font-size:16px;font-weight:900;letter-spacing:.02em;color:#24372e;margin:0 8px 18px}.brand span{display:block;margin-top:3px;color:#7b8a82;font-size:10px;font-weight:600;letter-spacing:.08em}
+  .nav-list{display:grid;gap:4px}.nav-item{padding:9px 10px;border-radius:8px;color:#53635b;font-size:12px;font-weight:650}.nav-item.active{color:#285c47;background:#e7f1ec}.nav-section{margin:18px 10px 7px;color:#9aa59f;font-size:9px;font-weight:800;letter-spacing:.1em}
+  .user-card{margin-top:auto;padding:10px;border:1px solid #e0e5e2;border-radius:10px;background:#fff;color:#43544c;font-size:11px}.avatar{display:inline-grid;width:26px;height:26px;margin-right:7px;border-radius:50%;place-items:center;background:#dce9e2;color:#315e4b;font-weight:900}
+  .app-main{display:grid;grid-template-rows:58px 1fr;min-width:0}
+  .topbar{display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid #e4e8e5;background:#fff}.search{flex:1;max-width:360px;padding:9px 12px;border:1px solid #dde3df;border-radius:999px;background:#f8faf9;color:#88938d;font-size:11px}.top-actions{margin-left:auto;display:flex;gap:8px}.top-action{padding:8px 11px;border:1px solid #dde3df;border-radius:8px;color:#56665e;font-size:10px;background:#fff}.top-action.primary{color:#fff;background:#42755f;border-color:#42755f}
+  .workspace{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:12px;padding:14px;overflow:hidden;background:#f5f7f5}
+  .workspace-main{display:grid;grid-template-rows:auto auto minmax(0,1fr) 118px;gap:10px;min-width:0}
+  .page-title{display:flex;align-items:end;justify-content:space-between}.page-title h3{margin:0;color:#25362e;font-size:20px}.page-title p{margin:3px 0 0;color:#87928c;font-size:10px}.small-actions{display:flex;gap:6px}.chip{padding:6px 9px;border:1px solid #dde3df;border-radius:999px;background:#fff;color:#607068;font-size:9px}.chip.active{border-color:#a8c4b5;background:#edf5f1;color:#386a53}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.metric{padding:11px;border:1px solid #dde3df;border-radius:11px;background:#fff}.metric.warn{border-color:#e7cbaa}.metric-label{color:#78857e;font-size:9px}.metric-value{margin-top:5px;color:#25362e;font-size:24px;font-weight:850}.metric-note{margin-left:5px;color:#418263;font-size:9px}.metric.warn .metric-note{color:#9e6830}
+  .inbox-zone{display:grid;grid-template-columns:265px minmax(0,1fr);gap:9px;min-height:0}
+  .candidate-list,.extract-card,.detail-card,.source-card,.process-card{border:1px solid #dde3df;border-radius:12px;background:#fff}
+  .candidate-list{padding:10px;overflow:hidden}.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:#31433a;font-size:10px;font-weight:850}.count{padding:2px 6px;border-radius:999px;background:#e9f2ed;color:#40705b;font-size:8px}
+  .list-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px;padding:3px;border-radius:8px;background:#f1f4f2}.list-tab{padding:5px;text-align:center;color:#7a8780;font-size:8px}.list-tab.active{border-radius:6px;background:#fff;color:#3b6e56;font-weight:800;box-shadow:0 2px 6px rgba(45,65,55,.06)}
+  .candidate{margin-top:5px;padding:8px;border:1px solid transparent;border-radius:8px;background:#f7f9f7}.candidate.active{border-color:#9bbcab;background:#eaf3ee}.candidate-top{display:flex;justify-content:space-between;color:#7a8780;font-size:7px}.candidate-title{margin-top:4px;color:#3d4f46;font-size:9px;font-weight:800}.candidate-meta{margin-top:4px;color:#8d9892;font-size:7px}.type{padding:2px 5px;border-radius:999px;background:#edf1ef;color:#5d6d65}.type.feedback{background:#f5e9dc;color:#95652e}.type.quote{background:#e8eef6;color:#4e6f91}
+  .extract-card{padding:12px;overflow:hidden}.extract-head{display:flex;justify-content:space-between;align-items:flex-start}.extract-head h4{margin:0;color:#2d4037;font-size:14px}.extract-head p{margin:4px 0 0;color:#8a9690;font-size:8px}.confidence{padding:5px 7px;border-radius:999px;background:#e7f2ec;color:#347154;font-size:8px;font-weight:850}
+  .source-preview{margin-top:10px;padding:10px;border:1px solid #e2e7e4;border-radius:9px;background:#fafbfa}.source-line{display:flex;justify-content:space-between;color:#7f8b85;font-size:8px}.source-subject{margin-top:6px;color:#34473e;font-size:10px;font-weight:850}.source-text{margin-top:5px;color:#6d7b74;font-size:8px;line-height:1.55}
+  .field-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}.field{padding:8px;border:1px solid #e0e6e2;border-radius:8px;background:#fff}.field label{display:block;color:#929c97;font-size:7px}.field strong{display:block;margin-top:4px;color:#3e5148;font-size:9px}.field .score{float:right;color:#4b8467;font-size:7px}.field.missing{border-color:#e5c7a5;background:#fffaf4}.field.missing strong{color:#9a6b33}
+  .feedback-box{margin-top:9px;padding:9px;border-left:3px solid #d39b61;border-radius:7px;background:#fcf7f0;color:#675a4d;font-size:8px;line-height:1.55}.feedback-box strong{display:block;margin-bottom:4px;color:#795a35;font-size:9px}
+  .process-card{padding:10px 12px}.process-head{display:flex;justify-content:space-between;color:#43544c;font-size:9px;font-weight:800}.process-track{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}.process-step{position:relative;padding:8px;border:1px solid #dfe5e1;border-radius:8px;background:#f8faf9;color:#6f7e76;font-size:8px}.process-step strong{display:block;margin-bottom:3px;color:#3c5046;font-size:9px}.process-step.done{border-color:#bad1c4;background:#edf5f1}.process-step.current{border-color:#d5ad7e;background:#fff9f1}.process-step.blocked{color:#9aa49f}
+  .workspace-side{display:grid;grid-template-rows:minmax(0,1fr) 156px;gap:10px;min-height:0}.detail-card{padding:15px;overflow:hidden}.detail-kicker{color:#6f8178;font-size:9px;font-weight:800}.detail-id{margin-top:9px;color:#8b9690;font-size:8px}.detail-title{margin:5px 0 10px;color:#25372f;font-size:17px;font-weight:850}.status-pill{display:inline-block;padding:4px 7px;border-radius:999px;background:#fff0df;color:#966329;font-size:8px;font-weight:800}
+  .evidence{margin-top:12px;padding:10px;border:1px solid #e0e6e2;border-radius:9px;background:#f8faf9}.evidence strong{display:block;color:#384b42;font-size:9px}.evidence-row{display:flex;justify-content:space-between;margin-top:7px;color:#78867f;font-size:8px}.evidence-link{color:#347257;font-weight:800}
+  .suggestion{margin-top:11px;padding:10px;border:1px solid #d9e4de;border-radius:9px;background:#f4f8f6;color:#596a61;font-size:8px;line-height:1.55}.suggestion strong{display:block;margin-bottom:4px;color:#315b48;font-size:10px}.draft-label{display:inline-block;margin-top:7px;padding:3px 6px;border-radius:5px;background:#e7eee9;color:#52655b;font-size:7px;font-weight:850}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px}.button{padding:8px;border:1px solid #dce2de;border-radius:7px;color:#516159;background:#fff;text-align:center;font-size:8px;font-weight:800}.button.primary{color:#fff;background:#477a62;border-color:#477a62}.button.danger{color:#9a5b49}
+  .source-card{padding:11px}.source-item{padding:7px 0;border-bottom:1px solid #edf0ee;color:#65736c;font-size:8px}.source-item:last-child{border-bottom:0}.source-item strong{display:block;margin-bottom:2px;color:#405249;font-size:9px}
+  .rules{margin-top:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.rule-card{padding:13px;border:1px solid #dfe4e1;border-radius:11px;background:#fff}.rule-card strong{display:block;color:#2d4037;font-size:12px}.rule-card span{display:block;margin-top:6px;color:#728078;font-size:10px;line-height:1.5}
+  .confirm-option{margin-top:18px;padding:14px 18px;border:1px solid #cbdcd3;border-radius:12px;background:#eef6f2;color:#315d49;text-align:center;font-size:13px;font-weight:850;cursor:pointer}.confirm-option.selected{outline:3px solid #477a62}
+</style>
+
+<h2>模块 01：候选收件箱</h2>
+<p class="subtitle">它不是普通邮件客户端，而是所有外部信息进入正式项目数据之前的“确认闸门”。</p>
+
+<div class="page-note">
+  <div><strong>页面目标</strong>把邮件、企微/飞书转发、截图和文件路径统一识别成候选记录，减少 PM 手工整理，但保留人工判断权。</div>
+  <div class="rule">核心规则：AI 可以识别和生成草案，但候选记录未经 PM 确认，不得改变项目、反馈、排期或结项状态。</div>
+</div>
+
+<div class="mock-shell">
+  <div class="mock-stage">
+    <div class="mock-app">
+      <aside class="sidebar">
+        <div class="brand">GamePMer<span>GAME ART PM WORKSPACE</span></div>
+        <div class="nav-list">
+          <div class="nav-item">任务管理</div>
+          <div class="nav-item">项目总览</div>
+          <div class="nav-item active">候选收件箱</div>
+          <div class="nav-item">排期管理</div>
+          <div class="nav-item">反馈中心</div>
+          <div class="nav-item">报价与变更</div>
+          <div class="nav-item">结项中心</div>
+          <div class="nav-item">文件与归档</div>
+          <div class="nav-item">智能分析</div>
+          <div class="nav-item">设置中心</div>
+        </div>
+        <div class="nav-section">我的工作区</div>
+        <div class="nav-item">产品美术中心</div>
+        <div class="user-card"><span class="avatar">PM</span>Brandon<br><span style="color:#95a09a">游戏美术 PM</span></div>
+      </aside>
+
+      <section class="app-main">
+        <header class="topbar">
+          <div class="search">搜索来源、项目、资产、发件人或文件路径…</div>
+          <div class="top-actions"><div class="top-action">同步状态</div><div class="top-action">导入截图</div><div class="top-action primary">手动新建</div></div>
+        </header>
+
+        <div class="workspace">
+          <div class="workspace-main">
+            <div class="page-title">
+              <div><h3>候选收件箱</h3><p>识别 · 归类 · 补全 · 人工确认</p></div>
+              <div class="small-actions"><span class="chip active">全部来源</span><span class="chip">候选类型</span><span class="chip">置信度</span></div>
+            </div>
+
+            <div class="metrics">
+              <div class="metric"><div class="metric-label">等待确认</div><div class="metric-value">9 <span class="metric-note">今日 +5</span></div></div>
+              <div class="metric"><div class="metric-label">高置信可处理</div><div class="metric-value">5 <span class="metric-note">≥ 90%</span></div></div>
+              <div class="metric warn"><div class="metric-label">信息不完整</div><div class="metric-value">3 <span class="metric-note">需要补全</span></div></div>
+              <div class="metric"><div class="metric-label">今天已确认</div><div class="metric-value">12 <span class="metric-note">进入正式流程</span></div></div>
+            </div>
+
+            <div class="inbox-zone">
+              <div class="candidate-list">
+                <div class="section-title">候选记录 <span class="count">9</span></div>
+                <div class="list-tabs"><span class="list-tab active">待确认</span><span class="list-tab">需补全</span><span class="list-tab">已处理</span></div>
+                <div class="candidate active">
+                  <div class="candidate-top"><span class="type feedback">客户反馈</span><span>10:42</span></div>
+                  <div class="candidate-title">高模肩甲比例需要调整</div>
+                  <div class="candidate-meta">邮件 · Client Art Review</div>
+                </div>
+                <div class="candidate">
+                  <div class="candidate-top"><span class="type">阶段完成</span><span>09:18</span></div>
+                  <div class="candidate-title">MECH-02_高模_20260727</div>
+                  <div class="candidate-meta">邮件 · 资产路径已识别</div>
+                </div>
+                <div class="candidate">
+                  <div class="candidate-top"><span class="type quote">报价需求</span><span>昨天</span></div>
+                  <div class="candidate-title">新角色 6 套时装需求</div>
+                  <div class="candidate-meta">BD 邮件 · 缺少截止日期</div>
+                </div>
+                <div class="candidate">
+                  <div class="candidate-top"><span class="type feedback">客户反馈</span><span>昨天</span></div>
+                  <div class="candidate-title">贴图材质反馈截图</div>
+                  <div class="candidate-meta">飞书转发 · OCR 已完成</div>
+                </div>
+                <div class="candidate">
+                  <div class="candidate-top"><span class="type">IT 回执</span><span>7.25</span></div>
+                  <div class="candidate-title">P-3D-011 已剪切备份</div>
+                  <div class="candidate-meta">邮件 · 可匹配结项任务</div>
+                </div>
+              </div>
+
+              <div class="extract-card">
+                <div class="extract-head">
+                  <div><h4>AI 识别结果</h4><p>候选 C-20260727-017 · 尚未写入正式项目</p></div>
+                  <span class="confidence">综合置信度 94%</span>
+                </div>
+                <div class="source-preview">
+                  <div class="source-line"><span>来自 client.review@studio.com</span><span>2026-07-27 10:42</span></div>
+                  <div class="source-subject">Re: P-3D-024 / MECH-01 Highpoly Review</div>
+                  <div class="source-text">肩甲整体比例需要缩小一些，外侧结构请向身体收拢。修改后请重新提交高模评审，后续低模节点可相应顺延。</div>
+                </div>
+                <div class="field-grid">
+                  <div class="field"><label>候选类型 <span class="score">99%</span></label><strong>客户反馈</strong></div>
+                  <div class="field"><label>关联项目 <span class="score">97%</span></label><strong>P-3D-024</strong></div>
+                  <div class="field"><label>关联资产 <span class="score">96%</span></label><strong>MECH-01</strong></div>
+                  <div class="field"><label>制作阶段 <span class="score">92%</span></label><strong>高模</strong></div>
+                  <div class="field"><label>反馈原因 <span class="score">88%</span></label><strong>客户修改</strong></div>
+                  <div class="field missing"><label>期望回复时间</label><strong>未识别，需要补全</strong></div>
+                </div>
+                <div class="feedback-box"><strong>识别出的反馈摘要</strong>缩小肩甲比例并收拢外侧结构；需要重新提交高模评审。原文提到后续节点可顺延，但未给出明确天数。</div>
+              </div>
+            </div>
+
+            <div class="process-card">
+              <div class="process-head"><span>候选记录处理链</span><span>所有正式更新均需 PM 确认</span></div>
+              <div class="process-track">
+                <div class="process-step done"><strong>01 来源接入</strong>邮件原文与附件已保存</div>
+                <div class="process-step done"><strong>02 AI 识别</strong>项目、资产、阶段已匹配</div>
+                <div class="process-step current"><strong>03 PM 核对</strong>等待补全期望回复时间</div>
+                <div class="process-step blocked"><strong>04 正式入库</strong>尚未创建反馈与排期草案</div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="workspace-side">
+            <div class="detail-card">
+              <div class="detail-kicker">候选详情</div>
+              <div class="detail-id">C-20260727-017</div>
+              <div class="detail-title">高模肩甲比例调整</div>
+              <span class="status-pill">等待 PM 确认</span>
+              <div class="evidence">
+                <strong>原始证据</strong>
+                <div class="evidence-row"><span>来源</span><span>Outlook 邮件</span></div>
+                <div class="evidence-row"><span>附件</span><span>review_03.jpg</span></div>
+                <div class="evidence-row"><span>原文状态</span><span class="evidence-link">打开原始邮件</span></div>
+                <div class="evidence-row"><span>匹配依据</span><span class="evidence-link">查看识别字段</span></div>
+              </div>
+              <div class="suggestion">
+                <strong>AI 建议草案</strong>
+                建议创建反馈 F-017，关联 P-3D-024 / MECH-01 / 高模；先生成“客户反馈导致重排”草案，不直接更新后续节点。
+                <span class="draft-label">建议 · 未执行</span>
+              </div>
+              <div class="actions">
+                <div class="button danger">忽略候选</div>
+                <div class="button">编辑字段</div>
+                <div class="button">仅保存证据</div>
+                <div class="button primary">确认并进入反馈</div>
+              </div>
+            </div>
+            <div class="source-card">
+              <div class="section-title">接入来源状态 <span class="count">4</span></div>
+              <div class="source-item"><strong>Outlook 邮件</strong>08:00 已同步 · 7 条新消息</div>
+              <div class="source-item"><strong>企微 / 飞书转发</strong>机器人入口可用 · 2 条待确认</div>
+              <div class="source-item"><strong>截图与快捷复制</strong>OCR 正常 · 1 条缺少项目</div>
+              <div class="source-item"><strong>手动录入</strong>支持文件路径和原文粘贴</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="rules">
+  <div class="rule-card"><strong>候选不是任务</strong><span>它只是待判断的信息；确认后才生成反馈、报价、阶段完成或结项记录。</span></div>
+  <div class="rule-card"><strong>必须保留原文</strong><span>每个识别字段都能追溯到邮件、聊天截图、附件或文件路径。</span></div>
+  <div class="rule-card"><strong>允许部分确认</strong><span>信息不全时可只保存证据，不强迫 PM 创建错误的正式记录。</span></div>
+  <div class="rule-card"><strong>同类自动匹配</strong><span>资产名_阶段名_日期可辅助匹配，但低置信字段必须显式提醒。</span></div>
+</div>
+
+<div class="confirm-option" data-choice="confirm-candidate-inbox-v1" onclick="toggleSelect(this)">确认：候选收件箱采用“来源证据 → AI 识别 → PM 核对 → 正式入库”四段式</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">确认后继续设计项目详情与完整甘特图。</p>

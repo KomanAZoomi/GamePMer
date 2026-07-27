@@ -1,0 +1,194 @@
+<style>
+  .audit-intro{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;margin-bottom:18px;padding:16px 18px;border:1px solid #dfe7e2;border-radius:14px;background:#f7faf8}
+  .audit-intro strong{display:block;margin-bottom:5px;color:#263a30;font-size:14px}
+  .audit-intro span{color:#67766f;font-size:12px;line-height:1.7}
+  .audit-verdict{flex:0 0 250px;padding-left:18px;border-left:1px solid #d8e2dc}
+  .audit-verdict b{display:block;color:#32654f;font-size:18px}
+  .audit-verdict small{display:block;margin-top:5px;color:#6f7d76;line-height:1.5}
+
+  .flow-shell{padding:20px;border:1px solid #dce3df;border-radius:18px;background:#f4f7f5}
+  .flow-header{display:flex;align-items:end;justify-content:space-between;margin-bottom:14px}
+  .flow-header h3{margin:0;color:#263a30;font-size:18px}
+  .flow-header p{margin:4px 0 0;color:#7b8881;font-size:11px}
+  .source-legend{display:flex;gap:7px}
+  .legend{padding:6px 9px;border:1px solid #d8e0dc;border-radius:999px;background:#fff;color:#627169;font-size:9px}
+
+  .flow-row{display:grid;grid-template-columns:repeat(7,minmax(132px,1fr));gap:10px;min-width:1050px}
+  .flow-card{position:relative;min-height:172px;padding:13px;border:1px solid #dce3df;border-radius:12px;background:#fff;box-shadow:0 8px 22px rgba(47,67,57,.05)}
+  .flow-card:not(:last-child):after{content:'›';position:absolute;right:-9px;top:70px;z-index:2;color:#8ca095;font-size:23px;font-weight:500}
+  .step-no{display:inline-grid;width:24px;height:24px;border-radius:50%;place-items:center;background:#e7f1ec;color:#386b55;font-size:10px;font-weight:900}
+  .flow-card h4{margin:10px 0 5px;color:#293c33;font-size:13px}
+  .flow-card p{min-height:42px;margin:0;color:#7a8780;font-size:9px;line-height:1.55}
+  .module-tag{display:inline-block;margin-top:10px;padding:5px 7px;border-radius:6px;background:#f0f4f2;color:#53645b;font-size:8px;font-weight:800}
+  .formal-gate{margin-top:7px;padding-top:7px;border-top:1px solid #edf0ee;color:#3f745b;font-size:8px;font-weight:750}
+  .branch-card{border-color:#d7c6aa;background:#fffdf8}
+  .branch-card .step-no{background:#f5ebda;color:#9a6c34}
+  .branch-card .formal-gate{color:#9a6c34}
+
+  .feedback-branch{display:grid;grid-template-columns:215px 1fr 1fr;gap:10px;margin-top:12px;padding:12px;border:1px dashed #cfd9d3;border-radius:12px;background:#fbfcfb}
+  .branch-title{padding:11px;color:#46584f;font-size:10px;line-height:1.55}
+  .branch-title strong{display:block;margin-bottom:5px;color:#2e4138;font-size:12px}
+  .branch-route{padding:10px 12px;border:1px solid #dfe5e1;border-radius:9px;background:#fff;color:#65746c;font-size:9px;line-height:1.6}
+  .branch-route strong{display:block;margin-bottom:3px;color:#315f4b;font-size:11px}
+  .branch-route.extra strong{color:#95662d}
+
+  .architecture-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:18px}
+  .panel{padding:17px;border:1px solid #dfe5e1;border-radius:14px;background:#fff}
+  .panel h3{margin:0;color:#293c33;font-size:16px}
+  .panel-sub{margin:4px 0 13px;color:#7b8781;font-size:10px}
+  .object-chain{display:flex;align-items:center;gap:7px;padding:12px;border:1px solid #dfe6e2;border-radius:10px;background:#f8faf9;overflow-x:auto}
+  .object-node{flex:0 0 auto;padding:8px 10px;border:1px solid #d9e1dc;border-radius:8px;background:#fff;color:#41534a;font-size:9px;font-weight:800}
+  .object-node.root{border-color:#78a08b;background:#e7f1ec;color:#315f4a}
+  .object-arrow{color:#9ba9a2;font-size:14px}
+
+  .module-list{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:12px}
+  .module-row{padding:10px;border:1px solid #e2e7e4;border-radius:9px;background:#fbfcfb}
+  .module-row strong{display:block;color:#33463d;font-size:10px}
+  .module-row span{display:block;margin-top:4px;color:#79867f;font-size:8px;line-height:1.5}
+  .module-row.root{border-color:#b8d1c3;background:#eff6f2}
+
+  .issue-list{display:grid;gap:8px}
+  .issue{display:grid;grid-template-columns:53px 1fr;gap:9px;padding:10px;border:1px solid #e2e6e3;border-radius:9px;background:#fbfcfb}
+  .severity{height:22px;display:grid;place-items:center;border-radius:999px;background:#f4dfd8;color:#a95340;font-size:8px;font-weight:900}
+  .severity.medium{background:#f5ead9;color:#8c642e}
+  .issue strong{display:block;color:#34463d;font-size:10px}
+  .issue span{display:block;margin-top:3px;color:#79867f;font-size:8px;line-height:1.55}
+
+  .decision-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-top:14px}
+  .decision{padding:11px;border:1px solid #dfe5e1;border-radius:10px;background:#fff}
+  .decision strong{display:block;color:#33463d;font-size:10px}
+  .decision span{display:block;margin-top:4px;color:#78857e;font-size:8px;line-height:1.5}
+
+  .confirm-option{margin-top:18px;padding:14px 18px;border:1px solid #cbdcd3;border-radius:12px;background:#eef6f2;color:#315d49;text-align:center;font-size:13px;font-weight:850;cursor:pointer}
+  .confirm-option.selected{outline:3px solid #477a62}
+  .scroll-shell{overflow-x:auto;padding-bottom:8px}
+</style>
+
+<h2>从需求到出账：业务线与 UI 架构检查</h2>
+<p class="subtitle">首页结构可以保留，但它应当是“每日总控台”；正式业务状态必须沉淀在项目、资产、阶段、反馈、变更和结项记录中。</p>
+
+<div class="audit-intro">
+  <div>
+    <strong>检查结论</strong>
+    <span>视觉框架已经成立，核心风险不在“好不好看”，而在首页目前把任务当成主对象。游戏美术 PM 的真实主线应以项目为根，任务只是从项目状态投影出来的个人行动项。</span>
+  </div>
+  <div class="audit-verdict">
+    <b>可继续，但需先校正数据主线</b>
+    <small>保留左侧导航、中央阶段牌、右侧智能详情和底部时间线；调整它们各自承担的业务职责。</small>
+  </div>
+</div>
+
+<div class="flow-shell">
+  <div class="flow-header">
+    <div><h3>一条完整业务线</h3><p>以 3D PBR 项目为例，覆盖报价、制作、反馈重排、结项与出账。</p></div>
+    <div class="source-legend"><span class="legend">候选信息</span><span class="legend">PM 确认</span><span class="legend">正式记录</span></div>
+  </div>
+
+  <div class="scroll-shell">
+    <div class="flow-row">
+      <div class="flow-card">
+        <span class="step-no">01</span>
+        <h4>信息进入</h4>
+        <p>接收 BD 邮件、团队完成邮件、客户反馈、企微/飞书转发或截图。</p>
+        <span class="module-tag">候选收件箱</span>
+        <div class="formal-gate">AI 只识别，PM 确认后入库</div>
+      </div>
+      <div class="flow-card">
+        <span class="step-no">02</span>
+        <h4>报价与排期</h4>
+        <p>需求转给对应总监，收集人天与阶段节点，组长或 BD 复核。</p>
+        <span class="module-tag">报价与变更</span>
+        <div class="formal-gate">审核通过后生成正式开工草稿</div>
+      </div>
+      <div class="flow-card">
+        <span class="step-no">03</span>
+        <h4>项目建档</h4>
+        <p>创建资产、套用 3D 阶段模板，冻结第一版基线排期和负责人。</p>
+        <span class="module-tag">项目总览</span>
+        <div class="formal-gate">项目成为所有记录的主对象</div>
+      </div>
+      <div class="flow-card">
+        <span class="step-no">04</span>
+        <h4>阶段制作</h4>
+        <p>中模、高模、低模、烘焙、贴图、LOD 逐阶段计划与验收。</p>
+        <span class="module-tag">排期管理</span>
+        <div class="formal-gate">节点前 1 天提醒；未收到完成邮件标记可能延期</div>
+      </div>
+      <div class="flow-card branch-card">
+        <span class="step-no">05</span>
+        <h4>提交与反馈</h4>
+        <p>PM 取文件提交客户，记录反馈批次、原始来源和影响资产。</p>
+        <span class="module-tag">反馈中心</span>
+        <div class="formal-gate">先分类，再决定返修或追加报价</div>
+      </div>
+      <div class="flow-card">
+        <span class="step-no">06</span>
+        <h4>验收与结项</h4>
+        <p>全部资产验收后，请总监整理最终包，通知 IT 剪切与备份。</p>
+        <span class="module-tag">结项中心</span>
+        <div class="formal-gate">最终包与 IT 回执均为结项门槛</div>
+      </div>
+      <div class="flow-card">
+        <span class="step-no">07</span>
+        <h4>出账与归档</h4>
+        <p>汇总原报价、追加报价、交付清单和客户确认，通知 BD 出账。</p>
+        <span class="module-tag">文件与归档</span>
+        <div class="formal-gate">形成可追溯的项目证据链</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="feedback-branch">
+    <div class="branch-title"><strong>客户反馈必须分流</strong>这是整条业务线最容易被做错的地方，两条路径不能共用一个“处理反馈”按钮直接重排。</div>
+    <div class="branch-route"><strong>A. 合同范围内返修</strong>反馈任务 → 计算受影响节点 → 生成工作日重排草案 → PM 确认 → 更新当前排期。</div>
+    <div class="branch-route extra"><strong>B. 新增需求 / 超范围修改</strong>冻结受影响资产 → 创建变更单 → 追加报价与排期 → 复核通过 → 再进入制作。</div>
+  </div>
+</div>
+
+<div class="architecture-grid">
+  <section class="panel">
+    <h3>各版块如何围绕同一条数据主线</h3>
+    <p class="panel-sub">不要让任务、反馈、排期和邮件各自保存一套互不相干的数据。</p>
+    <div class="object-chain">
+      <span class="object-node root">项目 Project</span><span class="object-arrow">›</span>
+      <span class="object-node">资产 Asset</span><span class="object-arrow">›</span>
+      <span class="object-node">阶段 Stage</span><span class="object-arrow">›</span>
+      <span class="object-node">行动项 Work Item</span><span class="object-arrow">›</span>
+      <span class="object-node">证据 Evidence</span>
+    </div>
+    <div class="module-list">
+      <div class="module-row"><strong>任务管理</strong><span>只显示“我现在该处理什么”，不是数据源。</span></div>
+      <div class="module-row root"><strong>项目总览</strong><span>项目健康度、负责人、客户、资产和当前阶段。</span></div>
+      <div class="module-row"><strong>候选收件箱</strong><span>未确认的邮件、消息、截图和文件路径。</span></div>
+      <div class="module-row"><strong>排期管理</strong><span>基线 / 当前 / 实际日期、依赖、工作日和资源。</span></div>
+      <div class="module-row"><strong>反馈中心</strong><span>反馈批次、来源、资产任务、责任原因和返修状态。</span></div>
+      <div class="module-row"><strong>报价与变更</strong><span>首次报价与追加报价共用审批证据，不混入普通返修。</span></div>
+      <div class="module-row"><strong>结项中心</strong><span>最终包、客户确认、IT 回执、BD 出账的串行门槛。</span></div>
+      <div class="module-row"><strong>文件与归档</strong><span>提交盘、反馈盘、最终包和原始消息的统一索引。</span></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h3>当前首页的主要问题</h3>
+    <p class="panel-sub">这些问题若不先处理，页面越丰富，后续信息越容易失真。</p>
+    <div class="issue-list">
+      <div class="issue"><span class="severity">高</span><div><strong>任务被误当成业务根对象</strong><span>应改为项目驱动；首页任务只是跨项目的行动视图。</span></div></div>
+      <div class="issue"><span class="severity">高</span><div><strong>中央阶段牌不能替代甘特图</strong><span>它只展示当前阶段；完整依赖、节点、基线与实际值必须在排期详情页。</span></div></div>
+      <div class="issue"><span class="severity">高</span><div><strong>AI 建议与正式动作界线不够</strong><span>需要明确“建议 / 草案 / 已确认”，并展示原始邮件或反馈证据。</span></div></div>
+      <div class="issue"><span class="severity medium">中</span><div><strong>首页指标过于通用</strong><span>改为今日必办、节点前 1 天、等待客户、可能延期、待报价、结项阻塞。</span></div></div>
+      <div class="issue"><span class="severity medium">中</span><div><strong>缺少责任原因与来源追溯</strong><span>需要区分团队延期、客户反馈滞后、需求变更，并保留原始消息链接。</span></div></div>
+    </div>
+  </section>
+</div>
+
+<div class="decision-strip">
+  <div class="decision"><strong>首页定位</strong><span>每日总控台：只呈现今天要判断和处理的事项。</span></div>
+  <div class="decision"><strong>项目定位</strong><span>唯一业务主线：资产、阶段、反馈、排期、报价全部挂靠项目。</span></div>
+  <div class="decision"><strong>AI 定位</strong><span>负责识别、归类、生成草案；任何正式更新都由 PM 确认。</span></div>
+  <div class="decision"><strong>排期定位</strong><span>首页轻量预览，项目详情提供真正可编辑、可回溯的甘特图。</span></div>
+  <div class="decision"><strong>导航定位</strong><span>保留完整模块数量和持续展开状态，不折叠、不删减入口。</span></div>
+</div>
+
+<div class="confirm-option" data-choice="confirm-business-line-audit" onclick="toggleSelect(this)">确认：采用“项目为根、首页为总控、反馈双分流”的业务架构</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">确认后继续拆解：候选收件箱 → 项目详情与甘特图 → 反馈重排 → 报价变更 → 结项出账。</p>

@@ -1,0 +1,160 @@
+<style>
+  .clone-note{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:18px;padding:14px 16px;border:1px solid #dfe7e2;border-radius:12px;background:#f7faf8;color:#516159;font-size:13px;line-height:1.6}
+  .clone-note strong{color:#24382f}
+  .clone-stage{min-width:1160px;padding:18px;border:1px solid #dfe4e1;border-radius:20px;background:#f2f5f3;box-shadow:0 22px 60px rgba(45,67,57,.10)}
+  .clone-app{height:720px;display:grid;grid-template-columns:174px 1fr;border:1px solid #d9dfdb;border-radius:16px;overflow:hidden;background:#fff}
+  .sidebar{display:flex;flex-direction:column;padding:18px 13px;background:#fbfcfb;border-right:1px solid #e2e7e4}
+  .brand{font-size:16px;font-weight:900;letter-spacing:.02em;color:#24372e;margin:0 8px 18px}.brand span{display:block;margin-top:3px;color:#7b8a82;font-size:10px;font-weight:600;letter-spacing:.08em}
+  .nav-list{display:grid;gap:4px}.nav-item{padding:9px 10px;border-radius:8px;color:#53635b;font-size:12px;font-weight:650}.nav-item.active{color:#285c47;background:#e7f1ec}.nav-section{margin:18px 10px 7px;color:#9aa59f;font-size:9px;font-weight:800;letter-spacing:.1em}
+  .user-card{margin-top:auto;padding:10px;border:1px solid #e0e5e2;border-radius:10px;background:#fff;color:#43544c;font-size:11px}.avatar{display:inline-grid;width:26px;height:26px;margin-right:7px;border-radius:50%;place-items:center;background:#dce9e2;color:#315e4b;font-weight:900}
+  .app-main{display:grid;grid-template-rows:58px 1fr;min-width:0}
+  .topbar{display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid #e4e8e5;background:#fff}.search{flex:1;max-width:360px;padding:9px 12px;border:1px solid #dde3df;border-radius:999px;background:#f8faf9;color:#88938d;font-size:11px}.top-actions{margin-left:auto;display:flex;gap:8px}.top-action{padding:8px 11px;border:1px solid #dde3df;border-radius:8px;color:#56665e;font-size:10px;background:#fff}.top-action.primary{color:#fff;background:#42755f;border-color:#42755f}
+  .dashboard{display:grid;grid-template-columns:minmax(0,1fr) 270px;gap:12px;padding:14px;overflow:hidden;background:#f5f7f5}
+  .dashboard-left{display:grid;grid-template-rows:auto auto minmax(0,1fr) 154px;gap:10px;min-width:0}
+  .page-title{display:flex;align-items:end;justify-content:space-between}.page-title h3{margin:0;color:#25362e;font-size:20px}.page-title p{margin:3px 0 0;color:#87928c;font-size:10px}.small-actions{display:flex;gap:6px}.chip{padding:6px 9px;border:1px solid #dde3df;border-radius:999px;background:#fff;color:#607068;font-size:9px}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.metric-card{min-height:74px;padding:11px;border:1px solid #dde3df;border-radius:11px;background:#fff}.metric-card.risk{border-color:#edcab6}.metric-label{color:#78857e;font-size:9px}.metric-value{margin-top:5px;color:#25362e;font-size:24px;font-weight:850}.metric-trend{margin-left:5px;color:#418263;font-size:9px}.metric-card.risk .metric-trend{color:#bf634a}
+  .task-zone{display:grid;grid-template-columns:244px minmax(0,1fr);gap:9px;min-height:0}
+  .task-list,.task-focus,.smart-card,.timeline-card{border:1px solid #dde3df;border-radius:12px;background:#fff}
+  .task-list{padding:10px;overflow:hidden}.section-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;color:#31433a;font-size:10px;font-weight:850}.count{padding:2px 6px;border-radius:999px;background:#e9f2ed;color:#40705b;font-size:8px}
+  .task-group{margin-top:8px}.group-name{display:flex;justify-content:space-between;color:#78857e;font-size:8px;font-weight:800}.task-row{margin-top:4px;padding:7px;border-radius:7px;background:#f6f8f6;color:#42534b;font-size:8px;line-height:1.35}.task-row.active{background:#e7f1eb;border-left:3px solid #47785f}.priority{float:right;color:#ba694d}
+  .task-focus{position:relative;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 50% 45%,#ffffff 0,#f3f6f4 70%)}.deck{position:relative;width:340px;height:180px}.deck-card{position:absolute;width:150px;height:104px;padding:11px;border:1px solid #d9dfdb;border-radius:12px;background:rgba(255,255,255,.94);box-shadow:0 12px 26px rgba(41,59,50,.12);transform:rotate(-7deg);color:#34473e;font-size:9px}.deck-card:nth-child(2){left:42px;top:22px;transform:rotate(-4deg)}.deck-card:nth-child(3){left:90px;top:34px;transform:rotate(-1deg)}.deck-card:nth-child(4){left:142px;top:32px;transform:rotate(3deg);border-color:#7caa91;background:#dff1e7;box-shadow:0 14px 30px rgba(54,128,88,.18)}.deck-card:nth-child(5){left:194px;top:20px;transform:rotate(6deg)}.deck-card strong{display:block;margin-top:8px;font-size:12px}.deck-card .stage{margin-top:19px;color:#7c8a83}.deck-card.active .stage{color:#3d765b}.project-health{position:absolute;left:12px;bottom:10px;width:114px;padding:10px;border:1px solid #dde3df;border-radius:10px;background:rgba(255,255,255,.92);color:#718078;font-size:8px}.project-health strong{display:block;color:#294036;font-size:20px}.view-tabs{position:absolute;right:10px;top:9px;display:flex;gap:5px}.view-tabs span{padding:5px 7px;border:1px solid #dfe4e1;border-radius:6px;background:#fff;color:#69776f;font-size:8px}
+  .timeline-card{padding:10px 12px}.timeline-head{display:flex;justify-content:space-between;color:#43544c;font-size:9px;font-weight:800}.timeline-grid{position:relative;margin-top:8px;padding-left:68px;height:100px;background:repeating-linear-gradient(90deg,transparent 0 calc(8.33% - 1px),#e7ebe8 calc(8.33% - 1px) 8.33%)}.today-line{position:absolute;left:41%;top:0;bottom:0;width:1px;background:#4d8167}.today-line:before{content:'27';position:absolute;top:-14px;left:-8px;padding:2px 5px;border-radius:999px;background:#4d8167;color:#fff;font-size:7px}.bar{position:absolute;height:17px;padding:4px 7px;border-radius:5px;color:#fff;font-size:7px}.bar.one{left:12%;top:8px;width:24%;background:#9aa7a0}.bar.two{left:34%;top:34px;width:29%;background:#4f8369}.bar.three{left:58%;top:60px;width:25%;background:#d79a5d}
+  .dashboard-right{display:grid;grid-template-rows:minmax(0,1fr) 145px;gap:10px;min-height:0}.smart-card{padding:15px;overflow:hidden}.smart-kicker{color:#6f8178;font-size:9px;font-weight:800}.smart-id{margin-top:11px;color:#8b9690;font-size:9px}.smart-title{margin:5px 0 13px;color:#25372f;font-size:18px;font-weight:850}.status-pill{display:inline-block;padding:4px 7px;border-radius:999px;background:#e5f2eb;color:#347154;font-size:8px;font-weight:800}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:15px}.detail-item span{display:block;color:#929c97;font-size:7px}.detail-item strong{display:block;margin-top:3px;color:#46574f;font-size:9px}.assistant-box{margin-top:15px;padding:11px;border:1px solid #dfe6e2;border-radius:9px;background:#f7faf8;color:#53645c;font-size:8px;line-height:1.55}.assistant-box strong{display:block;margin-bottom:5px;color:#325341;font-size:10px}.detail-actions{display:flex;gap:6px;margin-top:14px}.detail-button{flex:1;padding:8px;border:1px solid #dce2de;border-radius:7px;color:#516159;background:#fff;text-align:center;font-size:8px;font-weight:800}.detail-button.primary{color:#fff;background:#477a62;border-color:#477a62}
+  .activity-card{padding:11px;border:1px solid #dde3df;border-radius:12px;background:#fff}.activity-row{padding:7px 0;border-bottom:1px solid #edf0ee;color:#65736c;font-size:8px}.activity-row:last-child{border-bottom:0}.dot{display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:#4d8067}.dot.amber{background:#d39454}
+  .mapping{margin-top:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.mapping-card{padding:13px;border:1px solid #dfe4e1;border-radius:11px;background:#fff}.mapping-card strong{display:block;color:#2d4037;font-size:12px}.mapping-card span{display:block;margin-top:6px;color:#728078;font-size:10px;line-height:1.5}
+  .confirm-option{margin-top:18px;padding:14px 18px;border:1px solid #cbdcd3;border-radius:12px;background:#eef6f2;color:#315d49;text-align:center;font-size:13px;font-weight:850;cursor:pointer}.confirm-option.selected{outline:3px solid #477a62}
+  .scroll-shell{overflow-x:auto;padding-bottom:8px}
+</style>
+
+<h2>白色忠实复刻版：首页设计</h2>
+<p class="subtitle">结构、信息层级和交互节奏沿用参考图；只替换主题色和游戏美术 PM 业务内容。</p>
+
+<div class="clone-note">
+  <div><strong>保留：</strong>左侧全局导航、顶部指标、任务列表、中央任务阶段牌、右侧智能详情、底部项目时间线。</div>
+  <div><strong>替换：</strong>黑色玻璃 → 白色轻层次；霓虹绿 → 灰绿；通用任务 → 2D/3D 制作、反馈、报价与结项。</div>
+</div>
+
+<div class="scroll-shell">
+  <div class="clone-stage">
+    <div class="clone-app">
+      <aside class="sidebar">
+        <div class="brand">GamePMer<span>GAME ART PM WORKSPACE</span></div>
+        <div class="nav-list">
+          <div class="nav-item active">任务管理</div>
+          <div class="nav-item">项目总览</div>
+          <div class="nav-item">候选收件箱</div>
+          <div class="nav-item">排期管理</div>
+          <div class="nav-item">反馈中心</div>
+          <div class="nav-item">报价与变更</div>
+          <div class="nav-item">结项中心</div>
+          <div class="nav-item">文件与归档</div>
+          <div class="nav-item">智能分析</div>
+          <div class="nav-item">设置中心</div>
+        </div>
+        <div class="nav-section">我的工作区</div>
+        <div class="nav-item">产品美术中心</div>
+        <div class="user-card"><span class="avatar">PM</span>Brandon<br><span style="color:#95a09a">游戏美术 PM</span></div>
+      </aside>
+
+      <section class="app-main">
+        <header class="topbar">
+          <div class="search">搜索任务、项目、资产、文件路径…</div>
+          <div class="top-actions"><div class="top-action">消息 4</div><div class="top-action">邮件 7</div><div class="top-action primary">新建任务</div></div>
+        </header>
+
+        <div class="dashboard">
+          <div class="dashboard-left">
+            <div class="page-title">
+              <div><h3>任务管理</h3><p>高效规划 · 智能协同 · 结果驱动</p></div>
+              <div class="small-actions"><span class="chip">筛选</span><span class="chip">排序</span><span class="chip">状态</span></div>
+            </div>
+
+            <div class="metrics">
+              <div class="metric-card"><div class="metric-label">今日待办</div><div class="metric-value">12 <span class="metric-trend">较昨日 +20%</span></div></div>
+              <div class="metric-card"><div class="metric-label">进行中</div><div class="metric-value">28 <span class="metric-trend">较昨日 +8%</span></div></div>
+              <div class="metric-card"><div class="metric-label">已完成</div><div class="metric-value">56 <span class="metric-trend">本周 +15%</span></div></div>
+              <div class="metric-card risk"><div class="metric-label">逾期任务</div><div class="metric-value">3 <span class="metric-trend">本周 -40%</span></div></div>
+            </div>
+
+            <div class="task-zone">
+              <div class="task-list">
+                <div class="section-title">任务看板 <span class="count">12</span></div>
+                <div class="task-group"><div class="group-name"><span>需求评审</span><span>3</span></div>
+                  <div class="task-row active">P-3D-024 · 高模肩甲返修 <span class="priority">高</span></div>
+                  <div class="task-row">P-2D-018 · 细化 50% 提交</div>
+                  <div class="task-row">报价 Q-031 · 等待总监回复</div>
+                </div>
+                <div class="task-group"><div class="group-name"><span>产品制作</span><span>4</span></div>
+                  <div class="task-row">MECH-01 · 高模制作中</div>
+                  <div class="task-row">CHAR-08 · 草图待确认</div>
+                </div>
+                <div class="task-group"><div class="group-name"><span>结项与备份</span><span>2</span></div>
+                  <div class="task-row">P-3D-011 · 等待最终包</div>
+                </div>
+              </div>
+
+              <div class="task-focus">
+                <div class="view-tabs"><span>筛选</span><span>视图</span><span>排序</span></div>
+                <div class="deck">
+                  <div class="deck-card"><span>阶段 01</span><strong>需求确认</strong><div class="stage">已完成</div></div>
+                  <div class="deck-card"><span>阶段 02</span><strong>中模</strong><div class="stage">已验收</div></div>
+                  <div class="deck-card"><span>阶段 03</span><strong>高模</strong><div class="stage">客户反馈</div></div>
+                  <div class="deck-card active"><span>阶段 04</span><strong>返修调整</strong><div class="stage">当前阶段</div></div>
+                  <div class="deck-card"><span>阶段 05</span><strong>低模 / 烘焙</strong><div class="stage">待重排</div></div>
+                </div>
+                <div class="project-health"><span>项目交付</span><strong>87%</strong>整体进度</div>
+              </div>
+            </div>
+
+            <div class="timeline-card">
+              <div class="timeline-head"><span>项目时间线 · 2026 年 7 月</span><span>周 ▾　今天</span></div>
+              <div class="timeline-grid">
+                <div class="today-line"></div>
+                <div class="bar one">需求评审 · 7.20—7.25</div>
+                <div class="bar two">核心制作 · 7.24—8.03</div>
+                <div class="bar three">客户反馈与返修 · 8.01—8.08</div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="dashboard-right">
+            <div class="smart-card">
+              <div class="smart-kicker">智能详情</div>
+              <div class="smart-id">F-017 / P-3D-024</div>
+              <div class="smart-title">高模肩甲比例返修</div>
+              <span class="status-pill">客户反馈</span>
+              <div class="detail-grid">
+                <div class="detail-item"><span>负责人</span><strong>Brandon</strong></div>
+                <div class="detail-item"><span>所属资产</span><strong>MECH-01</strong></div>
+                <div class="detail-item"><span>截止时间</span><strong>7 月 29 日 18:00</strong></div>
+                <div class="detail-item"><span>当前状态</span><strong>返修中</strong></div>
+                <div class="detail-item"><span>优先级</span><strong>高</strong></div>
+                <div class="detail-item"><span>影响节点</span><strong>后续 4 项</strong></div>
+              </div>
+              <div class="assistant-box"><strong>AI 助手建议</strong>建议将低模、烘焙、贴图、LOD 顺延 2 个工作日，并生成给组长与艺术总监的排期修改通知草稿。</div>
+              <div class="detail-actions"><div class="detail-button">编辑任务</div><div class="detail-button primary">处理反馈</div></div>
+            </div>
+            <div class="activity-card">
+              <div class="section-title">最新动态 <span class="count">5</span></div>
+              <div class="activity-row"><span class="dot"></span>高模完成邮件已识别</div>
+              <div class="activity-row"><span class="dot amber"></span>客户反馈等待处理</div>
+              <div class="activity-row"><span class="dot"></span>报价 Q-031 已返回</div>
+              <div class="activity-row"><span class="dot"></span>IT 备份确认已收到</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="mapping">
+  <div class="mapping-card"><strong>中央阶段牌</strong><span>复刻参考图的空间焦点，用于表现当前项目从需求到交付的制作阶段。</span></div>
+  <div class="mapping-card"><strong>底部时间线</strong><span>承担跨阶段排期总览；进入项目详情后展开成可编辑甘特图。</span></div>
+  <div class="mapping-card"><strong>右侧智能详情</strong><span>固定呈现当前任务、风险、AI 建议和 PM 确认动作，不自动执行。</span></div>
+  <div class="mapping-card"><strong>左侧模块导航</strong><span>把收件、排期、反馈、报价、结项和归档拆为独立功能区。</span></div>
+</div>
+
+<div class="confirm-option" data-choice="confirm-white-reference-clone" onclick="toggleSelect(this)">确认：以这份白色忠实复刻版作为首页设计基准</div>
+
+<p class="subtitle" style="margin-top:16px;text-align:center">点击确认后回到对话回复“符合”，我会继续逐个拆解排期、反馈、报价、结项等页面。</p>
