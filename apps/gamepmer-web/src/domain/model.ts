@@ -1,5 +1,29 @@
 export type IsoDate = string
 
+// ---------------------------------------------------------------- 工作日历
+
+export interface WorkCalendar {
+  id: string
+  name: string
+  /** 公司休息日：即使是周一到周五也不上班 */
+  holidays: IsoDate[]
+  /** 特殊工作日：即使是周末也上班 */
+  extraWorkdays: IsoDate[]
+}
+
+// ---------------------------------------------------------------- 制作组与容量
+
+export interface ProductionGroup {
+  id: string
+  name: string
+  discipline: '2D' | '3D'
+  leadName: string
+  /** 每工作日可用人天。容量是跨项目共享资源，不挂在任何单个项目下。 */
+  dailyCapacity: number
+}
+
+// ---------------------------------------------------------------- 阶段
+
 export type StageCode =
   | '2D_SKETCH'
   | '2D_DETAIL_50'
@@ -11,84 +35,222 @@ export type StageCode =
   | '3D_TEXTURE'
   | '3D_LOD'
 
-export type StageStatus = 'normal' | 'awaiting-client' | 'rework' | 'complete'
+/**
+ * 阶段主状态。
+ * 「完成制作」「已交 PM」「已提交客户」「客户确认」是四件不同的事，不允许合并成一个完成状态。
+ */
+export type StageMainStatus =
+  | 'NotStarted'
+  | 'InProduction'
+  | 'HandedToPm'
+  | 'SubmittedToClient'
+  | 'AwaitingClient'
+  | 'Approved'
 
-export interface Stage {
+/** 可叠加标记。叠加状态不替换主状态——「等待客户 + 返修」要同时保留已提交的事实。 */
+export type StageFlag = 'Rework' | 'WaitingChangeQuote' | 'PossibleDelay' | 'ScheduleRevisionRequired'
+
+export interface StagePlan {
+  id: string
   code: StageCode
   name: string
+  assetId: string
+  productionGroupId: string
+  ownerName: string
+  estimatedPersonDays: number
+
+  /** 基准：只读，永不被修订覆盖 */
   baselineStart: IsoDate
   baselineFinish: IsoDate
+  /** 当前计划：来自最后一个已确认修订 */
   currentStart: IsoDate
   currentFinish: IsoDate
-  status: StageStatus
-  clientApprovalDate?: IsoDate
+  /** 实际：来自完成与提交证据 */
+  actualStart?: IsoDate
+  actualFinish?: IsoDate
+
+  submittedToClientAt?: IsoDate
+  clientApprovedAt?: IsoDate
+
+  /** 前置阶段 id */
+  dependsOn: string[]
+  status: StageMainStatus
+  flags: StageFlag[]
+  /** 最近一次日期变更的原因 */
+  revisionReason?: string
 }
+
+// ---------------------------------------------------------------- 项目与资产
 
 export interface Asset {
   id: string
   name: string
-  production: '2D' | '3D'
-  stages: Stage[]
+  discipline: '2D' | '3D'
+  projectCode: string
+  stages: StagePlan[]
 }
+
+export type ProjectStatus = 'InProduction' | 'AwaitingClient' | 'Closing' | 'Archived'
 
 export interface Project {
   id: string
   code: string
   name: string
   client: string
+  discipline: '2D' | '3D'
+  status: ProjectStatus
+  pmName: string
+  artDirectorName: string
+  calendarId: string
   assets: Asset[]
+}
+
+// ---------------------------------------------------------------- 证据
+
+export type EvidenceKind = 'email' | 'chat' | 'screenshot' | 'path' | 'manual'
+
+export interface EvidenceRef {
+  id: string
+  kind: EvidenceKind
+  label: string
+  /** 邮件主题、消息摘要或网络盘路径；工作台只记录索引，不移动真实文件 */
+  locator: string
+  receivedAt: string
+  from?: string
+}
+
+// ---------------------------------------------------------------- 反馈
+
+export type FeedbackScope = 'in-scope' | 'out-of-scope' | 'unclassified'
+
+export type FeedbackItemStatus =
+  | 'NeedsClassification'
+  | 'Confirmed'
+  | 'InRework'
+  | 'WaitingChangeQuote'
+  | 'Resubmitted'
+  | 'Closed'
+
+export interface FeedbackItem {
+  id: string
+  batchId: string
+  assetId: string
+  stageId: string
+  title: string
+  originalText: string
+  scope: FeedbackScope
+  status: FeedbackItemStatus
+  ownerName: string
+  estimatedReworkDays: number
+  /** AI 的分类建议与依据；建议不等于结论，PM 可以否决 */
+  aiSuggestion?: { scope: FeedbackScope; rationale: string }
 }
 
 export interface FeedbackBatch {
   id: string
   projectCode: string
-  assetId: string
-  affectedStageCode: StageCode
-  pastedText: string
-  addedWorkdays: number
-  receivedAt: IsoDate
+  client: string
+  receivedAt: string
+  /** 反馈盘路径索引 */
+  feedbackDrivePath: string
+  summary: string
+  evidence: EvidenceRef[]
+  items: FeedbackItem[]
+  /** 客户反馈滞后造成的等待工作日，与团队延期分开归因 */
+  clientWaitWorkdays: number
 }
 
-export interface ScheduleDraftChange {
-  stageCode: StageCode
+// ---------------------------------------------------------------- 排期修订
+
+export type RevisionReason =
+  | 'client-feedback'
+  | 'client-wait'
+  | 'team-delay'
+  | 'scope-change'
+  | 'capacity-conflict'
+
+export interface StageDateChange {
+  stageId: string
   oldStart: IsoDate
   oldFinish: IsoDate
   newStart: IsoDate
   newFinish: IsoDate
+  shiftedWorkdays: number
 }
 
-export interface ScheduleDraft {
-  id: string
-  feedbackId: string
-  projectCode: string
-  assetId: string
-  changes: ScheduleDraftChange[]
-  createdAt: IsoDate
-}
-
-export interface RevisionRecord {
+export interface ScheduleRevisionDraft {
   id: string
   projectCode: string
   assetId: string
-  feedbackId: string
-  confirmedAt: IsoDate
+  sourceFeedbackItemId?: string
+  reason: RevisionReason
+  changes: StageDateChange[]
+  createdAt: string
+}
+
+export interface ScheduleRevision {
+  id: string
+  version: number
+  projectCode: string
+  assetId: string
+  sourceFeedbackItemId?: string
+  reason: RevisionReason
   note: string
-  changes: ScheduleDraftChange[]
+  confirmedBy: string
+  confirmedAt: string
+  changes: StageDateChange[]
 }
+
+// ---------------------------------------------------------------- 通知与审计
 
 export interface NotificationDraft {
   id: string
-  revisionId: string
-  recipientRole: '组长' | '艺术总监'
+  recipientRole: '组长' | '艺术总监' | 'BD' | 'IT' | '客户'
+  recipientName: string
   subject: string
   body: string
-  status: 'unsent'
+  sourceKind: 'schedule-revision' | 'reminder' | 'kickoff' | 'closeout'
+  sourceId: string
+  /** 生成通知草稿不等于发送成功 */
+  status: 'draft' | 'sent' | 'failed'
+  sentAt?: string
 }
 
+export interface AuditEvent {
+  id: string
+  at: string
+  actor: string
+  action: string
+  targetKind: string
+  targetId: string
+  before?: string
+  after?: string
+  reason?: string
+}
+
+// ---------------------------------------------------------------- 变更单（本轮仅占位）
+
+export interface ChangeRequest {
+  id: string
+  projectCode: string
+  assetId: string
+  sourceFeedbackItemId: string
+  title: string
+  status: 'ClassifiedExtra' | 'Quoting' | 'AwaitingReview' | 'Approved' | 'ChangeKickoffSent'
+}
+
+// ---------------------------------------------------------------- 聚合状态
+
+export const DEMO_SCHEMA_VERSION = 2
+
 export interface DemoState {
-  schemaVersion: 1
+  schemaVersion: typeof DEMO_SCHEMA_VERSION
+  calendars: WorkCalendar[]
+  productionGroups: ProductionGroup[]
   projects: Project[]
   feedbackBatches: FeedbackBatch[]
-  revisions: RevisionRecord[]
+  revisions: ScheduleRevision[]
   notificationDrafts: NotificationDraft[]
+  auditEvents: AuditEvent[]
+  changeRequests: ChangeRequest[]
 }

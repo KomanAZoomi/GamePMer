@@ -1,0 +1,106 @@
+/*
+ * GamePMer 设计令牌
+ *
+ * 色值来自已确认的视觉基线：docs/design-assets/2026-07-27-white-ui/
+ * 尺寸**不**来自原型：原型为了在演示页里缩放展示用了 6~10px 字号，
+ * 这里按「正文不小于 14px」重新定阶梯。原型定结构与层次，不定尺寸。
+ */
+
+:root {
+  /* ---- 表层：白 + 浅暖灰分层 ---- */
+  --surface-page: #f5f7f5;
+  --surface-card: #ffffff;
+  --surface-rail: #fbfcfb;
+  --surface-muted: #f6f8f6;
+  --surface-field: #f8faf9;
+  --surface-info: #f7faf8;
+  --surface-group: #f4f7f5;
+
+  /* ---- 描边 ---- */
+  --border-strong: #d9dfdb;
+  --border-default: #dde3df;
+  --border-subtle: #e4e8e5;
+  --border-faint: #edf0ee;
+
+  /* ---- 文字 ---- */
+  --text-primary: #25362e;
+  --text-secondary: #4c5b53;
+  --text-muted: #6f7d76;
+  --text-faint: #8b968f;
+  --text-inverse: #ffffff;
+
+  /* ---- 鼠尾草绿：正式计划 / 已确认 / 主操作 ---- */
+  --accent: #42755f;
+  --accent-hover: #386552;
+  --accent-strong: #2f6d50;
+  --accent-ink: #285c47;
+  --accent-soft: #e7f1ec;
+  --accent-softer: #eff6f2;
+  --accent-border: #c6dacf;
+
+  /* ---- 琥珀：客户反馈 / 待确认草案 / 需复核 ---- */
+  --amber: #c8802f;
+  --amber-ink: #8c5a24;
+  --amber-soft: #fdf3e7;
+  --amber-border: #e6c8a4;
+
+  /* ---- 克制红：已确认高风险 / 阻断 / 逾期（不作普通强调色）---- */
+  --danger: #b4553c;
+  --danger-ink: #8f3f2b;
+  --danger-soft: #fbeae4;
+  --danger-border: #e8c4b6;
+
+  /* ---- 甘特条：四层日期各有专属色，且形态不同 ---- */
+  --bar-baseline: #b3bdb8;
+  --bar-current: #4b8065;
+  --bar-actual: #263b31;
+  --bar-feedback: #d1893f;
+  --bar-draft: #5b9179;
+  --bar-wait: #d8c39c;
+
+  /* ---- 字号阶梯：正文 14px 起 ---- */
+  --text-2xs: 12px; /* 仅限徽章、计数、表头标签 */
+  --text-xs: 13px; /* 元信息 */
+  --text-sm: 14px; /* 正文默认下限 */
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 21px;
+  --text-2xl: 28px; /* 指标数字 */
+
+  /* ---- 字重 ---- */
+  --weight-normal: 400;
+  --weight-medium: 550;
+  --weight-bold: 700;
+  --weight-heavy: 800;
+
+  /* ---- 间距 ---- */
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 10px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 20px;
+  --space-8: 24px;
+
+  /* ---- 圆角 ---- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  /* ---- 阴影 ---- */
+  --shadow-card: 0 1px 2px rgba(41, 59, 50, 0.04);
+  --shadow-raised: 0 10px 24px rgba(41, 59, 50, 0.1);
+  --shadow-float: 0 16px 40px rgba(41, 59, 50, 0.14);
+
+  /* ---- 布局 ---- */
+  --rail-width: 216px;
+  --topbar-height: 60px;
+  --inspector-width: 312px;
+  --min-workspace-width: 1280px;
+
+  /* ---- 焦点：键盘可达性，不依赖颜色单独表意 ---- */
+  --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px var(--accent);
+}

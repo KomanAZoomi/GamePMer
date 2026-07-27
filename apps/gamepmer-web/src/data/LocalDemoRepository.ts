@@ -1,7 +1,20 @@
+import { DEMO_SCHEMA_VERSION } from '../domain/model'
 import type { DemoState } from '../domain/model'
 import { createDemoState } from './seed'
 
-export const DEMO_STORAGE_KEY = 'gamepmer.web-demo.v1'
+/**
+ * Repository 是 UI 与存储之间的唯一边界。
+ *
+ * UI 和用例层只依赖这个接口，不允许直接读写 localStorage——正式内网版会换成调用内网 API 的实现。
+ * Demo 阶段接口保持同步；换成 API 实现时需要改为异步并补加载态，这是已知的迁移成本。
+ */
+export interface DemoRepository {
+  load(): DemoState
+  save(state: DemoState): void
+  reset(): DemoState
+}
+
+export const DEMO_STORAGE_KEY = `gamepmer.web-demo.v${DEMO_SCHEMA_VERSION}`
 
 export interface StorageLike {
   getItem(key: string): string | null
@@ -9,17 +22,33 @@ export interface StorageLike {
   removeItem(key: string): void
 }
 
-const fallbackStorage: StorageLike = {
-  getItem: () => null,
-  setItem: () => undefined,
-  removeItem: () => undefined,
+const memoryStorage = (): StorageLike => {
+  const map = new Map<string, string>()
+  return {
+    getItem: (key) => map.get(key) ?? null,
+    setItem: (key, value) => void map.set(key, value),
+    removeItem: (key) => void map.delete(key),
+  }
 }
 
-export class LocalDemoRepository {
+const REQUIRED_COLLECTIONS = [
+  'calendars',
+  'productionGroups',
+  'projects',
+  'feedbackBatches',
+  'revisions',
+  'notificationDrafts',
+  'auditEvents',
+  'changeRequests',
+] as const
+
+export class LocalDemoRepository implements DemoRepository {
   private readonly storage: StorageLike
 
   constructor(storage?: StorageLike) {
-    this.storage = storage ?? (typeof window !== 'undefined' && window.localStorage ? window.localStorage : fallbackStorage)
+    this.storage =
+      storage ??
+      (typeof window !== 'undefined' && window.localStorage ? window.localStorage : memoryStorage())
   }
 
   load(): DemoState {
@@ -27,18 +56,27 @@ export class LocalDemoRepository {
     if (!raw) return createDemoState()
     try {
       const candidate: unknown = JSON.parse(raw)
-      if (!this.isState(candidate)) return createDemoState()
-      return candidate
+      // 结构不合法时回落到种子数据，而不是把损坏的数据喂给页面
+      return isDemoState(candidate) ? candidate : createDemoState()
     } catch {
       return createDemoState()
     }
   }
 
-  save(state: DemoState): void { this.storage.setItem(DEMO_STORAGE_KEY, JSON.stringify(state)) }
-
-  reset(): DemoState { this.storage.removeItem(DEMO_STORAGE_KEY); return createDemoState() }
-
-  private isState(value: unknown): value is DemoState {
-    return typeof value === 'object' && value !== null && (value as { schemaVersion?: unknown }).schemaVersion === 1
+  save(state: DemoState): void {
+    this.storage.setItem(DEMO_STORAGE_KEY, JSON.stringify(state))
   }
+
+  reset(): DemoState {
+    this.storage.removeItem(DEMO_STORAGE_KEY)
+    return createDemoState()
+  }
+}
+
+/** 只认版本号是不够的——旧版本或被手工改坏的数据同样会让页面崩在渲染中途。 */
+export function isDemoState(value: unknown): value is DemoState {
+  if (typeof value !== 'object' || value === null) return false
+  const candidate = value as Record<string, unknown>
+  if (candidate.schemaVersion !== DEMO_SCHEMA_VERSION) return false
+  return REQUIRED_COLLECTIONS.every((key) => Array.isArray(candidate[key]))
 }
