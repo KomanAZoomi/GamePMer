@@ -3,10 +3,18 @@ import type { RouteKey } from '../../app/navigation'
 import { capacityBreakdown, capacityMatrix, weekStartsFrom } from '../../domain/capacity'
 import { checkSchedule, summarizeConflicts } from '../../domain/conflicts'
 import { MILESTONE_LABELS, collectMilestones } from '../../domain/milestones'
+import {
+  EMPTY_FILTER,
+  countStages,
+  filterOptions,
+  matchMilestone,
+  type ScheduleFilter,
+} from '../../domain/scheduleFilter'
 import { EMPTY_CALENDAR, dateRange, monthDayLabel, weekdayLabel } from '../../domain/workCalendar'
 import type { WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { ScheduleCombo } from './ScheduleCombo'
 import { ScheduleEntryDrawer } from './ScheduleEntryDrawer'
+import { ScheduleFilterBar } from './ScheduleFilterBar'
 
 interface SchedulePageProps {
   workspace: WorkspaceState
@@ -30,12 +38,21 @@ export function SchedulePage({ workspace, store, onNavigate }: SchedulePageProps
   const [view, setView] = useState<View>('combo')
   const [entryAssetId, setEntryAssetId] = useState<string | undefined>()
   const [openWeek, setOpenWeek] = useState<{ groupId: string; weekStart: string } | undefined>()
+  const [filter, setFilter] = useState<ScheduleFilter>(EMPTY_FILTER)
 
   const weeks = useMemo(() => weekStartsFrom(today, WEEK_COUNT, -1), [today])
+  // 容量按全量项目计算，不接受筛选参数——筛掉几个项目就显示出空闲会把结论算反
   const matrix = useMemo(() => capacityMatrix(demo, weeks, calendar), [demo, weeks, calendar])
   const conflicts = useMemo(() => checkSchedule(demo, today), [demo, today])
-  const milestones = useMemo(() => collectMilestones(demo, today, 14), [demo, today])
+  const allMilestones = useMemo(() => collectMilestones(demo, today, 14), [demo, today])
+  const milestones = useMemo(
+    () => allMilestones.filter((item) => matchMilestone(item, filter)),
+    [allMilestones, filter],
+  )
   const summary = summarizeConflicts(conflicts)
+  const options = useMemo(() => filterOptions(demo), [demo])
+  const stageCount = useMemo(() => countStages(demo, filter), [demo, filter])
+  const visibleGroups = matrix.filter((row) => !filter.groupId || row.group.id === filter.groupId)
 
   const entry = useMemo(() => {
     if (!entryAssetId) return undefined
@@ -78,12 +95,23 @@ export function SchedulePage({ workspace, store, onNavigate }: SchedulePageProps
         </div>
       </header>
 
+      <ScheduleFilterBar
+        filter={filter}
+        options={options}
+        showMilestoneKind={view === 'milestones'}
+        shown={view === 'milestones' ? milestones.length : stageCount.shown}
+        total={view === 'milestones' ? allMilestones.length : stageCount.total}
+        unit={view === 'milestones' ? '个节点' : '个阶段'}
+        onChange={setFilter}
+      />
+
       <div className="gp-schedule-body">
         <div className="gp-schedule-main">
           {view === 'combo' && (
             <ScheduleCombo
               state={demo}
               today={today}
+              filter={filter}
               onOpenEntry={(assetId) => setEntryAssetId(assetId)}
             />
           )}
@@ -94,7 +122,8 @@ export function SchedulePage({ workspace, store, onNavigate }: SchedulePageProps
                 <h2>
                   团队档期 · 按周
                   <span className="gp-deck-sub">
-                    可用人天 = 每日容量 × 该周工作日数；已排人天按阶段区间内的工作日均摊，跨周自动拆分
+                    可用人天 = 每日容量 × 该周工作日数；已排人天按阶段区间内的工作日均摊，跨周自动拆分。
+                    <b>数字始终按全部项目计算，筛选只决定显示哪几行。</b>
                   </span>
                 </h2>
               </header>
@@ -111,7 +140,7 @@ export function SchedulePage({ workspace, store, onNavigate }: SchedulePageProps
                     </tr>
                   </thead>
                   <tbody>
-                    {matrix.map((row) => (
+                    {visibleGroups.map((row) => (
                       <tr key={row.group.id}>
                         <th scope="row">
                           {row.group.name}

@@ -2,11 +2,13 @@ import { useMemo } from 'react'
 import type { DemoState, IsoDate, StagePlan } from '../../domain/model'
 import { barGeometry, buildTimeAxis, dayCenterPercent, type GanttWindow } from '../../domain/gantt'
 import { weeklyLoad, weekStartsFrom } from '../../domain/capacity'
+import { matchStage, type ScheduleFilter } from '../../domain/scheduleFilter'
 import { EMPTY_CALENDAR, addCalendarDays, calendarDaysBetween, startOfWeek } from '../../domain/workCalendar'
 
 interface ScheduleComboProps {
   state: DemoState
   today: IsoDate
+  filter: ScheduleFilter
   onOpenEntry: (assetId: string) => void
 }
 
@@ -28,7 +30,7 @@ function stageTone(stage: StagePlan): string {
  * 项目甘特已经按资产回答了「这个项目排得怎么样」；
  * 只有把同一个组横跨多个项目的阶段并排放，才看得出「团队装不装得下」。
  */
-export function ScheduleCombo({ state, today, onOpenEntry }: ScheduleComboProps) {
+export function ScheduleCombo({ state, today, filter, onOpenEntry }: ScheduleComboProps) {
   const calendar = state.calendars[0] ?? EMPTY_CALENDAR
 
   const window = useMemo<GanttWindow>(() => {
@@ -46,22 +48,26 @@ export function ScheduleCombo({ state, today, onOpenEntry }: ScheduleComboProps)
 
   const groups = useMemo(
     () =>
-      state.productionGroups.map((group) => {
-        const stages: { stage: StagePlan; projectCode: string; assetId: string }[] = []
-        for (const project of state.projects) {
-          for (const asset of project.assets) {
-            for (const stage of asset.stages) {
-              if (stage.productionGroupId !== group.id) continue
-              if (stage.currentFinish < window.start || stage.currentStart > window.end) continue
-              stages.push({ stage, projectCode: project.code, assetId: asset.id })
+      state.productionGroups
+        .filter((group) => !filter.groupId || group.id === filter.groupId)
+        .map((group) => {
+          const stages: { stage: StagePlan; projectCode: string; assetId: string }[] = []
+          for (const project of state.projects) {
+            for (const asset of project.assets) {
+              for (const stage of asset.stages) {
+                if (stage.productionGroupId !== group.id) continue
+                if (stage.currentFinish < window.start || stage.currentStart > window.end) continue
+                if (!matchStage(stage, project.code, filter)) continue
+                stages.push({ stage, projectCode: project.code, assetId: asset.id })
+              }
             }
           }
-        }
-        stages.sort((a, b) => a.stage.currentStart.localeCompare(b.stage.currentStart))
-        const loads = weeks.map((weekStart) => weeklyLoad(state, group.id, weekStart, calendar))
-        return { group, stages, loads }
-      }),
-    [state, window, weeks, calendar],
+          stages.sort((a, b) => a.stage.currentStart.localeCompare(b.stage.currentStart))
+          // 容量条按全量算：筛掉的阶段照样占着这个组的档期
+          const loads = weeks.map((weekStart) => weeklyLoad(state, group.id, weekStart, calendar))
+          return { group, stages, loads }
+        }),
+    [state, window, weeks, calendar, filter],
   )
 
   const gridWidth = Math.max(window.totalDays * MIN_DAY_WIDTH, 640)
@@ -104,7 +110,7 @@ export function ScheduleCombo({ state, today, onOpenEntry }: ScheduleComboProps)
                 </div>
 
                 {stages.length === 0 ? (
-                  <div className="gp-combo-empty">本窗口内无排期</div>
+                  <div className="gp-combo-empty">本窗口内无符合筛选条件的排期</div>
                 ) : (
                   stages.map(({ stage, projectCode, assetId }) => (
                     <button

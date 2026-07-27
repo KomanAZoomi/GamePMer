@@ -110,6 +110,71 @@ describe('冲突检查', () => {
   })
 })
 
+describe('筛选', () => {
+  it('按制作组筛选后只显示该组，其余组隐藏', async () => {
+    const { user } = await renderSchedule()
+    await user.selectOptions(screen.getByLabelText('按制作组筛选'), 'grp-2d-a')
+
+    const combo = screen.getByLabelText('组合排期')
+    expect(within(combo).getByText(/2D 角色 A 组/)).toBeInTheDocument()
+    expect(within(combo).queryByText(/3D 场景 B 组/)).toBeNull()
+  })
+
+  it('按项目筛选后阶段计数同步更新', async () => {
+    const { user } = await renderSchedule()
+    expect(screen.getByText('显示 32 / 32 个阶段')).toBeInTheDocument()
+
+    await user.selectOptions(screen.getByLabelText('按项目筛选'), 'P-2D-018')
+    expect(screen.getByText('显示 6 / 32 个阶段')).toBeInTheDocument()
+  })
+
+  it('只看有风险时留下带标记的阶段', async () => {
+    const { user } = await renderSchedule()
+    await user.click(screen.getByRole('checkbox', { name: /只看有风险/ }))
+
+    const combo = screen.getByLabelText('组合排期')
+    expect(within(combo).getAllByRole('button', { name: /MECH-01 低模/ }).length).toBe(1)
+    expect(within(combo).queryByRole('button', { name: /MECH-01 烘焙/ })).toBeNull()
+  })
+
+  it('筛掉项目不会让制作组凭空多出空闲——容量始终按全量算', async () => {
+    const { user } = await renderSchedule()
+    await user.click(screen.getByRole('tab', { name: '团队档期' }))
+
+    const before = within(
+      screen.getByRole('button', { name: '3D 角色 A 组 2026-07-27 当周占用明细' }),
+    ).getByText('7 / 7.5')
+    expect(before).toBeInTheDocument()
+
+    // 只看 P-3D-024，但 PROP-03（属 P-3D-031）仍然占着 3D-A 组的档期
+    await user.selectOptions(screen.getByLabelText('按项目筛选'), 'P-3D-024')
+    expect(
+      within(screen.getByRole('button', { name: '3D 角色 A 组 2026-07-27 当周占用明细' })).getByText(
+        '7 / 7.5',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('节点清单可按节点类型筛选', async () => {
+    const { user } = await renderSchedule()
+    await user.click(screen.getByRole('tab', { name: '节点清单' }))
+    await user.selectOptions(screen.getByLabelText('按节点类型筛选'), 'kickoff')
+
+    const list = screen.getByLabelText('节点清单')
+    expect(within(list).getAllByText('计划开工').length).toBeGreaterThan(0)
+    expect(within(list).queryByText('阶段交付')).toBeNull()
+  })
+
+  it('清除筛选恢复全部', async () => {
+    const { user } = await renderSchedule()
+    await user.selectOptions(screen.getByLabelText('按项目筛选'), 'P-2D-018')
+    await user.click(screen.getByRole('button', { name: '清除筛选' }))
+
+    expect(screen.getByText('显示 32 / 32 个阶段')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '清除筛选' })).toBeNull()
+  })
+})
+
 describe('批量录入', () => {
   async function openEntry() {
     const context = await renderSchedule()

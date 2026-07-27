@@ -57,6 +57,16 @@ for (const viewport of VIEWPORTS) {
     await page.screenshot({ path: `${OUT}/${PREFIX}-schedule-milestones-1440.png` })
     console.log(`✓ ${PREFIX}-schedule-milestones-1440.png`)
 
+    // 筛选：只看有风险 + 限定制作组
+    await page.getByRole('tab', { name: '组合排期' }).click()
+    await page.getByLabel('按制作组筛选').selectOption('grp-3d-a')
+    await page.getByRole('checkbox', { name: /只看有风险/ }).check()
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-schedule-filtered-1440.png` })
+    console.log(`✓ ${PREFIX}-schedule-filtered-1440.png`)
+    await page.getByRole('button', { name: '清除筛选' }).click()
+    await page.waitForTimeout(150)
+
     // 批量录入：改出一个阻断态，确认按钮应当被禁用
     await page.getByRole('tab', { name: '组合排期' }).click()
     await page.getByRole('button', { name: /MECH-01 低模/ }).first().click()
