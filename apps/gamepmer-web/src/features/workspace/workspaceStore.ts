@@ -2,8 +2,16 @@ import type { Clock } from '../../domain/clock'
 import { createDemoClock } from '../../domain/clock'
 import type { AxisScale } from '../../domain/gantt'
 import type { StageRow } from '../../domain/conflicts'
-import type { DemoState, RevisionReason } from '../../domain/model'
+import type { DemoState, RevisionReason, ScheduleRevisionDraft } from '../../domain/model'
 import { confirmScheduleEntry as confirmEntry } from '../../domain/scheduleEntry'
+import {
+  classifyInScope,
+  classifyOutOfScope,
+  confirmReplan,
+  generateReplanDraft,
+  moveDraftStage,
+} from '../../domain/replan'
+import { EMPTY_CALENDAR } from '../../domain/workCalendar'
 import { projectWorkItems, summarizeMetrics, type HomeMetrics, type WorkItem } from '../../domain/workItems'
 import { LocalDemoRepository, type DemoRepository } from '../../data/LocalDemoRepository'
 
@@ -21,6 +29,9 @@ export interface WorkspaceState {
   selectedProjectCode: string
   selectedStageId?: string
   axisScale: AxisScale
+  selectedFeedbackItemId?: string
+  /** 排期草案只活在界面状态里，永不落盘——草案不污染正式数据 */
+  draft?: ScheduleRevisionDraft
 }
 
 export interface WorkspaceStore {
@@ -37,6 +48,12 @@ export interface WorkspaceStore {
     reason: RevisionReason,
     note: string,
   ): void
+  selectFeedbackItem(itemId: string): void
+  classifyFeedback(itemId: string, scope: 'in-scope' | 'out-of-scope'): void
+  startReplan(itemId: string): void
+  moveDraft(stageId: string, deltaWorkdays: number): void
+  cancelDraft(): void
+  confirmDraft(note: string): void
   resetDemo(): void
 }
 
@@ -108,6 +125,51 @@ export function createWorkspaceStore(
       if (demo === state.demo) return
       repository.save(demo)
       state = { ...state, demo }
+      emit()
+    },
+    selectFeedbackItem(itemId) {
+      state = { ...state, selectedFeedbackItemId: itemId }
+      emit()
+    },
+    classifyFeedback(itemId, scope) {
+      const demo =
+        scope === 'in-scope'
+          ? classifyInScope(state.demo, itemId, clock.now(), 'Brandon')
+          : classifyOutOfScope(state.demo, itemId, clock.now(), 'Brandon')
+      repository.save(demo)
+      state = { ...state, demo, selectedFeedbackItemId: itemId }
+      emit()
+    },
+    startReplan(itemId) {
+      // 生成草案不写任何正式数据，因此不落盘
+      state = {
+        ...state,
+        selectedFeedbackItemId: itemId,
+        draft: generateReplanDraft(state.demo, itemId, state.today),
+      }
+      emit()
+    },
+    moveDraft(stageId, deltaWorkdays) {
+      if (!state.draft) return
+      const calendar = state.demo.calendars[0] ?? EMPTY_CALENDAR
+      state = { ...state, draft: moveDraftStage(state.draft, stageId, deltaWorkdays, calendar) }
+      emit()
+    },
+    cancelDraft() {
+      // 丢掉草案就是全部撤销：正式计划从来没被碰过
+      state = { ...state, draft: undefined }
+      emit()
+    },
+    confirmDraft(note) {
+      if (!state.draft) return
+      const demo = confirmReplan(state.demo, {
+        draft: state.draft,
+        note,
+        actor: 'Brandon',
+        at: clock.now(),
+      })
+      repository.save(demo)
+      state = { ...state, demo, draft: undefined }
       emit()
     },
     resetDemo() {

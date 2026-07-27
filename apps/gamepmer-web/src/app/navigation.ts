@@ -67,7 +67,7 @@ export const NAV_ITEMS: NavItem[] = [
     summary: '客户反馈拆成资产级反馈项，分流为范围内返修或范围外追加报价。',
     checkpoint: 'C4',
     checkpointLabel: '检查点 C4',
-    ready: false,
+    ready: true,
   },
   {
     key: 'quotation',

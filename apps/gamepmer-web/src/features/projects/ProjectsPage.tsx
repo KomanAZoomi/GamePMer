@@ -119,6 +119,7 @@ export function ProjectsPage({ workspace, store, onNavigate }: ProjectsPageProps
           today={today}
           scale={axisScale}
           selectedStageId={selectedStageId}
+          draft={workspace.draft?.projectCode === project.code ? workspace.draft : undefined}
           onSelectStage={store.selectStage}
           onScaleChange={store.setAxisScale}
         />

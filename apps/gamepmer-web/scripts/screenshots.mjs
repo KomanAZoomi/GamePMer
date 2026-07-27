@@ -83,6 +83,44 @@ for (const viewport of VIEWPORTS) {
     console.log(`✓ ${PREFIX}-schedule-entry-ok-1440.png`)
   }
 
+  // 反馈中心：批次拆分与范围分流
+  await page.goto(`${BASE}/#/feedback`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: `${OUT}/${PREFIX}-feedback-${viewport.name}.png` })
+  console.log(`✓ ${PREFIX}-feedback-${viewport.name}.png`)
+
+  if (viewport.name === '1440') {
+    // 五分钟脚本主路径：判范围内 → 生成草案 → 甘特草案层 → 确认 → 通知草稿
+    await page.getByRole('button', { name: '判为范围内' }).click()
+    await page.getByRole('button', { name: '生成排期草案' }).click()
+    await page.waitForTimeout(250)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-feedback-draft-1440.png` })
+    console.log(`✓ ${PREFIX}-feedback-draft-1440.png`)
+
+    await page.goto(`${BASE}/#/projects`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(250)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-gantt-with-draft-1440.png` })
+    console.log(`✓ ${PREFIX}-gantt-with-draft-1440.png`)
+
+    await page.goto(`${BASE}/#/feedback`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(250)
+    await page.getByRole('button', { name: '确认重排' }).click()
+    await page.waitForTimeout(250)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-feedback-confirmed-1440.png` })
+    console.log(`✓ ${PREFIX}-feedback-confirmed-1440.png`)
+
+    // 范围外路径：创建变更单，只冻结受影响资产
+    await page.getByRole('button', { name: '新增腰部挂件' }).click()
+    await page.getByRole('button', { name: '判为范围外' }).click()
+    await page.waitForTimeout(250)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-feedback-changerequest-1440.png` })
+    console.log(`✓ ${PREFIX}-feedback-changerequest-1440.png`)
+
+    // 恢复示例数据，后续截图回到干净初始态
+    await page.getByRole('button', { name: '恢复示例数据' }).click()
+    await page.waitForTimeout(200)
+  }
+
   if (viewport.name === '1440') {
     await page.goto(`${BASE}/#/projects`, { waitUntil: 'networkidle' })
     await page.waitForTimeout(200)

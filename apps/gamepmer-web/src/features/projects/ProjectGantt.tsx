@@ -1,11 +1,12 @@
 import { useMemo, useRef } from 'react'
-import type { DemoState, IsoDate, Project, StagePlan } from '../../domain/model'
+import type { DemoState, IsoDate, Project, ScheduleRevisionDraft, StagePlan } from '../../domain/model'
 import { stageFlagLabels, stageStatusLabel } from '../../domain/lookup'
 import {
   barGeometry,
   buildTimeAxis,
   dayCenterPercent,
   deriveGanttWindow,
+  extendWindow,
   stageBars,
   type AxisScale,
 } from '../../domain/gantt'
@@ -17,6 +18,8 @@ interface ProjectGanttProps {
   today: IsoDate
   scale: AxisScale
   selectedStageId?: string
+  /** 未确认的重排草案；以第四层斜纹条叠加，与正式计划视觉可区分 */
+  draft?: ScheduleRevisionDraft
   onSelectStage: (stageId: string) => void
   onScaleChange: (scale: AxisScale) => void
 }
@@ -45,13 +48,27 @@ export function ProjectGantt({
   today,
   scale,
   selectedStageId,
+  draft,
   onSelectStage,
   onScaleChange,
 }: ProjectGanttProps) {
   const calendarRef = useRef<HTMLDivElement>(null)
   const calendar = state.calendars.find((item) => item.id === project.calendarId) ?? EMPTY_CALENDAR
 
-  const window = useMemo(() => deriveGanttWindow(project, today), [project, today])
+  const draftByStage = useMemo(
+    () => new Map(draft?.changes.map((change) => [change.stageId, change]) ?? []),
+    [draft],
+  )
+
+  const window = useMemo(() => {
+    const base = deriveGanttWindow(project, today)
+    // 草案会把阶段推到窗口右侧之外，按需扩展边界
+    const latest = draft?.changes.reduce<string | undefined>(
+      (max, change) => (max === undefined || change.newFinish > max ? change.newFinish : max),
+      undefined,
+    )
+    return latest ? extendWindow(base, latest) : base
+  }, [project, today, draft])
   const axis = useMemo(
     () => buildTimeAxis(window, calendar, today, scale),
     [window, calendar, today, scale],
@@ -91,6 +108,12 @@ export function ProjectGantt({
             <i className="gp-mark is-wait" />
             等待客户
           </span>
+          {draft && (
+            <span>
+              <i className="gp-mark is-draft" />
+              未确认草案
+            </span>
+          )}
         </div>
 
         <div className="gp-gantt-actions">
@@ -231,6 +254,22 @@ export function ProjectGantt({
                           </span>
                         )
                       })}
+
+                      {(() => {
+                        const change = draftByStage.get(stage.id)
+                        if (!change) return null
+                        const geometry = barGeometry(window, change.newStart, change.newFinish)
+                        if (!geometry.visible) return null
+                        return (
+                          <span
+                            className="gp-bar is-draft"
+                            style={{ left: `${geometry.left}%`, width: `${geometry.width}%` }}
+                            title={`草案（未确认）｜${dateRange(change.newStart, change.newFinish)}｜较当前 ${change.shiftedWorkdays > 0 ? '+' : ''}${change.shiftedWorkdays} 工作日`}
+                          >
+                            <span className="gp-bar-label">草案</span>
+                          </span>
+                        )
+                      })()}
 
                       {stage.clientApprovedAt && (
                         <span
