@@ -1,7 +1,9 @@
 import type { Clock } from '../../domain/clock'
 import { createDemoClock } from '../../domain/clock'
 import type { AxisScale } from '../../domain/gantt'
-import type { DemoState } from '../../domain/model'
+import type { StageRow } from '../../domain/conflicts'
+import type { DemoState, RevisionReason } from '../../domain/model'
+import { confirmScheduleEntry as confirmEntry } from '../../domain/scheduleEntry'
 import { projectWorkItems, summarizeMetrics, type HomeMetrics, type WorkItem } from '../../domain/workItems'
 import { LocalDemoRepository, type DemoRepository } from '../../data/LocalDemoRepository'
 
@@ -28,6 +30,13 @@ export interface WorkspaceStore {
   selectProject(code: string): void
   selectStage(stageId: string): void
   setAxisScale(scale: AxisScale): void
+  confirmScheduleEntry(
+    projectCode: string,
+    assetId: string,
+    rows: StageRow[],
+    reason: RevisionReason,
+    note: string,
+  ): void
   resetDemo(): void
 }
 
@@ -83,6 +92,22 @@ export function createWorkspaceStore(
     },
     setAxisScale(scale) {
       state = { ...state, axisScale: scale }
+      emit()
+    },
+    confirmScheduleEntry(projectCode, assetId, rows, reason, note) {
+      // 领域层在有阻断时抛错且不产生副作用，这里让它冒泡——静默吞掉会让界面显示虚假的成功
+      const demo = confirmEntry(state.demo, {
+        projectCode,
+        assetId,
+        rows,
+        reason,
+        note,
+        actor: 'Brandon',
+        at: clock.now(),
+      })
+      if (demo === state.demo) return
+      repository.save(demo)
+      state = { ...state, demo }
       emit()
     },
     resetDemo() {

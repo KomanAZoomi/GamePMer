@@ -39,7 +39,43 @@ for (const viewport of VIEWPORTS) {
   await page.screenshot({ path: `${OUT}/${PREFIX}-gantt-${viewport.name}.png` })
   console.log(`✓ ${PREFIX}-gantt-${viewport.name}.png`)
 
+  // 排期管理：组合排期 / 团队档期 / 节点清单
+  await page.goto(`${BASE}/#/schedule`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: `${OUT}/${PREFIX}-schedule-combo-${viewport.name}.png` })
+  console.log(`✓ ${PREFIX}-schedule-combo-${viewport.name}.png`)
+
   if (viewport.name === '1440') {
+    await page.getByRole('tab', { name: '团队档期' }).click()
+    await page.getByRole('button', { name: '3D 角色 A 组 2026-07-27 当周占用明细' }).click()
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-schedule-capacity-1440.png` })
+    console.log(`✓ ${PREFIX}-schedule-capacity-1440.png`)
+
+    await page.getByRole('tab', { name: '节点清单' }).click()
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-schedule-milestones-1440.png` })
+    console.log(`✓ ${PREFIX}-schedule-milestones-1440.png`)
+
+    // 批量录入：改出一个阻断态，确认按钮应当被禁用
+    await page.getByRole('tab', { name: '组合排期' }).click()
+    await page.getByRole('button', { name: /MECH-01 低模/ }).first().click()
+    await page.waitForTimeout(200)
+    const entry = page.getByLabel('批量录入计划')
+    await entry.getByLabel('低模 结束日').fill('2026-07-31')
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-schedule-entry-blocked-1440.png` })
+    console.log(`✓ ${PREFIX}-schedule-entry-blocked-1440.png`)
+
+    await entry.getByRole('button', { name: '顺延后续阶段' }).click()
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-schedule-entry-ok-1440.png` })
+    console.log(`✓ ${PREFIX}-schedule-entry-ok-1440.png`)
+  }
+
+  if (viewport.name === '1440') {
+    await page.goto(`${BASE}/#/projects`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(200)
     // 选中一个已修订的阶段：基准条与当前条并存、偏移原因可见
     await page.getByRole('button', { name: /P-2D-018/ }).click()
     await page.waitForTimeout(150)

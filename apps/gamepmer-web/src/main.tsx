@@ -4,6 +4,7 @@ import './styles/base.css'
 import './styles/shell.css'
 import './styles/home.css'
 import './styles/gantt.css'
+import './styles/schedule.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

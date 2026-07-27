@@ -59,7 +59,7 @@ export const NAV_ITEMS: NavItem[] = [
     summary: '跨项目组合排期、制作组周容量、节点清单与计划录入抽屉。',
     checkpoint: 'C3',
     checkpointLabel: '检查点 C3',
-    ready: false,
+    ready: true,
   },
   {
     key: 'feedback',
