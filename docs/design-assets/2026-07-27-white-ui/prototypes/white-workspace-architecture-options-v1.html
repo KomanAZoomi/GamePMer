@@ -1,0 +1,103 @@
+<style>
+  .intro-note{max-width:920px;margin:0 auto 22px;padding:14px 18px;border:1px solid #dfe6e1;border-radius:12px;background:#f8fbf9;color:#53615a;font-size:14px;line-height:1.65}
+  .architecture-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:22px}
+  .architecture-card{border:1px solid #dfe3df;border-radius:18px;background:#fff;box-shadow:0 12px 34px rgba(31,52,43,.07);overflow:hidden;cursor:pointer;transition:.2s ease}
+  .architecture-card:hover{transform:translateY(-3px);box-shadow:0 18px 44px rgba(31,52,43,.12)}
+  .architecture-card.selected{outline:3px solid #47806a;border-color:#47806a}
+  .choice-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid #edf0ed}
+  .choice-letter{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:#e7f1ec;color:#2f6853;font-weight:800}
+  .recommend{font-size:11px;font-weight:800;color:#fff;background:#47806a;padding:5px 8px;border-radius:999px}
+  .mini-app{height:280px;padding:12px;background:#f4f6f4}
+  .mini-shell{height:100%;display:grid;grid-template-columns:48px 1fr;border:1px solid #dce2de;border-radius:11px;overflow:hidden;background:#fff}
+  .mini-nav{background:#eef2ef;border-right:1px solid #dce2de;padding:11px 7px;display:grid;align-content:start;gap:8px}
+  .nav-dot{height:24px;border-radius:6px;background:#d5ddd8}.nav-dot.active{background:#4d7d69}
+  .mini-main{padding:12px;display:grid;gap:9px;overflow:hidden}
+  .mini-top{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.metric{height:42px;border:1px solid #dce2de;border-radius:7px;background:#fff}.metric.risk{border-left:4px solid #cf7b45}
+  .dashboard-body{display:grid;grid-template-columns:1fr .55fr;gap:8px}.schedule-body{display:grid;grid-template-columns:.32fr 1fr .42fr;gap:8px}.flow-body{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+  .panel{border:1px solid #dce2de;border-radius:8px;background:#fff;padding:7px}.panel-title{height:7px;width:48%;border-radius:9px;background:#9eaaa3;margin-bottom:8px}
+  .line{height:20px;border-radius:5px;background:#edf1ee;margin-top:5px}.line.green{background:#dcebe4;border-left:4px solid #4d7d69}.line.amber{background:#fff0df;border-left:4px solid #d8924f}
+  .gantt{display:grid;gap:6px}.gantt-row{height:22px;border-radius:5px;background:linear-gradient(90deg,#eef1ef 0 22%,#9fbeb0 22% 58%,#eef1ef 58%)}.gantt-row.amber{background:linear-gradient(90deg,#eef1ef 0 36%,#f0bd76 36% 76%,#eef1ef 76%)}
+  .lane{border:1px solid #dce2de;border-radius:8px;background:#fff;padding:6px}.lane .line{height:28px}
+  .card-copy{padding:17px 18px 20px}.card-copy h3{margin:0 0 8px;font-size:17px;color:#26362e}.card-copy p{margin:0;color:#68766f;font-size:13px;line-height:1.6}.card-copy ul{margin:12px 0 0;padding-left:18px;color:#53615a;font-size:12px;line-height:1.7}
+  @media(max-width:1000px){.architecture-grid{grid-template-columns:1fr}.mini-app{height:260px}}
+</style>
+
+<h2>白色 GamePMer：首页应该以什么为中心？</h2>
+<p class="subtitle">参考图的左侧导航、顶部指标、中央主工作区和右侧上下文会保留，但改成适合长时间使用的白色专业工作台。</p>
+
+<div class="intro-note">
+  推荐先采用 A：它能把“今天必须处理什么”与项目全貌放在同一页；进入具体项目后，再切换到 B 的排期工作区。也就是说，A 是首页，B 是项目详情，不必二选一。
+</div>
+
+<div class="architecture-grid">
+  <div class="architecture-card" data-choice="a-dashboard-first" onclick="toggleSelect(this)">
+    <div class="choice-head"><span class="choice-letter">A</span><span class="recommend">推荐：首页</span></div>
+    <div class="mini-app">
+      <div class="mini-shell">
+        <div class="mini-nav"><div class="nav-dot active"></div><div class="nav-dot"></div><div class="nav-dot"></div><div class="nav-dot"></div><div class="nav-dot"></div></div>
+        <div class="mini-main">
+          <div class="mini-top"><div class="metric"></div><div class="metric"></div><div class="metric"></div><div class="metric risk"></div></div>
+          <div class="dashboard-body">
+            <div class="panel"><div class="panel-title"></div><div class="line green"></div><div class="line amber"></div><div class="line"></div><div class="line"></div></div>
+            <div class="panel"><div class="panel-title"></div><div class="line amber"></div><div class="line"></div><div class="line green"></div></div>
+          </div>
+          <div class="panel"><div class="panel-title"></div><div class="gantt-row"></div><div class="gantt-row amber"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-copy">
+      <h3>总览优先</h3>
+      <p>顶部看工作量与风险，中间看今日任务和项目健康，底部看跨项目时间线。</p>
+      <ul><li>最接近你提供的参考图</li><li>适合每天打开后的第一站</li><li>异常和待办最醒目</li></ul>
+    </div>
+  </div>
+
+  <div class="architecture-card" data-choice="b-schedule-first" onclick="toggleSelect(this)">
+    <div class="choice-head"><span class="choice-letter">B</span><span class="recommend">推荐：项目页</span></div>
+    <div class="mini-app">
+      <div class="mini-shell">
+        <div class="mini-nav"><div class="nav-dot active"></div><div class="nav-dot"></div><div class="nav-dot"></div><div class="nav-dot"></div></div>
+        <div class="mini-main">
+          <div class="mini-top"><div class="metric"></div><div class="metric"></div><div class="metric risk"></div><div class="metric"></div></div>
+          <div class="schedule-body">
+            <div class="panel"><div class="panel-title"></div><div class="line green"></div><div class="line"></div><div class="line"></div><div class="line"></div></div>
+            <div class="panel"><div class="panel-title"></div><div class="gantt"><div class="gantt-row"></div><div class="gantt-row amber"></div><div class="gantt-row"></div><div class="gantt-row"></div><div class="gantt-row"></div></div></div>
+            <div class="panel"><div class="panel-title"></div><div class="line amber"></div><div class="line"></div><div class="line green"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-copy">
+      <h3>排期优先</h3>
+      <p>资产树、真实甘特、反馈与修订抽屉固定三栏，是处理具体项目的效率页面。</p>
+      <ul><li>排期节点最清晰</li><li>适合客户反馈导致重排</li><li>不适合作为全部功能的唯一首页</li></ul>
+    </div>
+  </div>
+
+  <div class="architecture-card" data-choice="c-workflow-first" onclick="toggleSelect(this)">
+    <div class="choice-head"><span class="choice-letter">C</span></div>
+    <div class="mini-app">
+      <div class="mini-shell">
+        <div class="mini-nav"><div class="nav-dot active"></div><div class="nav-dot"></div><div class="nav-dot"></div><div class="nav-dot"></div></div>
+        <div class="mini-main">
+          <div class="mini-top"><div class="metric"></div><div class="metric"></div><div class="metric"></div><div class="metric risk"></div></div>
+          <div class="flow-body">
+            <div class="lane"><div class="panel-title"></div><div class="line"></div><div class="line"></div></div>
+            <div class="lane"><div class="panel-title"></div><div class="line amber"></div></div>
+            <div class="lane"><div class="panel-title"></div><div class="line green"></div><div class="line"></div></div>
+            <div class="lane"><div class="panel-title"></div><div class="line amber"></div></div>
+            <div class="lane"><div class="panel-title"></div><div class="line"></div></div>
+          </div>
+          <div class="panel"><div class="panel-title"></div><div class="line green"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card-copy">
+      <h3>流程优先</h3>
+      <p>把收件、报价、制作、反馈、结项做成横向流程看板，突出事项流转。</p>
+      <ul><li>端到端流程非常直观</li><li>适合管理运营事项</li><li>复杂资产排期会被压缩</li></ul>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:22px;text-align:center">点击你认可的方向，然后回到对话告诉我：A、B、C，或者“按推荐组合”。</p>
