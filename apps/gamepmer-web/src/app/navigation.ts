@@ -43,7 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
     summary: '按客户、类型、负责人、当前阶段和健康度查看项目组合，并进入项目详情甘特。',
     checkpoint: 'C2',
     checkpointLabel: '检查点 C2',
-    ready: false,
+    ready: true,
   },
   {
     key: 'inbox',

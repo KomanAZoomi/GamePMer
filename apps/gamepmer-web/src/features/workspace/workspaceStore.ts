@@ -1,5 +1,6 @@
 import type { Clock } from '../../domain/clock'
 import { createDemoClock } from '../../domain/clock'
+import type { AxisScale } from '../../domain/gantt'
 import type { DemoState } from '../../domain/model'
 import { projectWorkItems, summarizeMetrics, type HomeMetrics, type WorkItem } from '../../domain/workItems'
 import { LocalDemoRepository, type DemoRepository } from '../../data/LocalDemoRepository'
@@ -15,25 +16,41 @@ export interface WorkspaceState {
   demo: DemoState
   today: string
   selectedWorkItemId?: string
+  selectedProjectCode: string
+  selectedStageId?: string
+  axisScale: AxisScale
 }
 
 export interface WorkspaceStore {
   getState(): WorkspaceState
   subscribe(listener: () => void): () => void
   selectWorkItem(id: string): void
+  selectProject(code: string): void
+  selectStage(stageId: string): void
+  setAxisScale(scale: AxisScale): void
   resetDemo(): void
+}
+
+const DEFAULT_PROJECT = 'P-3D-024'
+
+function initialState(demo: DemoState, today: string): WorkspaceState {
+  const items = projectWorkItems(demo, today)
+  const first = items[0]
+  return {
+    demo,
+    today,
+    selectedWorkItemId: first?.id,
+    selectedProjectCode: first?.projectCode ?? DEFAULT_PROJECT,
+    selectedStageId: first?.stageId,
+    axisScale: 'day',
+  }
 }
 
 export function createWorkspaceStore(
   repository: DemoRepository = new LocalDemoRepository(),
   clock: Clock = createDemoClock(),
 ): WorkspaceStore {
-  const initial = repository.load()
-  let state: WorkspaceState = {
-    demo: initial,
-    today: clock.today(),
-    selectedWorkItemId: projectWorkItems(initial, clock.today())[0]?.id,
-  }
+  let state = initialState(repository.load(), clock.today())
 
   const listeners = new Set<() => void>()
   const emit = () => listeners.forEach((listener) => listener())
@@ -45,16 +62,31 @@ export function createWorkspaceStore(
       return () => void listeners.delete(listener)
     },
     selectWorkItem(id) {
-      state = { ...state, selectedWorkItemId: id }
+      const item = projectWorkItems(state.demo, state.today).find((entry) => entry.id === id)
+      state = {
+        ...state,
+        selectedWorkItemId: id,
+        // 选中待办同时把甘特定位到它所属的项目和阶段，避免两处上下文脱节
+        selectedProjectCode: item?.projectCode ?? state.selectedProjectCode,
+        selectedStageId: item?.stageId ?? state.selectedStageId,
+      }
+      emit()
+    },
+    selectProject(code) {
+      if (code === state.selectedProjectCode) return
+      state = { ...state, selectedProjectCode: code, selectedStageId: undefined }
+      emit()
+    },
+    selectStage(stageId) {
+      state = { ...state, selectedStageId: stageId }
+      emit()
+    },
+    setAxisScale(scale) {
+      state = { ...state, axisScale: scale }
       emit()
     },
     resetDemo() {
-      const demo = repository.reset()
-      state = {
-        demo,
-        today: clock.today(),
-        selectedWorkItemId: projectWorkItems(demo, clock.today())[0]?.id,
-      }
+      state = initialState(repository.reset(), clock.today())
       emit()
     },
   }

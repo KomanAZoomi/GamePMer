@@ -33,6 +33,25 @@ for (const viewport of VIEWPORTS) {
   await page.screenshot({ path: `${OUT}/${PREFIX}-home-${viewport.name}.png` })
   console.log(`✓ ${PREFIX}-home-${viewport.name}.png`)
 
+  // 项目详情与甘特
+  await page.goto(`${BASE}/#/projects`, { waitUntil: 'networkidle' })
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: `${OUT}/${PREFIX}-gantt-${viewport.name}.png` })
+  console.log(`✓ ${PREFIX}-gantt-${viewport.name}.png`)
+
+  if (viewport.name === '1440') {
+    // 选中一个已修订的阶段：基准条与当前条并存、偏移原因可见
+    await page.getByRole('button', { name: /P-2D-018/ }).click()
+    await page.waitForTimeout(150)
+    await page.getByRole('button', { name: /完成稿.*Yuki/ }).click()
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-gantt-revised-stage-1440.png` })
+    console.log(`✓ ${PREFIX}-gantt-revised-stage-1440.png`)
+
+    await page.goto(`${BASE}/#/tasks`, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(200)
+  }
+
   if (viewport.name === '1440') {
     // 选中一条客户反馈待办：右侧应出现原始证据、AI 依据和「建议未执行」
     await page.getByRole('button', { name: /新增腰部挂件/ }).click()

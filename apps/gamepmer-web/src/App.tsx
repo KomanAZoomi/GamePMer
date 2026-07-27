@@ -4,6 +4,7 @@ import { findNavItem } from './app/navigation'
 import { useHashRoute } from './app/useHashRoute'
 import { HomePage } from './features/home/HomePage'
 import { PlaceholderPage } from './features/placeholder/PlaceholderPage'
+import { ProjectsPage } from './features/projects/ProjectsPage'
 import { createWorkspaceStore, selectHomeView, type WorkspaceStore } from './features/workspace/workspaceStore'
 
 const defaultStore = createWorkspaceStore()
@@ -28,16 +29,18 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
       pendingMails={pendingMails}
       onResetDemo={store.resetDemo}
     >
-      {route === 'tasks' ? (
+      {route === 'tasks' && (
         <HomePage
           workspace={workspace}
           view={view}
           onSelect={store.selectWorkItem}
           onNavigate={navigate}
         />
-      ) : (
-        <PlaceholderPage item={navItem} />
       )}
+      {route === 'projects' && (
+        <ProjectsPage workspace={workspace} store={store} onNavigate={navigate} />
+      )}
+      {route !== 'tasks' && route !== 'projects' && <PlaceholderPage item={navItem} />}
     </AppShell>
   )
 }
