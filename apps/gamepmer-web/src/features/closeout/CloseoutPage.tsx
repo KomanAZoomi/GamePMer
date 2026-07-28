@@ -11,6 +11,7 @@ import {
   gateBlockingIssues,
   gateState,
 } from '../../domain/closeout'
+import { PATH_KIND_LABEL, pathsOf } from '../../domain/projectPaths'
 import { QUOTE_KIND_LABEL, quoteTotals } from '../../domain/quotation'
 import type { CloseoutGateCode, EvidenceKind, EvidenceRef } from '../../domain/model'
 import { NotificationList } from '../feedback/NotificationList'
@@ -68,7 +69,7 @@ export function CloseoutPage({ workspace, store, onNavigate }: CloseoutPageProps
       <div className="gp-placeholder">
         <div className="gp-card gp-placeholder-card">
           <h1>结项中心</h1>
-          <p>当前没有结项案件。恢复示例数据后可查看 P-3D-011 的主路径。</p>
+          <p>当前没有结项案件。恢复示例数据后可查看 AUR_A_3D_B11 的主路径。</p>
         </div>
       </div>
     )
@@ -289,7 +290,7 @@ export function CloseoutPage({ workspace, store, onNavigate }: CloseoutPageProps
                     <input
                       className="gp-input"
                       aria-label="邮件主题或路径"
-                      placeholder="如 RE: P-3D-011 备份完成"
+                      placeholder="如 RE: AUR_A_3D_B11 备份完成"
                       value={locator}
                       onChange={(event) => setLocator(event.target.value)}
                     />
@@ -367,16 +368,24 @@ export function CloseoutPage({ workspace, store, onNavigate }: CloseoutPageProps
           <div className="gp-path-index">
             <div className="gp-path-head">
               <span>路径索引</span>
-              <span>工作台只登记路径，不复制、不移动、不删除任何真实文件</span>
+              <span>登记在「文件与归档」，工作台不复制、不移动、不删除任何真实文件</span>
             </div>
             <ul>
-              {selected.paths.map((path) => (
+              {/* 路径读「文件与归档」登记的那一份，这里不另存一套 */}
+              {pathsOf(demo, selected.projectCode).map((path) => (
                 <li key={path.id}>
-                  <strong>{path.label}</strong>
+                  <strong>{PATH_KIND_LABEL[path.kind]}</strong>
                   <span className="gp-path">{path.path}</span>
-                  <em>{path.verifiedAt ? `已核对 ${path.verifiedAt.slice(0, 10)}` : '未核对'}</em>
+                  <em>{path.updatedAt.slice(0, 10)} 由 {path.updatedBy} 登记</em>
                 </li>
               ))}
+              {pathsOf(demo, selected.projectCode).length === 0 && (
+                <li>
+                  <strong>还没登记路径</strong>
+                  <span className="gp-path">去「文件与归档」登记这个批次的盘位</span>
+                  <em>—</em>
+                </li>
+              )}
             </ul>
           </div>
         </section>

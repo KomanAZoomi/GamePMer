@@ -28,7 +28,7 @@ describe('generateReplanDraft', () => {
     const stage = state.projects[0].assets[0].stages[2]
     expect(stage.currentStart).toBe('2026-07-27')
     expect(stage.currentFinish).toBe('2026-07-29')
-    expect(state.revisions.filter((item) => item.projectCode === 'P-3D-024')).toHaveLength(0)
+    expect(state.revisions.filter((item) => item.projectCode === 'NST_A_3D_B24')).toHaveLength(0)
   })
 
   it('返修阶段与其后未验收阶段都在受影响范围内', () => {
@@ -212,7 +212,7 @@ describe('confirmReplan', () => {
   })
 
   it('生成新的修订版本并关联来源反馈', () => {
-    const revision = next.revisions.find((item) => item.projectCode === 'P-3D-024')
+    const revision = next.revisions.find((item) => item.projectCode === 'NST_A_3D_B24')
     expect(revision?.version).toBe(1)
     expect(revision?.sourceFeedbackItemId).toBe(ITEM)
     expect(revision?.reason).toBe('client-feedback')
@@ -278,7 +278,7 @@ describe('范围分流', () => {
     expect(item?.scope).toBe('in-scope')
     expect(item?.status).toBe('Confirmed')
     expect(next.projects[0].assets[0].stages[2].currentStart).toBe('2026-07-27')
-    expect(next.revisions.filter((entry) => entry.projectCode === 'P-3D-024')).toHaveLength(0)
+    expect(next.revisions.filter((entry) => entry.projectCode === 'NST_A_3D_B24')).toHaveLength(0)
   })
 
   it('判为范围外创建变更单并冻结受影响阶段', () => {

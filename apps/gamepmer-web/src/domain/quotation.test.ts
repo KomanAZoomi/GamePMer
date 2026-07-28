@@ -427,7 +427,7 @@ describe('原报价永不覆盖', () => {
     })
     const started = sendKickoff(approved, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })
 
-    const initial = started.quoteCases.find((c) => c.projectCode === 'P-3D-024' && c.kind === 'initial')!
+    const initial = started.quoteCases.find((c) => c.projectCode === 'NST_A_3D_B24' && c.kind === 'initial')!
     const initialAmount = quoteTotals(activeVersion(started, initial.id)!).amount
     const changeAmount = quoteTotals(activeVersion(started, 'CQ-004')!).amount
 

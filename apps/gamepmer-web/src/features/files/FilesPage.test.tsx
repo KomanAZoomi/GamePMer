@@ -9,8 +9,7 @@ import { createWorkspaceStore, type WorkspaceStore } from '../workspace/workspac
 /**
  * 文件与归档的界面契约。
  *
- * 最重要的一条：**原文件名永不改写**。命名不规范的文件保留原名进待关联队列，
- * 关联只写索引里的对应关系——盘上的东西一个字符都不动。
+ * 三条：路径只挂批次不挂阶段、手工填写并保存、删除只删索引不动盘上的文件。
  */
 
 function memoryStorage() {
@@ -36,160 +35,174 @@ async function goto(user: ReturnType<typeof userEvent.setup>) {
   await user.click(within(nav).getByRole('button', { name: /文件与归档/ }))
 }
 
-const entryOf = (id: string) => store.getState().demo.fileIndex.find((e) => e.id === id)!
+const pathOf = (code: string, kind: string) =>
+  store.getState().demo.projectPaths.find((e) => e.projectCode === code && e.kind === kind)
 
 beforeEach(() => {
   window.location.hash = ''
 })
 
 describe('首次打开就有密度', () => {
-  it('盘位、文件表、详情与归档批次同屏可见', async () => {
+  it('批次列表、路径登记表与编号解析同屏可见', async () => {
     const { user } = renderFiles()
     await goto(user)
 
-    expect(screen.getByLabelText('盘位')).toBeInTheDocument()
-    expect(screen.getByLabelText('文件索引')).toBeInTheDocument()
-    expect(screen.getByLabelText('文件详情')).toBeInTheDocument()
-    expect(screen.getByLabelText('归档与备份')).toBeInTheDocument()
+    expect(screen.getByLabelText('批次')).toBeInTheDocument()
+    expect(screen.getByLabelText('路径登记')).toBeInTheDocument()
+    expect(screen.getByLabelText('批次详情')).toBeInTheDocument()
+    expect(screen.getByLabelText('盘位路径')).toBeInTheDocument()
   })
 
-  it('边界说明常驻页头，不藏在角落', async () => {
+  it('边界说明写明路径只挂批次、工作台不搬文件', async () => {
     const { user } = renderFiles()
     await goto(user)
-    expect(screen.getByText(/不复制、不移动、不删除、不改名/)).toBeInTheDocument()
-    expect(screen.getByText('资产名_阶段名_YYYYMMDD_rNN')).toBeInTheDocument()
+
+    expect(screen.getByText(/只挂在批次上，不挂到阶段/)).toBeInTheDocument()
+    expect(screen.getByText(/不复制、不移动、不删除/)).toBeInTheDocument()
   })
 
-  it('待确认与无法解析分成两个指标——要采取的动作不同', async () => {
-    const { user } = renderFiles()
-    await goto(user)
-    // 指标卡里各一个；表格里的状态胶囊也叫「待确认」，所以只断言指标区
-    const metrics = document.querySelector('.gp-metrics')!
-    expect(within(metrics as HTMLElement).getByText('待确认')).toBeInTheDocument()
-    expect(within(metrics as HTMLElement).getByText('无法解析')).toBeInTheDocument()
-  })
-})
-
-describe('命名解析逐段可见', () => {
-  it('规范命名分四段标出来', async () => {
+  it('六个盘位都列出来，没登记的也占一行', async () => {
     const { user } = renderFiles()
     await goto(user)
 
-    const table = screen.getByLabelText('文件索引')
-    // 文件名被拆成四个分色段，每段单独成元素
-    expect(within(table).getAllByText('MECH-01').length).toBeGreaterThan(0)
-    expect(within(table).getAllByText('低模').length).toBeGreaterThan(0)
-    expect(within(table).getAllByText('r02').length).toBeGreaterThan(0)
-  })
-
-  it('缺版本号的文件标出「缺版本」，并说明原因', async () => {
-    const { user } = renderFiles()
-    await goto(user)
-
-    const table = screen.getByLabelText('文件索引')
-    await user.click(within(table).getByText('MECH-02_高模_20260727.max'.split('_')[0], { selector: '.gp-seg.is-asset' }))
-
-    const detail = screen.getByLabelText('文件详情')
-    expect(within(detail).getByText(/缺版本号，按 r01 待确认/)).toBeInTheDocument()
-  })
-
-  it('完全不规范的文件原样显示，四个字段都写「未识别」', async () => {
-    const { user } = renderFiles()
-    await goto(user)
-
-    const table = screen.getByLabelText('文件索引')
-    await user.click(within(table).getByText('机甲主角_最终版本_改过的_v3_ok.fbx'))
-
-    const detail = screen.getByLabelText('文件详情')
-    expect(within(detail).getAllByText('未识别')).toHaveLength(4)
-    expect(within(detail).getByText(/原文件名已保留/)).toBeInTheDocument()
+    const table = screen.getByLabelText('盘位路径')
+    for (const label of ['反馈盘', '制作盘', '提交盘', '最终包', '参考资料']) {
+      expect(within(table).getByText(label)).toBeInTheDocument()
+    }
+    expect(within(table).getAllByText('还没登记').length).toBeGreaterThan(0)
   })
 })
 
-describe('手工关联不改原名', () => {
-  it('关联之后盘上的文件名一个字符都没变', async () => {
+describe('批次编号解析', () => {
+  it('四段拆开显示', async () => {
     const { user } = renderFiles()
     await goto(user)
 
-    const table = screen.getByLabelText('文件索引')
-    await user.click(within(table).getByText('机甲主角_最终版本_改过的_v3_ok.fbx'))
-    const before = entryOf('FI-0004').fileName
-
-    const detail = screen.getByLabelText('文件详情')
-    await user.selectOptions(within(detail).getByLabelText('关联到阶段'), 'MECH-01/3D_LOW')
-    await user.click(within(detail).getByRole('button', { name: '确认关联' }))
-
-    expect(entryOf('FI-0004').fileName).toBe(before)
-    expect(entryOf('FI-0004').linkedStageId).toBe('MECH-01/3D_LOW')
-    expect(screen.getByLabelText('文件详情')).toHaveTextContent('已关联')
-  })
-
-  it('没选阶段时确认键禁用', async () => {
-    const { user } = renderFiles()
-    await goto(user)
-    const table = screen.getByLabelText('文件索引')
-    await user.click(within(table).getByText('机甲主角_最终版本_改过的_v3_ok.fbx'))
-
-    const detail = screen.getByLabelText('文件详情')
-    expect(within(detail).getByRole('button', { name: /确认关联（未选阶段）/ })).toBeDisabled()
-  })
-
-  it('解析得出的文件预选建议阶段，并说明依据', async () => {
-    const { user } = renderFiles()
-    await goto(user)
-    const table = screen.getByLabelText('文件索引')
-    await user.click(within(table).getByText('MECH-02', { selector: '.gp-seg.is-asset' }))
-
-    const detail = screen.getByLabelText('文件详情')
-    expect(within(detail).getByLabelText('关联到阶段')).toHaveValue('MECH-02/3D_HIGH')
-    expect(within(detail).getByText(/与 P-3D-024 的正式排期匹配/)).toBeInTheDocument()
-  })
-
-  it('忽略要写原因，且不是删除——能退回', async () => {
-    const { user } = renderFiles()
-    await goto(user)
-    const table = screen.getByLabelText('文件索引')
-    await user.click(within(table).getByText('机甲主角_最终版本_改过的_v3_ok.fbx'))
-
-    const detail = screen.getByLabelText('文件详情')
-    expect(within(detail).getByRole('button', { name: '标记为无关文件' })).toBeDisabled()
-
-    await user.type(within(detail).getByLabelText('忽略原因'), '临时目录下的过程文件')
-    await user.click(within(detail).getByRole('button', { name: '标记为无关文件' }))
-    expect(entryOf('FI-0004').status).toBe('ignored')
-    expect(entryOf('FI-0004').fileName).toBe('机甲主角_最终版本_改过的_v3_ok.fbx')
-
-    await user.click(screen.getByRole('button', { name: '退回待关联' }))
-    expect(entryOf('FI-0004').status).toBe('unresolved')
+    const detail = screen.getByLabelText('批次详情')
+    expect(within(detail).getByText('NST')).toBeInTheDocument()
+    expect(within(detail).getByText('3D')).toBeInTheDocument()
+    expect(within(detail).getByText('B24')).toBeInTheDocument()
   })
 })
 
-describe('盘位筛选', () => {
-  it('点盘位只筛显示，不改任何数据', async () => {
+describe('手工填写并保存', () => {
+  it('登记一条没填过的路径', async () => {
     const { user } = renderFiles()
     await goto(user)
-    const before = JSON.stringify(store.getState().demo.fileIndex)
+    expect(pathOf('NST_A_3D_B24', 'final')).toBeUndefined()
 
-    await user.click(within(screen.getByLabelText('盘位')).getByText('反馈盘'))
-    expect(JSON.stringify(store.getState().demo.fileIndex)).toBe(before)
-    expect(screen.getByLabelText('文件索引')).toHaveTextContent('反馈盘 · 文件索引')
+    const table = screen.getByLabelText('盘位路径')
+    const finalRow = within(table).getByText('最终包').closest('tr')!
+    await user.click(within(finalRow).getByRole('button', { name: '登记路径' }))
+
+    await user.type(
+      within(finalRow).getByLabelText('最终包 路径'),
+      '\\\\NAS-ART\\Final\\NST_A_3D_B24\\v1',
+    )
+    await user.click(within(finalRow).getByRole('button', { name: '保存' }))
+
+    expect(pathOf('NST_A_3D_B24', 'final')?.path).toBe('\\\\NAS-ART\\Final\\NST_A_3D_B24\\v1')
+  })
+
+  it('路径不合法时保存被阻断，并说清怎么填', async () => {
+    const { user } = renderFiles()
+    await goto(user)
+
+    const table = screen.getByLabelText('盘位路径')
+    const finalRow = within(table).getByText('最终包').closest('tr')!
+    await user.click(within(finalRow).getByRole('button', { name: '登记路径' }))
+    await user.type(within(finalRow).getByLabelText('最终包 路径'), 'Final/NST')
+
+    expect(within(finalRow).getByText(/UNC/)).toBeInTheDocument()
+    expect(within(finalRow).getByRole('button', { name: '保存' })).toBeDisabled()
+  })
+
+  it('提供按约定填入，但只是建议，不自动保存', async () => {
+    const { user } = renderFiles()
+    await goto(user)
+
+    const table = screen.getByLabelText('盘位路径')
+    const finalRow = within(table).getByText('最终包').closest('tr')!
+    await user.click(within(finalRow).getByRole('button', { name: '登记路径' }))
+    await user.click(within(finalRow).getByRole('button', { name: /按约定填入/ }))
+
+    expect(within(finalRow).getByLabelText('最终包 路径')).toHaveValue(
+      '\\\\NAS-ART\\Final\\NST_A_3D_B24',
+    )
+    // 点了填入还没保存
+    expect(pathOf('NST_A_3D_B24', 'final')).toBeUndefined()
+  })
+
+  it('修改已登记的路径是覆盖，不产生第二条', async () => {
+    const { user } = renderFiles()
+    await goto(user)
+
+    const table = screen.getByLabelText('盘位路径')
+    const row = within(table).getByText('反馈盘').closest('tr')!
+    await user.click(within(row).getByRole('button', { name: '修改' }))
+
+    const input = within(row).getByLabelText('反馈盘 路径')
+    await user.clear(input)
+    await user.type(input, '\\\\NAS2\\Feedback\\NST_A_3D_B24')
+    await user.click(within(row).getByRole('button', { name: '保存' }))
+
+    const all = store
+      .getState()
+      .demo.projectPaths.filter((e) => e.projectCode === 'NST_A_3D_B24' && e.kind === 'feedback')
+    expect(all).toHaveLength(1)
+    expect(all[0].path).toBe('\\\\NAS2\\Feedback\\NST_A_3D_B24')
   })
 })
 
-describe('归档批次直接读结项案件', () => {
-  it('三个结项案件的路径与状态都在，并能跳到结项中心', async () => {
+describe('复制与删除', () => {
+  it('已登记的路径给复制按钮，而不是一个打不开的链接', async () => {
     const { user } = renderFiles()
     await goto(user)
 
-    const archive = screen.getByLabelText('归档与备份')
-    expect(within(archive).getAllByText(/P-3D-011/).length).toBeGreaterThan(0)
-    expect(within(archive).getByText(/等待 IT 备份回执/)).toBeInTheDocument()
-    expect(within(archive).getAllByRole('button', { name: /去结项中心处理/ }).length).toBe(3)
+    const table = screen.getByLabelText('盘位路径')
+    const row = within(table).getByText('反馈盘').closest('tr')!
+    expect(within(row).getByRole('button', { name: '复制路径' })).toBeEnabled()
+    // 不给 <a href="file://">——浏览器打不开，那就是个假控件
+    expect(within(row).queryByRole('link')).toBeNull()
   })
 
-  it('明说真实剪切备份由 IT 执行', async () => {
+  it('说明为什么是复制而不是直接打开', async () => {
     const { user } = renderFiles()
     await goto(user)
-    expect(screen.getByText(/真实的剪切、备份和权限处理由 IT 执行/)).toBeInTheDocument()
+    expect(screen.getByText(/浏览器出于安全限制/)).toBeInTheDocument()
+    expect(screen.getByText(/盘上的文件不受任何影响/)).toBeInTheDocument()
+  })
+
+  it('删除登记只删索引', async () => {
+    const { user } = renderFiles()
+    await goto(user)
+
+    const table = screen.getByLabelText('盘位路径')
+    const row = within(table).getByText('参考资料').closest('tr')!
+    await user.click(within(row).getByRole('button', { name: '删除登记' }))
+
+    expect(pathOf('NST_A_3D_B24', 'reference')).toBeUndefined()
+    // 项目本身一动没动
+    expect(store.getState().demo.projects.find((p) => p.code === 'NST_A_3D_B24')).toBeTruthy()
+  })
+})
+
+describe('批次切换', () => {
+  it('切到只登记了一半的批次，右侧列出还差哪几个', async () => {
+    const { user } = renderFiles()
+    await goto(user)
+    await user.click(within(screen.getByLabelText('批次')).getByText('NPC 服装套装'))
+
+    const detail = screen.getByLabelText('批次详情')
+    expect(within(detail).getByText(/还差 4 个盘位没登记/)).toBeInTheDocument()
+    expect(within(detail).getByText('最终包')).toBeInTheDocument()
+  })
+
+  it('还没建项但已报价的批次也能先占盘', async () => {
+    const { user } = renderFiles()
+    await goto(user)
+
+    const list = screen.getByLabelText('批次')
+    expect(within(list).getAllByText('尚未建项（报价中）').length).toBeGreaterThan(0)
   })
 })

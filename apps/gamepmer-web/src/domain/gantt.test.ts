@@ -132,7 +132,7 @@ describe('stageBars', () => {
 
 describe('deriveGanttWindow', () => {
   const state = createDemoState()
-  const project = state.projects.find((item) => item.code === 'P-3D-024')!
+  const project = state.projects.find((item) => item.code === 'NST_A_3D_B24')!
 
   it('窗口覆盖项目全部阶段，并从周一开始', () => {
     const derived = deriveGanttWindow(project, DEMO_TODAY)

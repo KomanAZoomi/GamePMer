@@ -61,7 +61,7 @@ describe('候选去重', () => {
 
   it('换渠道重发同一段内容仍然算重复——同一条消息不该确认两次', () => {
     const state = createDemoState()
-    const text = 'MECH-02 高模已完成，路径 \\\\NAS-ART\\Production\\P-3D-024\\MECH-02'
+    const text = 'MECH-02 高模已完成，路径 \\\\NAS-ART\\Production\\NST_A_3D_B24\\MECH-02'
     const first = ingestText(state, { text, channel: 'paste', now: NOW, actor: ACTOR })
     const second = ingestText(first.state, { text, channel: 'email', now: NOW, actor: ACTOR })
     expect(second.candidate.status).toBe('Duplicate')
@@ -117,7 +117,7 @@ describe('确认事务', () => {
 
     expect(next.state.feedbackBatches.length).toBe(before + 1)
     const created = next.state.feedbackBatches.at(-1)!
-    expect(created.projectCode).toBe('P-3D-024')
+    expect(created.projectCode).toBe('NST_A_3D_B24')
     expect(created.items.length).toBeGreaterThan(0)
     // 新建的反馈项一律待分流——确认候选不代表已经判定范围内外
     expect(created.items.every((item) => item.scope === 'unclassified')).toBe(true)
@@ -228,14 +228,14 @@ describe('零审批导入', () => {
   it('粘贴文本能提取出项目号与资产名，并保留原文', () => {
     const state = createDemoState()
     const { state: next, candidate } = ingestText(state, {
-      text: '【P-3D-031】PROP-07 贴图已完成，请查收 \\\\NAS-ART\\Production\\P-3D-031\\PROP-07',
+      text: '【NST_C_3D_B31】PROP-07 贴图已完成，请查收 \\\\NAS-ART\\Production\\NST_C_3D_B31\\PROP-07',
       channel: 'paste',
       now: NOW,
       actor: ACTOR,
     })
 
     const project = candidate.fields.find((f) => f.key === 'projectCode')
-    expect(project?.value).toBe('P-3D-031')
+    expect(project?.value).toBe('NST_C_3D_B31')
     const asset = candidate.fields.find((f) => f.key === 'assetId')
     expect(asset?.value).toBe('PROP-07')
 
@@ -260,7 +260,7 @@ describe('零审批导入', () => {
     const state = createDemoState()
     const fingerprint = formalFingerprint(state)
     const { state: next } = ingestText(state, {
-      text: '【P-3D-024】MECH-01 低模返修完成',
+      text: '【NST_A_3D_B24】MECH-01 低模返修完成',
       channel: 'paste',
       now: NOW,
       actor: ACTOR,

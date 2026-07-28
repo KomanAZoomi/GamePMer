@@ -131,7 +131,7 @@ test('总监报价中的案件能录入报价并往下流转', async ({ page }) 
   await page.getByRole('button', { name: '录入总监报价' }).click()
 
   const drawer = page.getByLabel('录入报价')
-  await expect(drawer.getByText(/P-2D-020 还不是正式项目/)).toBeVisible()
+  await expect(drawer.getByText(/HLC_C_2D_B20 还不是正式项目/)).toBeVisible()
   await drawer.getByRole('button', { name: '按 2D 模板生成' }).click()
 
   // 只填模板不填人天/节点时提交被阻断，并逐行说明

@@ -326,7 +326,7 @@ describe('总监录入报价——每个状态都要能往下走', () => {
     await user.click(screen.getByRole('button', { name: '录入总监报价' }))
 
     const drawer = screen.getByLabelText('录入报价')
-    expect(within(drawer).getByText(/P-2D-020 还不是正式项目/)).toBeInTheDocument()
+    expect(within(drawer).getByText(/HLC_C_2D_B20 还不是正式项目/)).toBeInTheDocument()
     // 资产是自由文本，不是下拉——库里根本没有可选项
     await user.click(within(drawer).getByRole('button', { name: '按 2D 模板生成' }))
     expect(within(drawer).getAllByLabelText(/资产$/)[0].tagName).toBe('INPUT')

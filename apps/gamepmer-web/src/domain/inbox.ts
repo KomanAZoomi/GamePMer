@@ -1,3 +1,4 @@
+import { findBatchCode } from './batchCode'
 import type {
   AuditEvent,
   CandidateField,
@@ -190,8 +191,8 @@ function excerpt(text: string, needle: string): string | undefined {
  * 每个字段都带置信度和原文片段，识别不出来就是 `undefined`，不许拿默认值糊弄。
  */
 export function extractFields(state: DemoState, text: string): CandidateField[] {
-  const projectMatch = text.match(/P-(?:2D|3D)-\d{3}/)
-  const projectCode = projectMatch?.[0]
+  // 编号规则与 batchCode.ts 共用一份，两处不能各写各的正则
+  const projectCode = findBatchCode(text)
   const knownProject = state.projects.find((project) => project.code === projectCode)
 
   const assetMatch = text.match(/\b[A-Z]{3,6}-\d{2,3}\b/)

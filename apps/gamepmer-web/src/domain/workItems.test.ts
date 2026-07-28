@@ -53,7 +53,7 @@ describe('projectWorkItems', () => {
 
   it('全部验收且处于结项中的项目进入结项与备份', () => {
     const item = items.find((entry) => entry.group === '结项与备份')
-    expect(item?.projectCode).toBe('P-3D-011')
+    expect(item?.projectCode).toBe('AUR_A_3D_B11')
     expect(item?.reason).toContain('最终包')
   })
 

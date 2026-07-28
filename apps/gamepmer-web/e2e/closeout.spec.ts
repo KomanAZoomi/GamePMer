@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test'
 /**
  * 结项、IT 备份与 BD 出账端到端。
  *
- * 主路径：P-3D-011 已完成全部验收、最终包与客户确认，卡在 IT 备份回执。
+ * 主路径：AUR_A_3D_B11 已完成全部验收、最终包与客户确认，卡在 IT 备份回执。
  * 登记回执 → 解锁出账 → 生成通知草稿 → 收到回执后归档。
  */
 
@@ -33,7 +33,7 @@ test('门禁不能跳步：点被挡住的那一步只看到原因', async ({ pa
 
 test('资产没验收完的项目卡在第一道门禁，并说清还差几个', async ({ page }) => {
   await page.goto('/#/closeout')
-  await page.getByLabel('结项项目').getByText(/P-3D-024/).click()
+  await page.getByLabel('结项项目').getByText(/NST_A_3D_B24/).click()
 
   const main = page.getByLabel('结项门禁')
   await expect(main.getByText(/还差 \d+ 个阶段/)).toBeVisible()
@@ -58,12 +58,12 @@ test('登记 IT 回执 → 解锁出账 → 生成草稿 → 归档', async ({ p
   // 出账资料此刻还差 IT 回执
   await expect(page.getByLabel('出账资料包').getByText(/缺 IT 备份完成回执/)).toBeVisible()
 
-  await main.getByLabel('邮件主题或路径').fill('RE: P-3D-011 备份完成')
+  await main.getByLabel('邮件主题或路径').fill('RE: AUR_A_3D_B11 备份完成')
   await main.getByRole('button', { name: /完成「IT 剪切备份」/ }).click()
 
   await expect(page.getByLabel('出账资料包').getByText('资料齐全')).toBeVisible()
 
-  await page.getByLabel('结项门禁').getByLabel('邮件主题或路径').fill('【可出账】P-3D-011')
+  await page.getByLabel('结项门禁').getByLabel('邮件主题或路径').fill('【可出账】AUR_A_3D_B11')
   await page.getByLabel('结项门禁').getByRole('button', { name: /完成「通知 BD 出账」/ }).click()
 
   // 只到草稿，界面上不出现「已发送」
@@ -96,7 +96,7 @@ test('路径索引明说工作台不搬文件', async ({ page }) => {
   const main = page.getByLabel('结项门禁')
 
   await expect(main.getByText(/不复制、不移动、不删除任何真实文件/)).toBeVisible()
-  await expect(main.getByText(/ARCHIVE.2026.P-3D-011/)).toBeVisible()
+  await expect(main.getByText(/ARCHIVE.2026.AUR_A_3D_B11/)).toBeVisible()
   await expect(main.getByText(/工作台不执行剪切备份/)).toBeVisible()
 })
 

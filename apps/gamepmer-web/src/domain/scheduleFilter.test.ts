@@ -18,37 +18,37 @@ const mech01Low = state.projects[0].assets[0].stages[2]
 
 describe('matchStage', () => {
   it('空筛选放行全部', () => {
-    expect(matchStage(mech01Low, 'P-3D-024', EMPTY_FILTER)).toBe(true)
+    expect(matchStage(mech01Low, 'NST_A_3D_B24', EMPTY_FILTER)).toBe(true)
   })
 
   it('按项目筛选', () => {
-    expect(matchStage(mech01Low, 'P-3D-024', { ...EMPTY_FILTER, projectCode: 'P-3D-024' })).toBe(true)
-    expect(matchStage(mech01Low, 'P-3D-024', { ...EMPTY_FILTER, projectCode: 'P-2D-018' })).toBe(false)
+    expect(matchStage(mech01Low, 'NST_A_3D_B24', { ...EMPTY_FILTER, projectCode: 'NST_A_3D_B24' })).toBe(true)
+    expect(matchStage(mech01Low, 'NST_A_3D_B24', { ...EMPTY_FILTER, projectCode: 'HLC_B_2D_B18' })).toBe(false)
   })
 
   it('按制作组筛选', () => {
-    expect(matchStage(mech01Low, 'P-3D-024', { ...EMPTY_FILTER, groupId: 'grp-3d-a' })).toBe(true)
-    expect(matchStage(mech01Low, 'P-3D-024', { ...EMPTY_FILTER, groupId: 'grp-3d-b' })).toBe(false)
+    expect(matchStage(mech01Low, 'NST_A_3D_B24', { ...EMPTY_FILTER, groupId: 'grp-3d-a' })).toBe(true)
+    expect(matchStage(mech01Low, 'NST_A_3D_B24', { ...EMPTY_FILTER, groupId: 'grp-3d-b' })).toBe(false)
   })
 
   it('按负责人筛选', () => {
-    expect(matchStage(mech01Low, 'P-3D-024', { ...EMPTY_FILTER, owner: 'Chen' })).toBe(true)
-    expect(matchStage(mech01Low, 'P-3D-024', { ...EMPTY_FILTER, owner: 'Rui' })).toBe(false)
+    expect(matchStage(mech01Low, 'NST_A_3D_B24', { ...EMPTY_FILTER, owner: 'Chen' })).toBe(true)
+    expect(matchStage(mech01Low, 'NST_A_3D_B24', { ...EMPTY_FILTER, owner: 'Rui' })).toBe(false)
   })
 
   it('只看有风险时排除无标记的阶段', () => {
     const filter = { ...EMPTY_FILTER, riskOnly: true }
     // 低模带 PossibleDelay
-    expect(matchStage(mech01Low, 'P-3D-024', filter)).toBe(true)
+    expect(matchStage(mech01Low, 'NST_A_3D_B24', filter)).toBe(true)
     // 贴图没有任何标记（烘焙被 CQ-004 冻结，带 WaitingChangeQuote）
-    expect(matchStage(state.projects[0].assets[0].stages[4], 'P-3D-024', filter)).toBe(false)
+    expect(matchStage(state.projects[0].assets[0].stages[4], 'NST_A_3D_B24', filter)).toBe(false)
   })
 
   it('多个条件是与关系', () => {
     const filter = { ...EMPTY_FILTER, groupId: 'grp-3d-a', owner: 'Mei' }
-    expect(matchStage(mech01Low, 'P-3D-024', filter)).toBe(false)
+    expect(matchStage(mech01Low, 'NST_A_3D_B24', filter)).toBe(false)
     // 贴图归 Mei
-    expect(matchStage(state.projects[0].assets[0].stages[4], 'P-3D-024', filter)).toBe(true)
+    expect(matchStage(state.projects[0].assets[0].stages[4], 'NST_A_3D_B24', filter)).toBe(true)
   })
 })
 
@@ -65,9 +65,9 @@ describe('matchMilestone', () => {
 
   it('按项目筛选节点', () => {
     const filtered = milestones.filter((item) =>
-      matchMilestone(item, { ...EMPTY_FILTER, projectCode: 'P-2D-018' }),
+      matchMilestone(item, { ...EMPTY_FILTER, projectCode: 'HLC_B_2D_B18' }),
     )
-    expect(filtered.every((item) => item.projectCode === 'P-2D-018')).toBe(true)
+    expect(filtered.every((item) => item.projectCode === 'HLC_B_2D_B18')).toBe(true)
     expect(filtered.length).toBeGreaterThan(0)
   })
 
@@ -80,11 +80,11 @@ describe('matchMilestone', () => {
 
 describe('容量不受筛选影响', () => {
   it('按项目筛选后，制作组本周可用与已排人天保持全量', () => {
-    // 这是核心正确性：筛掉 P-3D-031 不会让 3D-A 组凭空多出空闲
+    // 这是核心正确性：筛掉 NST_C_3D_B31 不会让 3D-A 组凭空多出空闲
     const full = weeklyLoad(state, 'grp-3d-a', '2026-07-27', calendar)
     expect(full.scheduled).toBe(7)
 
-    const shown = countStages(state, { ...EMPTY_FILTER, projectCode: 'P-3D-024' })
+    const shown = countStages(state, { ...EMPTY_FILTER, projectCode: 'NST_A_3D_B24' })
     expect(shown.shown).toBeLessThan(shown.total)
 
     // 再算一次，数字不变——容量函数根本不接受筛选参数

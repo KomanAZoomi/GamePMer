@@ -8,6 +8,7 @@ import type {
   EvidenceRef,
   NotificationDraft,
 } from './model'
+import { pathOf } from './projectPaths'
 import { QUOTE_KIND_LABEL, projectQuoteSummary, quoteTotals } from './quotation'
 
 /**
@@ -400,8 +401,9 @@ function billingDraftBody(state: DemoState, item: CloseoutCase): string {
       (row) =>
         `· ${QUOTE_KIND_LABEL[row.quoteCase.kind]} ${row.quoteCase.id}：¥ ${quoteTotals(row.version!).amount.toLocaleString('zh-CN')}`,
     )
-  const finalPath = item.paths.find((path) => path.kind === 'final')?.path ?? '（未登记）'
-  const archivePath = item.paths.find((path) => path.kind === 'archive')?.path ?? '（未登记）'
+  // 路径只有一个来源：文件与归档里登记的项目路径
+  const finalPath = pathOf(state, item.projectCode, 'final')?.path ?? '（未登记）'
+  const archivePath = pathOf(state, item.projectCode, 'archive')?.path ?? '（未登记）'
 
   return [
     `${item.projectCode}（${item.client}）已完成全部交付、客户最终确认与 IT 剪切备份，可以出账。`,

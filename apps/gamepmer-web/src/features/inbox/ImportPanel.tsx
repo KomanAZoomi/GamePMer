@@ -19,7 +19,7 @@ const CHANNELS: Array<{ key: SourceChannel; label: string; hint: string; placeho
     label: '粘贴文本',
     hint: '把邮件正文或聊天记录整段贴进来',
     placeholder:
-      '例：【P-3D-024】MECH-01 高模的肩甲比例请缩小，修改后重新提交评审。\n\n原文会原样保存为证据，识别错了改字段，不改原文。',
+      '例：【NST_A_3D_B24】MECH-01 高模的肩甲比例请缩小，修改后重新提交评审。\n\n原文会原样保存为证据，识别错了改字段，不改原文。',
   },
   {
     key: 'screenshot',
@@ -31,7 +31,7 @@ const CHANNELS: Array<{ key: SourceChannel; label: string; hint: string; placeho
     key: 'path',
     label: '文件路径',
     hint: '贴一条网络盘路径，按命名规范解析',
-    placeholder: '例：\\\\NAS-ART\\Production\\P-3D-024\\MECH-02\\MECH-02_高模_20260727_r01.max',
+    placeholder: '例：\\\\NAS-ART\\Production\\NST_A_3D_B24\\MECH-02\\MECH-02_高模_20260727_r01.max',
   },
   {
     key: 'manual',

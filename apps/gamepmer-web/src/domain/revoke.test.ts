@@ -18,7 +18,7 @@ function confirmed() {
   const state = createDemoState()
   const draft = generateReplanDraft(state, ITEM, DEMO_TODAY)
   const next = confirmReplan(state, { draft, note: '返修 2 个工作日', actor: 'Brandon', at: AT })
-  const revision = next.revisions.find((item) => item.projectCode === 'P-3D-024')!
+  const revision = next.revisions.find((item) => item.projectCode === 'NST_A_3D_B24')!
   return { before: state, state: next, revision }
 }
 
@@ -89,7 +89,7 @@ describe('revokeRevision', () => {
     const draft = generateReplanDraft(reverted, ITEM, DEMO_TODAY)
     const again = confirmReplan(reverted, { draft, note: '重来一次', actor: 'Brandon', at: AT })
 
-    expect(again.revisions.filter((r) => r.projectCode === 'P-3D-024').map((r) => r.version)).toEqual([
+    expect(again.revisions.filter((r) => r.projectCode === 'NST_A_3D_B24').map((r) => r.version)).toEqual([
       1, 2,
     ])
   })

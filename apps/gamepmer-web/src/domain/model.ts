@@ -437,14 +437,28 @@ export interface QuoteCase {
 
 // ---------------------------------------------------------------- 结项、备份与出账
 
-/** 公司文件路径索引。工作台只记路径，真实的移动、剪切和删除一律由 IT 执行。 */
-export interface PathReference {
+/**
+ * 项目路径登记。
+ *
+ * **只挂在项目（批次）上，不挂到阶段。** 一个批次几十个资产，逐个资产登记路径
+ * 只会让这张表没法看；实际用法本来就是「这个批次的反馈都在这个总盘里」。
+ * 批次内部再按日期分子目录，是制作侧自己的事，工作台不管也不建模。
+ *
+ * 路径由 PM 手工填写并保存。工作台只记路径，真实的移动、剪切和删除一律由 IT 执行。
+ */
+export type PathKind = 'feedback' | 'production' | 'delivery' | 'final' | 'archive' | 'reference'
+
+export interface ProjectPathEntry {
   id: string
-  kind: 'production' | 'delivery' | 'feedback' | 'final' | 'archive'
+  projectCode: string
+  kind: PathKind
+  /** 可改写的显示名，默认取 kind 的中文 */
   label: string
+  /** PM 手工填写的盘上路径 */
   path: string
-  /** 最后一次由人确认过这条路径可访问的时间；没确认过就是 undefined，不假装它存在 */
-  verifiedAt?: string
+  note?: string
+  updatedAt: string
+  updatedBy: string
 }
 
 /**
@@ -490,74 +504,14 @@ export interface CloseoutCase {
   status: CloseoutStatus
   openedAt: string
   gates: CloseoutGate[]
-  /** 最终包与归档路径索引；工作台不搬文件 */
-  paths: PathReference[]
+  /** 路径不在这里存——统一读「文件与归档」登记的项目路径，避免两处各存一套 */
   finalPackageOwner: string
   archivedAt?: string
 }
 
-// ---------------------------------------------------------------- 文件索引
-
-/** 登记在册的盘位。`archive` 归 IT 管辖，工作台只读索引。 */
-export interface Drive {
-  id: string
-  kind: PathReference['kind']
-  label: string
-  path: string
-}
-
-/**
- * 文件名解析结果。
- *
- * 规范是 `资产名_阶段名_YYYYMMDD_rNN`。只有前三段也能识别（版本按 r01 待确认）；
- * 一段都对不上时四个字段全是 undefined——**不猜、不填默认值**。
- */
-export interface FileNameParse {
-  assetId?: string
-  stageCode?: StageCode
-  fileDate?: IsoDate
-  revision?: string
-  /** 0~1。解析出的资产/阶段在库里找得到才算高置信 */
-  confidence: number
-  /** 解析不通过的原因，直接显示给 PM 看 */
-  problem?: string
-}
-
-export type FileLinkStatus =
-  | 'auto' // 自动关联成功
-  | 'needs-review' // 解析出来了但置信度不足，等 PM 确认
-  | 'unresolved' // 完全解析不出，等 PM 手工关联
-  | 'linked' // PM 手工关联过
-  | 'ignored' // PM 判定与正式流程无关
-
-/**
- * 盘上一个文件的索引条目。
- *
- * **`fileName` 永远是盘上的原始名字。** 命名不规范时保留原名进待关联队列——
- * 工作台不改名、不移动、不删除，丢证据比留一条难看的记录严重得多。
- */
-export interface FileIndexEntry {
-  id: string
-  driveId: string
-  /** 原始文件名，任何情况下都不改写 */
-  fileName: string
-  /** 盘上目录（不含文件名） */
-  folder: string
-  discoveredAt: string
-  parse: FileNameParse
-  status: FileLinkStatus
-  /** 关联到的阶段 id；auto/linked 时有值 */
-  linkedStageId?: string
-  linkedBy?: string
-  linkedAt?: string
-  ignoredReason?: string
-  /** AI 给的关联建议与依据，标「建议 · 未执行」 */
-  aiHint?: string
-}
-
 // ---------------------------------------------------------------- 聚合状态
 
-export const DEMO_SCHEMA_VERSION = 6
+export const DEMO_SCHEMA_VERSION = 7
 
 export interface DemoState {
   schemaVersion: typeof DEMO_SCHEMA_VERSION
@@ -570,8 +524,7 @@ export interface DemoState {
   quoteCases: QuoteCase[]
   quoteVersions: QuoteVersion[]
   closeoutCases: CloseoutCase[]
-  drives: Drive[]
-  fileIndex: FileIndexEntry[]
+  projectPaths: ProjectPathEntry[]
   feedbackBatches: FeedbackBatch[]
   revisions: ScheduleRevision[]
   notificationDrafts: NotificationDraft[]

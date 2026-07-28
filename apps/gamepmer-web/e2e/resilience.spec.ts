@@ -7,14 +7,14 @@ import { expect, test, type Page } from '@playwright/test'
  * 资产会很多、一次反馈会拆出十几项——这些情况下版面不能垮。
  */
 
-const STORAGE_KEY = 'gamepmer.web-demo.v6'
+const STORAGE_KEY = 'gamepmer.web-demo.v7'
 
 /** 往仓储里塞一份极端数据：超长名称、多资产、多反馈项。 */
 async function seedStressData(page: Page) {
   await page.addInitScript((key: string) => {
     const longName = '蒸汽守卫机甲主角资产包（含可拆卸武器组与四套涂装变体）第二批次'
     const base = {
-      schemaVersion: 6,
+      schemaVersion: 7,
       calendars: [{ id: 'cal-company', name: '公司日历 2026', holidays: ['2026-08-05'], extraWorkdays: [] }],
       productionGroups: [
         { id: 'grp-3d-a', name: '3D 角色 A 组（含外包协作）', discipline: '3D', leadName: 'Leo', dailyCapacity: 1.5 },
@@ -24,7 +24,7 @@ async function seedStressData(page: Page) {
       projects: [
         {
           id: 'prj-stress',
-          code: 'P-3D-024',
+          code: 'NST_A_3D_B24',
           name: longName,
           client: 'Northstar Studio 北极星互动娱乐（上海）有限公司',
           discipline: '3D',
@@ -37,7 +37,7 @@ async function seedStressData(page: Page) {
             id: `MECH-${String(assetIndex + 1).padStart(2, '0')}`,
             name: `机甲单位 ${assetIndex + 1} 号 · 带可替换护甲与武器挂点`,
             discipline: '3D',
-            projectCode: 'P-3D-024',
+            projectCode: 'NST_A_3D_B24',
             stages: ['3D_MID', '3D_HIGH', '3D_LOW', '3D_BAKE', '3D_TEXTURE', '3D_LOD'].map(
               (code, stageIndex) => ({
                 id: `MECH-${String(assetIndex + 1).padStart(2, '0')}/${code}`,
@@ -65,15 +65,14 @@ async function seedStressData(page: Page) {
       quoteCases: [],
       quoteVersions: [],
       closeoutCases: [],
-      drives: [],
-      fileIndex: [],
+      projectPaths: [],
       feedbackBatches: [
         {
           id: 'F-017',
-          projectCode: 'P-3D-024',
+          projectCode: 'NST_A_3D_B24',
           client: 'Northstar Studio',
           receivedAt: '2026-07-27T10:42:00+08:00',
-          feedbackDrivePath: '\\\\NAS-ART\\Feedback\\P-3D-024\\F-017_20260727',
+          feedbackDrivePath: '\\\\NAS-ART\\Feedback\\NST_A_3D_B24\\F-017_20260727',
           summary: '一次评审提出十二项修改，涉及比例、结构、纹理与新增部件。',
           clientWaitWorkdays: 1,
           evidence: [
@@ -81,7 +80,7 @@ async function seedStressData(page: Page) {
               id: 'EV-1',
               kind: 'email',
               label: 'Outlook 邮件',
-              locator: 'Re: P-3D-024 / Highpoly Review',
+              locator: 'Re: NST_A_3D_B24 / Highpoly Review',
               receivedAt: '2026-07-27T10:42:00+08:00',
             },
           ],

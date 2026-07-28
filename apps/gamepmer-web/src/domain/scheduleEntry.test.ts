@@ -12,12 +12,12 @@ import {
 } from './scheduleEntry'
 
 function mech01(state = createDemoState()) {
-  const project = state.projects.find((item) => item.code === 'P-3D-024')!
+  const project = state.projects.find((item) => item.code === 'NST_A_3D_B24')!
   return { state, project, asset: project.assets.find((item) => item.id === 'MECH-01')! }
 }
 
 const confirmInput = {
-  projectCode: 'P-3D-024',
+  projectCode: 'NST_A_3D_B24',
   assetId: 'MECH-01',
   reason: 'team-delay' as const,
   note: '低模顺延两个工作日',
@@ -103,13 +103,13 @@ describe('confirmScheduleEntry', () => {
     )
 
     const next = confirmScheduleEntry(state, { ...confirmInput, rows })
-    const revision = next.revisions.find((item) => item.projectCode === 'P-3D-024')
+    const revision = next.revisions.find((item) => item.projectCode === 'NST_A_3D_B24')
 
     expect(revision?.version).toBe(1)
     expect(revision?.confirmedBy).toBe('Brandon')
     expect(revision?.changes[0].shiftedWorkdays).toBe(2)
-    // P-2D-018 已有 v1，互不干扰
-    expect(next.revisions.filter((item) => item.projectCode === 'P-2D-018')).toHaveLength(1)
+    // HLC_B_2D_B18 已有 v1，互不干扰
+    expect(next.revisions.filter((item) => item.projectCode === 'HLC_B_2D_B18')).toHaveLength(1)
   })
 
   it('确认时间来自注入的时钟，不是反馈接收日', () => {
@@ -132,7 +132,7 @@ describe('confirmScheduleEntry', () => {
       state.calendars[0],
     )
     const next = confirmScheduleEntry(state, { ...confirmInput, rows })
-    // 种子里已有 P-2D-018 的 v1 审计，这里要取本次新生成的那条
+    // 种子里已有 HLC_B_2D_B18 的 v1 审计，这里要取本次新生成的那条
     const event = next.auditEvents.filter((item) => item.action.startsWith('确认排期修订')).at(-1)
 
     expect(event?.before).toContain('2026-07-27')
@@ -173,7 +173,7 @@ describe('confirmScheduleEntry', () => {
     const { state, asset } = mech01()
     const next = confirmScheduleEntry(state, { ...confirmInput, rows: buildStageRows(asset) })
     expect(next).toBe(state)
-    expect(next.revisions.filter((item) => item.projectCode === 'P-3D-024')).toHaveLength(0)
+    expect(next.revisions.filter((item) => item.projectCode === 'NST_A_3D_B24')).toHaveLength(0)
   })
 
   it('只改属性不改日期时记审计但不产生修订版本', () => {
@@ -181,7 +181,7 @@ describe('confirmScheduleEntry', () => {
     const rows = updateRow(buildStageRows(asset), 'MECH-01/3D_LOW', { estimatedPersonDays: 4 })
     const next = confirmScheduleEntry(state, { ...confirmInput, rows })
 
-    expect(next.revisions.filter((item) => item.projectCode === 'P-3D-024')).toHaveLength(0)
+    expect(next.revisions.filter((item) => item.projectCode === 'NST_A_3D_B24')).toHaveLength(0)
     expect(next.auditEvents.some((item) => item.action === '修改预估人天')).toBe(true)
   })
 

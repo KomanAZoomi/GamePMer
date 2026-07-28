@@ -27,7 +27,7 @@ test('每个字段都有独立置信度，不是一个笼统的百分比', async
   const extract = page.getByLabel('AI 识别结果')
 
   await expect(extract.getByText('关联项目')).toBeVisible()
-  await expect(extract.getByRole('button', { name: 'P-3D-024' })).toBeVisible()
+  await expect(extract.getByRole('button', { name: 'NST_A_3D_B24' })).toBeVisible()
   await expect(extract.getByText('97%')).toBeVisible()
   await expect(extract.getByText('96%')).toBeVisible()
   await expect(extract.getByText('92%').first()).toBeVisible()
@@ -128,11 +128,11 @@ test('零审批导入：粘贴文本生成候选并提取字段', async ({ page 
   await page.getByRole('button', { name: /导入候选/ }).click()
 
   const panel = page.getByLabel('导入候选')
-  await panel.getByLabel('原文').fill('【P-3D-031】PROP-02 贴图需要重做，金属部分再亮一点。')
+  await panel.getByLabel('原文').fill('【NST_C_3D_B31】PROP-02 贴图需要重做，金属部分再亮一点。')
   await panel.getByRole('button', { name: '识别并生成候选' }).click()
 
   const extract = page.getByLabel('AI 识别结果')
-  await expect(extract.getByRole('button', { name: 'P-3D-031' })).toBeVisible()
+  await expect(extract.getByRole('button', { name: 'NST_C_3D_B31' })).toBeVisible()
   await expect(extract.getByRole('button', { name: 'PROP-02' })).toBeVisible()
   await expect(extract.getByText(/PROP-02 贴图需要重做/).first()).toBeVisible()
 })
@@ -152,7 +152,7 @@ test('识别不出项目时留空并阻断，不编造项目号', async ({ page 
 })
 
 test('同一段原文导入两次判为重复，不生成第二条待确认', async ({ page }) => {
-  const text = '【P-3D-031】PROP-03 中模已完成，请查收。'
+  const text = '【NST_C_3D_B31】PROP-03 中模已完成，请查收。'
   await page.goto('/#/inbox')
 
   const importOnce = async () => {

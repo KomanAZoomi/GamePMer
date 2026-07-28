@@ -232,12 +232,12 @@ describe('零审批导入', () => {
     const panel = screen.getByLabelText('导入候选')
     await user.type(
       within(panel).getByLabelText('原文'),
-      '【P-3D-031】PROP-02 贴图需要重做，金属部分再亮一点。',
+      '【NST_C_3D_B31】PROP-02 贴图需要重做，金属部分再亮一点。',
     )
     await user.click(within(panel).getByRole('button', { name: '识别并生成候选' }))
 
     const created = store.getState().demo.candidates.at(-1)!
-    expect(created.fields.find((f) => f.key === 'projectCode')?.value).toBe('P-3D-031')
+    expect(created.fields.find((f) => f.key === 'projectCode')?.value).toBe('NST_C_3D_B31')
     expect(created.fields.find((f) => f.key === 'assetId')?.value).toBe('PROP-02')
     expect(screen.getByLabelText('AI 识别结果')).toHaveTextContent('PROP-02 贴图需要重做')
   })

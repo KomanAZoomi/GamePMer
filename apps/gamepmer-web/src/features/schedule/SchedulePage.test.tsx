@@ -34,7 +34,7 @@ describe('组合排期', () => {
     const combo = screen.getByLabelText('组合排期')
     expect(within(combo).getByText(/3D 角色 A 组 · Leo/)).toBeInTheDocument()
 
-    // 3D-A 组同时承接 P-3D-024 和 P-3D-031
+    // 3D-A 组同时承接 NST_A_3D_B24 和 NST_C_3D_B31
     const rows = within(combo).getAllByRole('button', { name: /MECH-01|PROP-03/ })
     expect(rows.length).toBeGreaterThanOrEqual(2)
   })
@@ -124,7 +124,7 @@ describe('筛选', () => {
     const { user } = await renderSchedule()
     expect(screen.getByText('显示 32 / 32 个阶段')).toBeInTheDocument()
 
-    await user.selectOptions(screen.getByLabelText('按项目筛选'), 'P-2D-018')
+    await user.selectOptions(screen.getByLabelText('按项目筛选'), 'HLC_B_2D_B18')
     expect(screen.getByText('显示 6 / 32 个阶段')).toBeInTheDocument()
   })
 
@@ -148,8 +148,8 @@ describe('筛选', () => {
     ).getByText('7 / 7.5')
     expect(before).toBeInTheDocument()
 
-    // 只看 P-3D-024，但 PROP-03（属 P-3D-031）仍然占着 3D-A 组的档期
-    await user.selectOptions(screen.getByLabelText('按项目筛选'), 'P-3D-024')
+    // 只看 NST_A_3D_B24，但 PROP-03（属 NST_C_3D_B31）仍然占着 3D-A 组的档期
+    await user.selectOptions(screen.getByLabelText('按项目筛选'), 'NST_A_3D_B24')
     expect(
       within(screen.getByRole('button', { name: '3D 角色 A 组 2026-07-27 当周占用明细' })).getByText(
         '7 / 7.5',
@@ -169,7 +169,7 @@ describe('筛选', () => {
 
   it('清除筛选恢复全部', async () => {
     const { user } = await renderSchedule()
-    await user.selectOptions(screen.getByLabelText('按项目筛选'), 'P-2D-018')
+    await user.selectOptions(screen.getByLabelText('按项目筛选'), 'HLC_B_2D_B18')
     await user.click(screen.getByRole('button', { name: '清除筛选' }))
 
     expect(screen.getByText('显示 32 / 32 个阶段')).toBeInTheDocument()
@@ -256,7 +256,7 @@ describe('批量录入', () => {
       .demo.projects[0].assets[0].stages.find((item) => item.id === 'MECH-01/3D_LOW')
     expect(stage?.currentFinish).toBe('2026-07-31')
     expect(stage?.baselineFinish).toBe('2026-07-29')
-    expect(store.getState().demo.revisions.some((item) => item.projectCode === 'P-3D-024')).toBe(true)
+    expect(store.getState().demo.revisions.some((item) => item.projectCode === 'NST_A_3D_B24')).toBe(true)
   })
 
   it('放弃草案不改变正式计划', async () => {
@@ -271,6 +271,6 @@ describe('批量录入', () => {
       .getState()
       .demo.projects[0].assets[0].stages.find((item) => item.id === 'MECH-01/3D_LOW')
     expect(stage?.currentFinish).toBe('2026-07-29')
-    expect(store.getState().demo.revisions.some((item) => item.projectCode === 'P-3D-024')).toBe(false)
+    expect(store.getState().demo.revisions.some((item) => item.projectCode === 'NST_A_3D_B24')).toBe(false)
   })
 })

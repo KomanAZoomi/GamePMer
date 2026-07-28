@@ -20,10 +20,10 @@ import {
   restoreCandidate as restoreInboxCandidate,
 } from '../../domain/inbox'
 import {
-  ignoreFile as ignoreIndexedFile,
-  linkFile as linkIndexedFile,
-  restoreFile as restoreIndexedFile,
-} from '../../domain/fileIndex'
+  removePath as removeProjectPath,
+  savePath as saveProjectPath,
+  type SavePathInput,
+} from '../../domain/projectPaths'
 import {
   archiveCase as archiveCloseoutCase,
   completeGate as completeCloseoutGate,
@@ -71,9 +71,7 @@ export interface WorkspaceState {
   quoteTab: QuoteTab
   selectedCloseoutCaseId?: string
   closeoutTab: CloseoutTab
-  selectedFileId?: string
-  fileDriveId?: string
-  fileTab: FileTab
+  selectedPathProject?: string
   /** 排期草案只活在界面状态里，永不落盘——草案不污染正式数据 */
   draft?: ScheduleRevisionDraft
 }
@@ -83,8 +81,6 @@ export type InboxTab = 'review' | 'blocked' | 'done'
 export type QuoteTab = 'active' | 'ready' | 'done'
 
 export type CloseoutTab = 'active' | 'ready' | 'archived'
-
-export type FileTab = 'all' | 'pending' | 'handled'
 
 export interface IngestRequest {
   text: string
@@ -140,16 +136,13 @@ export interface WorkspaceStore {
   ): void
   reopenCloseoutGate(caseId: string, code: CloseoutGateCode, reason: string): void
   archiveCloseoutCase(caseId: string): void
-  selectFile(entryId: string): void
-  setFileDrive(driveId: string | undefined): void
-  setFileTab(tab: FileTab): void
-  linkFile(entryId: string, stageId: string): void
-  ignoreFile(entryId: string, reason: string): void
-  restoreFile(entryId: string): void
+  selectPathProject(projectCode: string): void
+  saveProjectPath(input: Omit<SavePathInput, 'actor' | 'now'>): void
+  removeProjectPath(entryId: string): void
   resetDemo(): void
 }
 
-const DEFAULT_PROJECT = 'P-3D-024'
+const DEFAULT_PROJECT = 'NST_A_3D_B24'
 
 function initialState(demo: DemoState, today: string): WorkspaceState {
   const items = projectWorkItems(demo, today)
@@ -167,8 +160,7 @@ function initialState(demo: DemoState, today: string): WorkspaceState {
     quoteTab: 'active',
     selectedCloseoutCaseId: demo.closeoutCases.find((entry) => entry.status !== 'Archived')?.id,
     closeoutTab: 'active',
-    selectedFileId: demo.fileIndex.find((entry) => entry.status === 'unresolved')?.id,
-    fileTab: 'all',
+    selectedPathProject: demo.projects[0]?.code,
   }
 }
 
@@ -437,40 +429,21 @@ export function createWorkspaceStore(
       state = { ...state, demo, selectedCloseoutCaseId: caseId, closeoutTab: 'archived' }
       emit()
     },
-    selectFile(entryId) {
-      state = { ...state, selectedFileId: entryId }
+    selectPathProject(projectCode) {
+      state = { ...state, selectedPathProject: projectCode }
       emit()
     },
-    setFileDrive(driveId) {
-      state = { ...state, fileDriveId: driveId }
-      emit()
-    },
-    setFileTab(tab) {
-      state = { ...state, fileTab: tab }
-      emit()
-    },
-    linkFile(entryId, stageId) {
-      const demo = linkIndexedFile(state.demo, entryId, stageId, {
-        actor: 'Brandon',
-        now: clock.now(),
-      })
+    saveProjectPath(input) {
+      // 领域层在路径不合法时抛错且零副作用；让它冒泡，界面不显示虚假的保存成功
+      const demo = saveProjectPath(state.demo, { ...input, actor: 'Brandon', now: clock.now() })
       repository.save(demo)
-      state = { ...state, demo, selectedFileId: entryId }
+      state = { ...state, demo, selectedPathProject: input.projectCode }
       emit()
     },
-    ignoreFile(entryId, reason) {
-      const demo = ignoreIndexedFile(state.demo, entryId, reason, {
-        actor: 'Brandon',
-        now: clock.now(),
-      })
+    removeProjectPath(entryId) {
+      const demo = removeProjectPath(state.demo, entryId, { actor: 'Brandon', now: clock.now() })
       repository.save(demo)
-      state = { ...state, demo, selectedFileId: entryId }
-      emit()
-    },
-    restoreFile(entryId) {
-      const demo = restoreIndexedFile(state.demo, entryId, { actor: 'Brandon', now: clock.now() })
-      repository.save(demo)
-      state = { ...state, demo, selectedFileId: entryId }
+      state = { ...state, demo }
       emit()
     },
     resetDemo() {

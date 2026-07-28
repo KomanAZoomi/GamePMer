@@ -179,7 +179,7 @@ describe('IT 备份完成后解锁出账', () => {
       actor: ACTOR,
       now: NOW,
       evidence: [officialEmail('IT 备份完成回执')],
-      note: '归档目标 \\\\ARCHIVE\\2026\\P-3D-011',
+      note: '归档目标 \\\\ARCHIVE\\2026\\AUR_A_3D_B11',
     })
 
     expect(closeoutCase(next, 'CO-011')!.status).toBe('ReadyToBill')
@@ -259,17 +259,38 @@ describe('出账资料包', () => {
 })
 
 describe('工作台不搬文件', () => {
-  it('结项案件只登记路径索引，没有任何文件操作接口', () => {
+  it('路径统一读「文件与归档」的登记簿，结项案件自己不存路径', () => {
     const state = createDemoState()
     const item = closeoutCase(state, 'CO-011')!
 
-    expect(item.paths.length).toBeGreaterThan(0)
-    expect(item.paths.some((path) => path.kind === 'final')).toBe(true)
-    expect(item.paths.some((path) => path.kind === 'archive')).toBe(true)
-    // PathReference 上只有索引字段，没有 move/copy/delete 之类的东西
-    for (const path of item.paths) {
-      expect(Object.keys(path).sort()).toEqual(['id', 'kind', 'label', 'path', 'verifiedAt'].filter((key) => key in path).sort())
-    }
+    // 两处各存一套路径迟早对不上，所以结项案件上根本没有 paths 字段
+    expect(Object.keys(item)).not.toContain('paths')
+
+    const registered = state.projectPaths.filter((entry) => entry.projectCode === item.projectCode)
+    expect(registered.some((entry) => entry.kind === 'final')).toBe(true)
+    expect(registered.some((entry) => entry.kind === 'archive')).toBe(true)
+  })
+
+  it('出账草稿里的最终包与归档路径来自登记簿', () => {
+    const state = createDemoState()
+    const backed = completeGate(state, 'CO-011', 'it-backup', {
+      actor: ACTOR,
+      now: NOW,
+      evidence: [officialEmail('IT 回执')],
+      note: '',
+    })
+    const notified = completeGate(backed, 'CO-011', 'billing-notified', {
+      actor: ACTOR,
+      now: NOW,
+      evidence: [officialEmail('BD 出账通知')],
+      note: '',
+    })
+
+    const draft = notified.notificationDrafts.find((entry) => entry.sourceId === 'CO-011')!
+    const archive = state.projectPaths.find(
+      (entry) => entry.projectCode === 'AUR_A_3D_B11' && entry.kind === 'archive',
+    )!
+    expect(draft.body).toContain(archive.path)
   })
 })
 

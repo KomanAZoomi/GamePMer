@@ -87,7 +87,7 @@ describe('范围内返修主路径', () => {
     await user.click(screen.getByRole('button', { name: '生成排期草案' }))
 
     expect(stageOf(store, 'MECH-01/3D_LOW')?.currentStart).toBe('2026-07-27')
-    expect(store.getState().demo.revisions.filter((r) => r.projectCode === 'P-3D-024')).toHaveLength(0)
+    expect(store.getState().demo.revisions.filter((r) => r.projectCode === 'NST_A_3D_B24')).toHaveLength(0)
   })
 
   it('微调后后续阶段自动顺延，确认按钮不会被自己制造的冲突卡住', async () => {
@@ -119,7 +119,7 @@ describe('范围内返修主路径', () => {
     expect(screen.queryByLabelText('排期修订草案')).toBeNull()
     expect(stageOf(store, 'MECH-01/3D_LOW')?.currentStart).toBe('2026-07-27')
     expect(stageOf(store, 'MECH-01/3D_LOW')?.currentFinish).toBe('2026-07-29')
-    expect(store.getState().demo.revisions.filter((r) => r.projectCode === 'P-3D-024')).toHaveLength(0)
+    expect(store.getState().demo.revisions.filter((r) => r.projectCode === 'NST_A_3D_B24')).toHaveLength(0)
     expect(store.getState().demo.notificationDrafts.filter((n) => n.sourceKind === 'schedule-revision')).toHaveLength(0)
   })
 
@@ -134,7 +134,7 @@ describe('范围内返修主路径', () => {
     expect(low?.currentStart).toBe('2026-07-29')
     expect(low?.baselineStart).toBe('2026-07-27')
 
-    const revision = store.getState().demo.revisions.find((r) => r.projectCode === 'P-3D-024')
+    const revision = store.getState().demo.revisions.find((r) => r.projectCode === 'NST_A_3D_B24')
     expect(revision?.version).toBe(1)
     expect(revision?.sourceFeedbackItemId).toBe('F-017/ITEM-01')
 
@@ -160,7 +160,7 @@ describe('范围内返修主路径', () => {
 
     // 用同一份存储重建 Store，相当于刷新页面
     const second = createWorkspaceStore(new LocalDemoRepository(storage))
-    expect(second.getState().demo.revisions.some((r) => r.projectCode === 'P-3D-024')).toBe(true)
+    expect(second.getState().demo.revisions.some((r) => r.projectCode === 'NST_A_3D_B24')).toBe(true)
     expect(stageOf(second, 'MECH-01/3D_LOW')?.currentStart).toBe('2026-07-29')
     // 草案本身不落盘
     expect(second.getState().draft).toBeUndefined()
@@ -265,7 +265,7 @@ describe('范围判定可撤销', () => {
     await confirmReplanFlow(user)
     await user.click(screen.getByRole('button', { name: '撤销修订并退回待分流' }))
 
-    const revision = store.getState().demo.revisions.find((r) => r.projectCode === 'P-3D-024')
+    const revision = store.getState().demo.revisions.find((r) => r.projectCode === 'NST_A_3D_B24')
     expect(revision?.version).toBe(1)
     expect(revision?.revokedBy).toBe('Brandon')
 
@@ -283,7 +283,7 @@ describe('范围判定可撤销', () => {
 
     const versions = store
       .getState()
-      .demo.revisions.filter((r) => r.projectCode === 'P-3D-024')
+      .demo.revisions.filter((r) => r.projectCode === 'NST_A_3D_B24')
       .map((r) => r.version)
     expect(versions).toEqual([1, 2])
   })

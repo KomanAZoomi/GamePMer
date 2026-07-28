@@ -48,7 +48,7 @@ describe('项目详情甘特', () => {
 
   it('偏离基准的阶段同时画出基准条与当前条', async () => {
     const { user } = await renderProjects()
-    await user.click(screen.getByRole('button', { name: /P-2D-018/ }))
+    await user.click(screen.getByRole('button', { name: /HLC_B_2D_B18/ }))
     const gantt = screen.getByLabelText('项目排期甘特')
     // CHAR-08 完成稿因客户等待顺延，基准与当前并存
     expect(within(gantt).getByTitle(/完成稿 · 基准｜07-27 — 07-29/)).toBeInTheDocument()
@@ -104,7 +104,7 @@ describe('阶段详情', () => {
 
   it('已修订的阶段显示偏移原因与工作日增量', async () => {
     const { user } = await renderProjects()
-    await user.click(screen.getByRole('button', { name: /P-2D-018/ }))
+    await user.click(screen.getByRole('button', { name: /HLC_B_2D_B18/ }))
     const gantt = screen.getByLabelText('项目排期甘特')
     await user.click(within(gantt).getByRole('button', { name: /完成稿.*Yuki/ }))
 
@@ -118,7 +118,7 @@ describe('阶段详情', () => {
 describe('修订历史', () => {
   it('已确认修订可查看版本与新旧日期', async () => {
     const { user } = await renderProjects()
-    await user.click(screen.getByRole('button', { name: /P-2D-018/ }))
+    await user.click(screen.getByRole('button', { name: /HLC_B_2D_B18/ }))
 
     const history = screen.getByLabelText('排期修订历史')
     expect(within(history).getByText('v1')).toBeInTheDocument()

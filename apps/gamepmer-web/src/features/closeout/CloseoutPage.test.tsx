@@ -71,7 +71,7 @@ describe('门禁不能跳步', () => {
   it('还有阶段没验收的项目，第一道门禁就说清还差几个', async () => {
     const { user } = renderCloseout()
     await goto(user)
-    await user.click(within(screen.getByLabelText('结项项目')).getByText(/P-3D-024/))
+    await user.click(within(screen.getByLabelText('结项项目')).getByText(/NST_A_3D_B24/))
 
     const main = screen.getByLabelText('结项门禁')
     expect(within(main).getByText(/还差 \d+ 个阶段/)).toBeInTheDocument()
@@ -117,7 +117,7 @@ describe('证据类型门禁', () => {
     await goto(user)
 
     const main = screen.getByLabelText('结项门禁')
-    await user.type(within(main).getByLabelText('邮件主题或路径'), 'RE: P-3D-011 备份完成')
+    await user.type(within(main).getByLabelText('邮件主题或路径'), 'RE: AUR_A_3D_B11 备份完成')
     await user.click(within(main).getByRole('button', { name: /完成「IT 剪切备份」/ }))
 
     expect(caseOf('CO-011').status).toBe('ReadyToBill')
@@ -170,7 +170,7 @@ describe('通知 BD 与归档', () => {
     await user.click(within(main).getByRole('button', { name: /完成「IT 剪切备份」/ }))
 
     const next = screen.getByLabelText('结项门禁')
-    await user.type(within(next).getByLabelText('邮件主题或路径'), '【可出账】P-3D-011')
+    await user.type(within(next).getByLabelText('邮件主题或路径'), '【可出账】AUR_A_3D_B11')
     await user.click(within(next).getByRole('button', { name: /完成「通知 BD 出账」/ }))
 
     expect(caseOf('CO-011').status).toBe('BillingNotified')
@@ -188,7 +188,7 @@ describe('通知 BD 与归档', () => {
     await user.type(within(main).getByLabelText('邮件主题或路径'), 'RE: 备份完成')
     await user.click(within(main).getByRole('button', { name: /完成「IT 剪切备份」/ }))
     const next = screen.getByLabelText('结项门禁')
-    await user.type(within(next).getByLabelText('邮件主题或路径'), '【可出账】P-3D-011')
+    await user.type(within(next).getByLabelText('邮件主题或路径'), '【可出账】AUR_A_3D_B11')
     await user.click(within(next).getByRole('button', { name: /完成「通知 BD 出账」/ }))
 
     // 通知之后还没归档
@@ -222,7 +222,7 @@ describe('工作台不搬文件', () => {
 
     const main = screen.getByLabelText('结项门禁')
     expect(within(main).getByText(/不复制、不移动、不删除任何真实文件/)).toBeInTheDocument()
-    expect(within(main).getByText('\\\\ARCHIVE\\2026\\P-3D-011')).toBeInTheDocument()
+    expect(within(main).getByText('\\\\ARCHIVE\\2026\\AUR_A_3D_B11')).toBeInTheDocument()
   })
 
   it('IT 备份这一步写明真实操作由 IT 完成', async () => {
