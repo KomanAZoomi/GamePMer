@@ -1,28 +1,10 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
 node_modules
 dist
 dist-ssr
 *.local
 
-# The repository root ignores generic data/ folders; this app's source seed data is versioned.
-!src/data/
-!src/data/**
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

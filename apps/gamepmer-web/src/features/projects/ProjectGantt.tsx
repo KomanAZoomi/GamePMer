@@ -168,8 +168,14 @@ export function ProjectGantt({
                     <small>{stage.estimatedPersonDays} 人天</small>
                   </span>
                   <span className="gp-stage-owner">{stage.ownerName}</span>
-                  <span className={`gp-stage-status is-${stageTone(stage)}`}>
-                    {stageStatusLabel(stage)}
+                  <span className="gp-stage-statuscell">
+                    <span className={`gp-stage-status is-${stageTone(stage)}`}>
+                      {stageStatusLabel(stage)}
+                    </span>
+                    {/* 冻结与风险标记不能只留在详情面板里——它们是甘特上最该一眼看到的信号 */}
+                    {stageFlagLabels(stage).length > 0 && (
+                      <span className="gp-stage-flags">{stageFlagLabels(stage).join(' · ')}</span>
+                    )}
                   </span>
                 </button>
               ))}

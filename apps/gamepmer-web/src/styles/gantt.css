@@ -300,7 +300,7 @@
 .gp-gantt-rowhead,
 .gp-gantt-stagerow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 58px 72px;
+  grid-template-columns: minmax(0, 1fr) 50px 86px;
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-4);
@@ -375,6 +375,23 @@
 .gp-stage-owner {
   color: var(--text-muted);
   font-size: var(--text-2xs);
+}
+
+.gp-stage-statuscell {
+  display: grid;
+  gap: 1px;
+  justify-items: stretch;
+  min-width: 0;
+}
+
+.gp-stage-flags {
+  color: var(--amber-ink);
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gp-stage-status {
