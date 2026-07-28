@@ -36,8 +36,8 @@ describe('工作台外壳', () => {
 
   it('未实现的模块点得动，并说明在哪个检查点交付', async () => {
     const { user } = renderApp()
-    await user.click(screen.getByRole('button', { name: /智能分析/ }))
-    expect(screen.getByRole('heading', { name: '智能分析' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /设置中心/ }))
+    expect(screen.getByRole('heading', { name: '设置中心' })).toBeInTheDocument()
     expect(screen.getByText(/尚未实现/)).toBeInTheDocument()
   })
 

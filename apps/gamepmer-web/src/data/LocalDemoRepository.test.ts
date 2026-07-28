@@ -16,7 +16,8 @@ describe('LocalDemoRepository', () => {
   it('首次加载返回种子数据，页面不会是空白', () => {
     const state = new LocalDemoRepository(fakeStorage()).load()
     expect(state.projects.length).toBeGreaterThanOrEqual(3)
-    expect(state.feedbackBatches).toHaveLength(1)
+    // F-017 待处理 + F-016 历史批次（供智能分析有返修与归因可算）
+    expect(state.feedbackBatches.length).toBeGreaterThanOrEqual(2)
   })
 
   it('保存后能读回同一份数据', () => {

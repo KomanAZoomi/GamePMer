@@ -10,6 +10,7 @@ import './styles/inbox.css'
 import './styles/quotation.css'
 import './styles/closeout.css'
 import './styles/files.css'
+import './styles/analytics.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(

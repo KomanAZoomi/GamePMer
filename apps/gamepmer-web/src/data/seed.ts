@@ -283,30 +283,40 @@ const prop03 = buildAsset('NST_C_3D_B31', 'PROP-03', '街道路障', '3D', [
 
 // ---------------------------------------------------------------- AUR_A_3D_B11 结项对照
 
+/**
+ * 已验收阶段。
+ *
+ * `actual` 与计划刻意不完全相同——这是唯一一个走完整条链的项目，
+ * 智能分析的按期率、团队延期和人天偏差全靠它才有东西可算。
+ * 全是 0% 偏差的历史数据看起来干净，但那种分析页等于什么也没说。
+ */
 const approved = (
   code: StageCode,
   days: number,
   start: IsoDate,
   finish: IsoDate,
   approvedAt: IsoDate,
+  actualFinish?: IsoDate,
 ): StageSeed => ({
   code,
   group: 'grp-3d-b',
   owner: 'Lin',
   days,
   baseline: [start, finish],
-  actual: [start, finish],
-  submittedToClientAt: finish,
+  actual: [start, actualFinish ?? finish],
+  submittedToClientAt: actualFinish ?? finish,
   clientApprovedAt: approvedAt,
   status: 'Approved',
 })
 
 const relay01 = buildAsset('AUR_A_3D_B11', 'RELAY-01', '中继终端', '3D', [
   approved('3D_MID', 2, '2026-07-06', '2026-07-07', '2026-07-08'),
-  approved('3D_HIGH', 2, '2026-07-08', '2026-07-09', '2026-07-10'),
+  // 高模比计划多花了两个工作日：团队延期
+  approved('3D_HIGH', 2, '2026-07-08', '2026-07-09', '2026-07-14', '2026-07-13'),
   approved('3D_LOW', 1, '2026-07-10', '2026-07-10', '2026-07-13'),
   approved('3D_BAKE', 1, '2026-07-13', '2026-07-13', '2026-07-14'),
-  approved('3D_TEXTURE', 2, '2026-07-14', '2026-07-15', '2026-07-16'),
+  // 贴图多花了一个工作日
+  approved('3D_TEXTURE', 2, '2026-07-14', '2026-07-15', '2026-07-20', '2026-07-16'),
   approved('3D_LOD', 2, '2026-07-16', '2026-07-17', '2026-07-20'),
 ])
 
@@ -1227,6 +1237,53 @@ const feedbackBatches: FeedbackBatch[] = [
           scope: 'out-of-scope',
           rationale: '原始需求清单和首次报价 Q-021 中没有背部模块，属于新增工作量。',
         },
+      },
+    ],
+  },
+  {
+    // 已结束的历史批次。留着是为了让智能分析的返修轮次和归因有历史可算——
+    // 只有「当前正在处理」的数据，分析页就只能显示一堆 0。
+    id: 'F-016',
+    projectCode: 'AUR_A_3D_B11',
+    client: 'Aurora Interactive',
+    receivedAt: '2026-07-10T14:20:00+08:00',
+    feedbackDrivePath: '\\\\NAS-ART\\Feedback\\AUR_A_3D_B11',
+    summary: '客户对高模面板线条提出两处修改，均属已报价范围内。',
+    clientWaitWorkdays: 2,
+    evidence: [
+      {
+        id: 'EV-F016-1',
+        kind: 'email',
+        label: '客户反馈邮件',
+        locator: 'Re: AUR_A_3D_B11 / RELAY-01 Highpoly',
+        receivedAt: '2026-07-10T14:20:00+08:00',
+        from: 'pm@aurora.example',
+      },
+    ],
+    items: [
+      {
+        id: 'F-016/ITEM-01',
+        batchId: 'F-016',
+        assetId: 'RELAY-01',
+        stageId: 'RELAY-01/3D_HIGH',
+        title: '面板分缝加深',
+        originalText: '面板之间的分缝再加深一点，现在几乎看不出来。',
+        scope: 'in-scope',
+        status: 'Closed',
+        ownerName: 'Lin',
+        estimatedReworkDays: 1,
+      },
+      {
+        id: 'F-016/ITEM-02',
+        batchId: 'F-016',
+        assetId: 'RELAY-01',
+        stageId: 'RELAY-01/3D_TEXTURE',
+        title: '金属反射过强',
+        originalText: '金属部分反射太亮，请压一点。',
+        scope: 'in-scope',
+        status: 'Closed',
+        ownerName: 'Lin',
+        estimatedReworkDays: 1,
       },
     ],
   },

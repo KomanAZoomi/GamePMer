@@ -117,7 +117,7 @@ test.describe('压力数据下版面不垮', () => {
     test(`${width} 宽度下页面不出现横向溢出`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })
 
-      for (const route of ['tasks', 'projects', 'schedule', 'feedback', 'inbox', 'quotation', 'closeout', 'files']) {
+      for (const route of ['tasks', 'projects', 'schedule', 'feedback', 'inbox', 'quotation', 'closeout', 'files', 'analytics']) {
         await page.goto(`/#/${route}`)
         await page.waitForTimeout(250)
 

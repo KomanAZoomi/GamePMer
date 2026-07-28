@@ -97,9 +97,9 @@ export const NAV_ITEMS: NavItem[] = [
     key: 'analytics',
     label: '智能分析',
     summary: '节点风险、客户等待、制作组负载与人天偏差，每条结论都能下钻到事实。',
-    checkpoint: '切片 7',
-    checkpointLabel: '本轮之后的切片 7',
-    ready: false,
+    checkpoint: 'C11',
+    checkpointLabel: '检查点 C11',
+    ready: true,
   },
   {
     key: 'settings',

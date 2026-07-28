@@ -1,0 +1,396 @@
+/* ================================================================ 智能分析
+ *
+ * 两件事必须在视觉上说死：
+ * 1. 四类归因各有固定颜色，且客户等待与团队延期永远是两个色块，不能混。
+ * 2. 口径说明常驻右下——按期率这种数字口径没说清，开会时一定会吵。
+ */
+
+.gp-analytics {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.gp-analytics .gp-metrics-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.gp-analytics-boundary {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-info);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  line-height: 1.7;
+}
+
+.gp-analytics-boundary strong {
+  color: var(--text-primary);
+}
+
+.gp-analytics-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 348px;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.gp-analytics-main {
+  min-width: 0;
+}
+
+.gp-analytics-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.gp-analytics-muted {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+}
+
+.gp-analytics-note {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.65;
+}
+
+/* ---------------------------------------------------------------- 表格通用 */
+
+.gp-health-table,
+.gp-accuracy-table,
+.gp-attr-table,
+.gp-load-table,
+.gp-quote-stat-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gp-health-table th,
+.gp-health-table td,
+.gp-accuracy-table th,
+.gp-accuracy-table td,
+.gp-attr-table th,
+.gp-attr-table td,
+.gp-load-table th,
+.gp-load-table td,
+.gp-quote-stat-table th,
+.gp-quote-stat-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  text-align: left;
+  font-size: var(--text-2xs);
+  vertical-align: middle;
+}
+
+.gp-health-table th,
+.gp-accuracy-table th,
+.gp-attr-table th,
+.gp-load-table th,
+.gp-quote-stat-table th {
+  background: var(--surface-rail);
+  color: var(--text-faint);
+  font-weight: var(--weight-heavy);
+  white-space: nowrap;
+}
+
+.gp-analytics td.gp-num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.gp-health-project strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+}
+
+.gp-health-project span {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-faint);
+}
+
+/* ---------------------------------------------------------------- 归因配色
+ *
+ * 四类各自固定一个颜色，全站一致：
+ * 客户等待用暖沙（不是团队的错），团队延期用克制红（要看的就是它）。
+ */
+
+.gp-mini-bar,
+.gp-attr-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--surface-muted);
+}
+
+.gp-mini-bar {
+  min-width: 90px;
+  margin-bottom: 4px;
+}
+
+.gp-attr-bar {
+  height: 16px;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-4);
+}
+
+.gp-mini-bar i,
+.gp-attr-bar i {
+  display: block;
+  height: 100%;
+}
+
+.is-client-wait {
+  background: #d8c39c;
+}
+
+.is-rework {
+  background: #8fae9d;
+}
+
+.is-team-delay {
+  background: var(--danger);
+}
+
+.is-dependency {
+  background: #7d8ea3;
+}
+
+.gp-cause-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+.gp-pill.is-cause-client-wait {
+  background: #f2e9d8;
+  color: #6d5a34;
+}
+
+.gp-pill.is-cause-rework {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.gp-pill.is-cause-team-delay {
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+}
+
+.gp-pill.is-cause-dependency {
+  background: #e8eef5;
+  color: #3c5570;
+}
+
+.gp-attribution {
+  padding: var(--space-4);
+}
+
+.gp-attribution h3 {
+  margin-top: var(--space-5);
+  margin-bottom: var(--space-3);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+/* ---------------------------------------------------------------- 人天偏差 */
+
+.gp-accuracy {
+  padding: var(--space-4) 0 0;
+  border-top: 1px solid var(--border-faint);
+}
+
+.gp-accuracy h3 {
+  padding: 0 var(--space-4) var(--space-3);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+/* ---------------------------------------------------------------- 负载矩阵 */
+
+.gp-load-group strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.gp-load-group span {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-faint);
+}
+
+.gp-load-cell {
+  display: grid;
+  gap: 3px;
+  min-width: 74px;
+}
+
+.gp-load-bar {
+  height: 7px;
+  border-radius: 4px;
+  background: var(--surface-muted);
+  overflow: hidden;
+}
+
+.gp-load-bar i {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.gp-load-bar.is-tight i {
+  background: var(--amber);
+}
+
+.gp-load-bar.is-over i {
+  background: var(--danger);
+}
+
+.gp-load-cell b {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
+
+.gp-load-cell b.is-tight {
+  color: var(--amber-ink);
+}
+
+.gp-load-cell b.is-over {
+  color: var(--danger-ink);
+}
+
+.gp-load-cell small {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+}
+
+/* ---------------------------------------------------------------- 右侧 */
+
+.gp-analytics-side {
+  display: grid;
+  gap: 0;
+  align-content: start;
+}
+
+.gp-insights {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.gp-insight {
+  display: grid;
+  gap: 5px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-insight.is-warn {
+  border-color: var(--amber-border);
+  background: var(--amber-soft);
+}
+
+.gp-insight strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.gp-insight p {
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  line-height: 1.65;
+}
+
+.gp-insight-evidence {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+}
+
+.gp-insight-tag {
+  justify-self: start;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  border: 1px solid var(--accent-border);
+  color: var(--accent-ink);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
+
+/* 口径说明常驻——不说清口径，这些数字就会变成吵架的素材 */
+.gp-definition {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+  background: var(--surface-rail);
+}
+
+.gp-definition h3 {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.gp-definition dl {
+  display: grid;
+  gap: 6px;
+  margin-top: var(--space-3);
+}
+
+.gp-definition dl > div {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.gp-definition dt {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+}
+
+.gp-definition dd {
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+}
+
+.gp-definition-hard {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  line-height: 1.6;
+}
+
+.gp-analytics-side .gp-detail-actions {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+}
+
+/* ---------------------------------------------------------------- 窄屏 */
+
+@media (max-width: 1439px) {
+  .gp-analytics-body {
+    grid-template-columns: minmax(0, 1fr) 306px;
+  }
+}
