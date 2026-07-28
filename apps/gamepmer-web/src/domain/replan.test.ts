@@ -138,11 +138,13 @@ describe('撤销范围判定', () => {
 
   it('撤销范围外判定时一并回收变更单与冻结标记', () => {
     const state = fresh()
+    // 种子里已有一张 CQ-004（背部能源模块），断言只看这次分流带来的增量
+    const base = state.changeRequests.length
     const classified = classifyOutOfScope(state, 'F-017/ITEM-02', AT, 'Brandon')
-    expect(classified.changeRequests).toHaveLength(1)
+    expect(classified.changeRequests).toHaveLength(base + 1)
 
     const reset = reclassifyFeedback(classified, 'F-017/ITEM-02', AT, 'Brandon')
-    expect(reset.changeRequests).toHaveLength(0)
+    expect(reset.changeRequests).toHaveLength(base)
     const high = reset.projects[0].assets[0].stages.find((s) => s.id === 'MECH-01/3D_HIGH')
     expect(high?.flags).not.toContain('WaitingChangeQuote')
   })
@@ -155,7 +157,7 @@ describe('撤销范围判定', () => {
 
     const high = next.projects[0].assets[0].stages.find((s) => s.id === 'MECH-01/3D_HIGH')
     expect(high?.flags).toContain('WaitingChangeQuote')
-    expect(next.changeRequests).toHaveLength(1)
+    expect(next.changeRequests).toHaveLength(state.changeRequests.length + 1)
   })
 
   it('已确认排期修订后不允许直接撤销判定', () => {
@@ -286,9 +288,10 @@ describe('范围分流', () => {
 
     expect(item?.scope).toBe('out-of-scope')
     expect(item?.status).toBe('WaitingChangeQuote')
-    expect(next.changeRequests).toHaveLength(1)
-    expect(next.changeRequests[0].id).toBe('CQ-004')
-    expect(next.changeRequests[0].sourceFeedbackItemId).toBe('F-017/ITEM-02')
+    expect(next.changeRequests).toHaveLength(state.changeRequests.length + 1)
+    // 编号接着种子里的 CQ-004 往后排
+    expect(next.changeRequests.at(-1)!.id).toBe('CQ-005')
+    expect(next.changeRequests.at(-1)!.sourceFeedbackItemId).toBe('F-017/ITEM-02')
 
     const high = next.projects[0].assets[0].stages.find((stage) => stage.id === 'MECH-01/3D_HIGH')
     expect(high?.flags).toContain('WaitingChangeQuote')
@@ -311,6 +314,6 @@ describe('范围分流', () => {
     const next = classifyOutOfScope(state, 'F-017/ITEM-02', AT, 'Brandon')
     const event = next.auditEvents.at(-1)
     expect(event?.action).toContain('创建变更单')
-    expect(event?.after).toContain('CQ-004')
+    expect(event?.after).toContain(next.changeRequests.at(-1)!.id)
   })
 })

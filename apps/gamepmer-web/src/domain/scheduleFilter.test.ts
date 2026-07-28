@@ -40,8 +40,8 @@ describe('matchStage', () => {
     const filter = { ...EMPTY_FILTER, riskOnly: true }
     // 低模带 PossibleDelay
     expect(matchStage(mech01Low, 'P-3D-024', filter)).toBe(true)
-    // 烘焙没有任何标记
-    expect(matchStage(state.projects[0].assets[0].stages[3], 'P-3D-024', filter)).toBe(false)
+    // 贴图没有任何标记（烘焙被 CQ-004 冻结，带 WaitingChangeQuote）
+    expect(matchStage(state.projects[0].assets[0].stages[4], 'P-3D-024', filter)).toBe(false)
   })
 
   it('多个条件是与关系', () => {

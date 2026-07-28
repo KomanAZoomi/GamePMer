@@ -128,12 +128,14 @@ test('步骤 11：范围外走变更单，只冻结受影响资产', async ({ pa
   await page.getByRole('button', { name: '新增腰部挂件' }).click()
   await page.getByRole('button', { name: '判为范围外' }).click()
 
-  await expect(page.getByLabel('反馈项详情').getByText('CQ-004')).toBeVisible()
+  // 种子里已有 CQ-004（背部能源模块），新建的变更单接着往后排
+  await expect(page.getByLabel('反馈项详情').getByText('CQ-005')).toBeVisible()
 
   // MECH-01 高模冻结，MECH-02 照常
   await page.goto('/#/projects')
   const gantt = page.getByLabel('项目排期甘特')
-  await expect(gantt.getByText('等待变更报价')).toBeVisible()
+  // 种子里 CQ-004 已经冻了烘焙，这次分流又冻了高模——两处都该出现
+  await expect(gantt.getByText('等待变更报价')).toHaveCount(2)
   await expect(gantt.getByText('MECH-02 · 轻型载具')).toBeVisible()
 })
 

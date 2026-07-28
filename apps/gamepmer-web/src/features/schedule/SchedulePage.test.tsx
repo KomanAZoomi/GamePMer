@@ -134,7 +134,9 @@ describe('筛选', () => {
 
     const combo = screen.getByLabelText('组合排期')
     expect(within(combo).getAllByRole('button', { name: /MECH-01 低模/ }).length).toBe(1)
-    expect(within(combo).queryByRole('button', { name: /MECH-01 烘焙/ })).toBeNull()
+    // 烘焙被 CQ-004 冻结，也算有风险；贴图才是真正无标记的那个
+    expect(within(combo).getAllByRole('button', { name: /MECH-01 烘焙/ }).length).toBe(1)
+    expect(within(combo).queryByRole('button', { name: /MECH-01 贴图/ })).toBeNull()
   })
 
   it('筛掉项目不会让制作组凭空多出空闲——容量始终按全量算', async () => {

@@ -73,9 +73,9 @@ export const NAV_ITEMS: NavItem[] = [
     key: 'quotation',
     label: '报价与变更',
     summary: '首次报价与追加报价的版本、复核和开工门禁。',
-    checkpoint: '切片 5',
-    checkpointLabel: '本轮之后的切片 5',
-    ready: false,
+    checkpoint: 'C8',
+    checkpointLabel: '检查点 C8',
+    ready: true,
   },
   {
     key: 'closeout',

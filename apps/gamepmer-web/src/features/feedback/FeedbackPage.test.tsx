@@ -176,7 +176,7 @@ describe('范围外追加路径', () => {
     const detail = screen.getByLabelText('反馈项详情')
     await user.click(within(detail).getByRole('button', { name: '判为范围外' }))
 
-    expect(within(screen.getByLabelText('反馈项详情')).getByText('CQ-004')).toBeInTheDocument()
+    expect(within(screen.getByLabelText('反馈项详情')).getByText('CQ-005')).toBeInTheDocument()
     expect(stageOf(store, 'MECH-01/3D_HIGH')?.flags).toContain('WaitingChangeQuote')
 
     // MECH-02 不被冻结
@@ -216,10 +216,11 @@ describe('范围判定可撤销', () => {
     const list = screen.getByLabelText('资产级反馈项')
     await user.click(within(list).getByRole('button', { name: '新增腰部挂件' }))
     await user.click(screen.getByRole('button', { name: '判为范围外' }))
-    expect(store.getState().demo.changeRequests).toHaveLength(1)
+    // 种子里已有 CQ-004，这里断言的是增量
+    expect(store.getState().demo.changeRequests).toHaveLength(2)
 
     await user.click(screen.getByRole('button', { name: '重新判定' }))
-    expect(store.getState().demo.changeRequests).toHaveLength(0)
+    expect(store.getState().demo.changeRequests).toHaveLength(1)
     expect(stageOf(store, 'MECH-01/3D_HIGH')?.flags).not.toContain('WaitingChangeQuote')
   })
 

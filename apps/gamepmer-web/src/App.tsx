@@ -8,6 +8,7 @@ import { ProjectsPage } from './features/projects/ProjectsPage'
 import { SchedulePage } from './features/schedule/SchedulePage'
 import { FeedbackPage } from './features/feedback/FeedbackPage'
 import { InboxPage } from './features/inbox/InboxPage'
+import { QuotationPage } from './features/quotation/QuotationPage'
 import { createWorkspaceStore, selectHomeView, type WorkspaceStore } from './features/workspace/workspaceStore'
 
 const defaultStore = createWorkspaceStore()
@@ -50,11 +51,15 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
         <FeedbackPage workspace={workspace} store={store} onNavigate={navigate} />
       )}
       {route === 'inbox' && <InboxPage workspace={workspace} store={store} onNavigate={navigate} />}
+      {route === 'quotation' && (
+        <QuotationPage workspace={workspace} store={store} onNavigate={navigate} />
+      )}
       {route !== 'tasks' &&
         route !== 'projects' &&
         route !== 'schedule' &&
         route !== 'feedback' &&
-        route !== 'inbox' && <PlaceholderPage item={navItem} />}
+        route !== 'inbox' &&
+        route !== 'quotation' && <PlaceholderPage item={navItem} />}
     </AppShell>
   )
 }

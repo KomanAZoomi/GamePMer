@@ -16,6 +16,10 @@ import {
   ingestText,
   restoreCandidate as restoreInboxCandidate,
 } from '../../domain/inbox'
+import {
+  reviewQuote as reviewQuoteCase,
+  sendKickoff as sendQuoteKickoff,
+} from '../../domain/quotation'
 import { confirmScheduleEntry as confirmEntry } from '../../domain/scheduleEntry'
 import {
   classifyInScope,
@@ -49,11 +53,15 @@ export interface WorkspaceState {
   selectedFeedbackItemId?: string
   selectedCandidateId?: string
   inboxTab: InboxTab
+  selectedQuoteCaseId?: string
+  quoteTab: QuoteTab
   /** 排期草案只活在界面状态里，永不落盘——草案不污染正式数据 */
   draft?: ScheduleRevisionDraft
 }
 
 export type InboxTab = 'review' | 'blocked' | 'done'
+
+export type QuoteTab = 'active' | 'ready' | 'done'
 
 export interface IngestRequest {
   text: string
@@ -94,6 +102,10 @@ export interface WorkspaceStore {
   ignoreCandidate(candidateId: string, reason: string): void
   restoreCandidate(candidateId: string): void
   ingestCandidate(request: IngestRequest): void
+  selectQuoteCase(caseId: string): void
+  setQuoteTab(tab: QuoteTab): void
+  reviewQuote(caseId: string, decision: 'approve' | 'reject', note: string): void
+  sendKickoff(caseId: string, via: string): void
   resetDemo(): void
 }
 
@@ -111,6 +123,8 @@ function initialState(demo: DemoState, today: string): WorkspaceState {
     axisScale: 'day',
     selectedCandidateId: demo.candidates.find((entry) => entry.status === 'NeedsReview')?.id,
     inboxTab: 'review',
+    selectedQuoteCaseId: demo.quoteCases.find((entry) => entry.status === 'AwaitingReview')?.id,
+    quoteTab: 'active',
   }
 }
 
@@ -302,6 +316,32 @@ export function createWorkspaceStore(
         inboxTab:
           candidate.status === 'Duplicate' ? 'done' : canConfirm(candidate) ? 'review' : 'blocked',
       }
+      emit()
+    },
+    selectQuoteCase(caseId) {
+      state = { ...state, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    setQuoteTab(tab) {
+      state = { ...state, quoteTab: tab }
+      emit()
+    },
+    reviewQuote(caseId, decision, note) {
+      // 领域层在有阻断时抛错且零副作用；这里让它冒泡，界面不显示虚假的成功
+      const demo = reviewQuoteCase(state.demo, caseId, {
+        decision,
+        note,
+        actor: 'Brandon',
+        now: clock.now(),
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    sendKickoff(caseId, via) {
+      const demo = sendQuoteKickoff(state.demo, caseId, { actor: 'Brandon', now: clock.now(), via })
+      repository.save(demo)
+      state = { ...state, demo, selectedQuoteCaseId: caseId }
       emit()
     },
     resetDemo() {

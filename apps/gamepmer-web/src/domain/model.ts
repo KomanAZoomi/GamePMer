@@ -327,7 +327,7 @@ export interface AuditEvent {
   reason?: string
 }
 
-// ---------------------------------------------------------------- 变更单（本轮仅占位）
+// ---------------------------------------------------------------- 变更单
 
 export interface ChangeRequest {
   id: string
@@ -336,11 +336,108 @@ export interface ChangeRequest {
   sourceFeedbackItemId: string
   title: string
   status: 'ClassifiedExtra' | 'Quoting' | 'AwaitingReview' | 'Approved' | 'ChangeKickoffSent'
+  /** 走到报价环节后指向对应的报价案件 */
+  quoteCaseId?: string
+}
+
+// ---------------------------------------------------------------- 人与角色
+
+export type PersonRole = 'PM' | '艺术总监' | '组长' | 'BD' | 'IT'
+
+/**
+ * 人。
+ *
+ * `roles` 是数组不是单值，因为公司里一个人经常兼两职（最常见是组长兼 BD）。
+ * 待办按人合并、审计按角色展开——为了流程图好看让同一个人点两次确认，是把流程当成了目的。
+ */
+export interface Person {
+  id: string
+  name: string
+  roles: PersonRole[]
+}
+
+// ---------------------------------------------------------------- 报价与变更
+
+export type QuoteKind = 'initial' | 'change'
+
+/**
+ * `Received → Assigned → DirectorQuoting → AwaitingReview → Approved → KickoffSent | Rejected`
+ *
+ * 批准 ≠ 开工。只有 PM 发出正式开工（或变更开工）邮件后才进入制作——
+ * 这一步是人工声明，工作台不发信。
+ */
+export type QuoteCaseStatus =
+  | 'Received'
+  | 'Assigned'
+  | 'DirectorQuoting'
+  | 'AwaitingReview'
+  | 'Approved'
+  | 'KickoffSent'
+  | 'Rejected'
+
+export interface QuoteLine {
+  id: string
+  assetId: string
+  stageCode: StageCode
+  title: string
+  note: string
+  personDays: number
+  unitPrice: number
+  /** 报价必须带排期，不能只有一个总金额 */
+  plannedStart?: IsoDate
+  plannedFinish?: IsoDate
+}
+
+export interface QuoteReview {
+  personId: string
+  /** 同一人兼两角时这里两个角色都在，但只发生一次确认 */
+  roles: PersonRole[]
+  decision: 'approve' | 'reject'
+  decidedAt: string
+  note: string
+}
+
+export interface QuoteVersion {
+  id: string
+  caseId: string
+  version: number
+  submittedBy: string
+  submittedAt: string
+  lines: QuoteLine[]
+  /** 该报价对项目工期的净影响（工作日） */
+  scheduleImpactWorkdays: number
+  review?: QuoteReview
+  /** 被新版本取代的时间。已复核的版本不删不改，只作废 */
+  supersededAt?: string
+}
+
+export interface QuoteCase {
+  id: string
+  kind: QuoteKind
+  projectCode: string
+  client: string
+  title: string
+  requirement: string
+  status: QuoteCaseStatus
+  /** 追加报价的来源；首次报价为空 */
+  sourceFeedbackItemId?: string
+  changeRequestId?: string
+  /** 受影响资产。只冻结这些，其余资产照常制作 */
+  affectedAssetIds: string[]
+  directorName: string
+  /** 复核人；组长与 BD 同人时只有一条 */
+  reviewerPersonId: string
+  createdAt: string
+  activeVersionId?: string
+  /** PM 声明已发出开工邮件的时间——人工声明，不是系统投递回执 */
+  kickoffSentAt?: string
+  kickoffSentBy?: string
+  evidence: EvidenceRef[]
 }
 
 // ---------------------------------------------------------------- 聚合状态
 
-export const DEMO_SCHEMA_VERSION = 3
+export const DEMO_SCHEMA_VERSION = 4
 
 export interface DemoState {
   schemaVersion: typeof DEMO_SCHEMA_VERSION
@@ -349,6 +446,9 @@ export interface DemoState {
   projects: Project[]
   sourceRecords: SourceRecord[]
   candidates: InboxCandidate[]
+  people: Person[]
+  quoteCases: QuoteCase[]
+  quoteVersions: QuoteVersion[]
   feedbackBatches: FeedbackBatch[]
   revisions: ScheduleRevision[]
   notificationDrafts: NotificationDraft[]

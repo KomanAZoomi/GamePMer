@@ -3,7 +3,12 @@ import type {
   Asset,
   AuditEvent,
   CandidateField,
+  ChangeRequest,
   InboxCandidate,
+  Person,
+  QuoteCase,
+  QuoteLine,
+  QuoteVersion,
   DemoState,
   FeedbackBatch,
   IsoDate,
@@ -142,12 +147,15 @@ const mech01 = buildAsset('P-3D-024', 'MECH-01', '主角机甲', '3D', [
     flags: ['PossibleDelay'],
   },
   {
+    // 被追加报价 CQ-004（背部能源模块）冻结，等待复核与变更开工。
+    // 只冻这一个阶段——同资产的其他阶段和 MECH-02 都继续制作
     code: '3D_BAKE',
     group: 'grp-3d-a',
     owner: 'Chen',
     days: 1,
     baseline: ['2026-07-30', '2026-07-30'],
     status: 'NotStarted',
+    flags: ['WaitingChangeQuote'],
   },
   {
     code: '3D_TEXTURE',
@@ -344,6 +352,270 @@ const projects: Project[] = [
     artDirectorName: 'Evan',
     calendarId: CALENDAR_ID,
     assets: [relay01],
+  },
+]
+
+// ---------------------------------------------------------------- 人与角色
+
+/** Leo 同时是组长和 BD——这是公司里最常见的兼职组合，也是复核合并规则的来源。 */
+const people: Person[] = [
+  { id: 'PER-brandon', name: 'Brandon', roles: ['PM'] },
+  { id: 'PER-evan', name: 'Evan', roles: ['艺术总监'] },
+  { id: 'PER-leo', name: 'Leo', roles: ['组长', 'BD'] },
+  { id: 'PER-liu', name: 'Liu', roles: ['BD'] },
+  { id: 'PER-yuki', name: 'Yuki', roles: ['组长'] },
+  { id: 'PER-it', name: 'Project Archive', roles: ['IT'] },
+]
+
+// ---------------------------------------------------------------- 报价与变更
+
+const line = (
+  id: string,
+  assetId: string,
+  stageCode: StageCode,
+  title: string,
+  note: string,
+  personDays: number,
+  plannedStart?: IsoDate,
+  plannedFinish?: IsoDate,
+): QuoteLine => ({
+  id,
+  assetId,
+  stageCode,
+  title,
+  note,
+  personDays,
+  unitPrice: 2000,
+  plannedStart,
+  plannedFinish,
+})
+
+const quoteVersions: QuoteVersion[] = [
+  {
+    // 首次报价：已开工，作为「原报价永不覆盖」的基数
+    id: 'Q-021/V01',
+    caseId: 'Q-021',
+    version: 1,
+    submittedBy: 'Evan',
+    submittedAt: '2026-07-15T14:20:00+08:00',
+    scheduleImpactWorkdays: 0,
+    lines: [
+      line('Q-021/L01', 'MECH-01', '3D_MID', '主角机甲 · 中模', '基础比例与结构', 3, '2026-07-20', '2026-07-22'),
+      line('Q-021/L02', 'MECH-01', '3D_HIGH', '主角机甲 · 高模', '细节雕刻', 2, '2026-07-23', '2026-07-24'),
+      line('Q-021/L03', 'MECH-01', '3D_LOW', '主角机甲 · 低模', '拓扑与 UV', 3, '2026-07-27', '2026-07-29'),
+      line('Q-021/L04', 'MECH-01', '3D_BAKE', '主角机甲 · 烘焙', '法线与 AO', 1, '2026-07-30', '2026-07-30'),
+      line('Q-021/L05', 'MECH-01', '3D_TEXTURE', '主角机甲 · 贴图', 'PBR 材质', 3, '2026-07-31', '2026-08-04'),
+      line('Q-021/L06', 'MECH-01', '3D_LOD', '主角机甲 · LOD', '三级细节', 2, '2026-08-06', '2026-08-07'),
+      line('Q-021/L07', 'MECH-02', '3D_MID', '轻型载具 · 中模', '车体结构', 2, '2026-07-27', '2026-07-28'),
+      line('Q-021/L08', 'MECH-02', '3D_HIGH', '轻型载具 · 高模', '细节与部件', 3, '2026-07-29', '2026-07-31'),
+      line('Q-021/L09', 'MECH-02', '3D_LOW', '轻型载具 · 低模', '拓扑与 UV', 2, '2026-08-03', '2026-08-04'),
+    ],
+    review: {
+      personId: 'PER-leo',
+      roles: ['组长', 'BD'],
+      decision: 'approve',
+      decidedAt: '2026-07-16T10:05:00+08:00',
+      note: '人天与节点合理，同意接入。',
+    },
+  },
+  {
+    // 追加报价：等待复核，4.5 人天 / ¥9,000 / +3 工作日
+    // 8/5 是公司休息日，8/8~8/9 是周末，节点已避开
+    id: 'CQ-004/V01',
+    caseId: 'CQ-004',
+    version: 1,
+    submittedBy: 'Evan',
+    submittedAt: '2026-07-27T11:18:00+08:00',
+    scheduleImpactWorkdays: 3,
+    lines: [
+      line('CQ-004/L01', 'MECH-01', '3D_HIGH', '高模 · 能源模块结构', '新增结构设计与细化', 1.5, '2026-08-03', '2026-08-04'),
+      line('CQ-004/L02', 'MECH-01', '3D_LOW', '低模', '拓扑与结构适配', 0.8, '2026-08-06', '2026-08-06'),
+      line('CQ-004/L03', 'MECH-01', '3D_BAKE', '烘焙', '新部件法线与检查', 0.4, '2026-08-07', '2026-08-07'),
+      line('CQ-004/L04', 'MECH-01', '3D_TEXTURE', '贴图', '材质表现与整合', 1.2, '2026-08-10', '2026-08-11'),
+      line('CQ-004/L05', 'MECH-01', '3D_LOD', 'LOD', '新增模块多级细节', 0.6, '2026-08-12', '2026-08-12'),
+    ],
+  },
+  {
+    // 首次报价：等待复核，复核人只担任 BD 一个角色
+    id: 'Q-031/V01',
+    caseId: 'Q-031',
+    version: 1,
+    submittedBy: 'Evan',
+    submittedAt: '2026-07-27T16:40:00+08:00',
+    scheduleImpactWorkdays: 12,
+    lines: [
+      line('Q-031/L01', 'COSTUME-01', '3D_MID', '时装 A · 中模', '6 套时装的基础结构', 6, '2026-08-17', '2026-08-24'),
+      line('Q-031/L02', 'COSTUME-01', '3D_HIGH', '时装 A · 高模', '布料细节', 8, '2026-08-25', '2026-09-03'),
+      line('Q-031/L03', 'COSTUME-01', '3D_TEXTURE', '时装 A · 贴图', '材质与配色变体', 10, '2026-09-04', '2026-09-17'),
+    ],
+  },
+  {
+    // 复核通过、等待 PM 发开工邮件
+    id: 'Q-029/V01',
+    caseId: 'Q-029',
+    version: 1,
+    submittedBy: 'Evan',
+    submittedAt: '2026-07-24T09:30:00+08:00',
+    scheduleImpactWorkdays: 15,
+    lines: [
+      line('Q-029/L01', 'VEHICLE-01', '3D_MID', '载具 · 中模', '4 台载具基础结构', 8, '2026-08-17', '2026-08-26'),
+      line('Q-029/L02', 'VEHICLE-01', '3D_HIGH', '载具 · 高模', '机械细节', 10, '2026-08-27', '2026-09-09'),
+    ],
+    review: {
+      personId: 'PER-liu',
+      roles: ['BD'],
+      decision: 'approve',
+      decidedAt: '2026-07-24T17:10:00+08:00',
+      note: '客户已口头认可价格。',
+    },
+  },
+]
+
+const quoteCases: QuoteCase[] = [
+  {
+    id: 'Q-021',
+    kind: 'initial',
+    projectCode: 'P-3D-024',
+    client: 'Northstar Studio',
+    title: '蒸汽守卫角色资产包',
+    requirement: 'BD 转来的首次需求：主角机甲与轻型载具各一套 PBR 资产。',
+    status: 'KickoffSent',
+    affectedAssetIds: ['MECH-01', 'MECH-02'],
+    directorName: 'Evan',
+    reviewerPersonId: 'PER-leo',
+    createdAt: '2026-07-14T09:10:00+08:00',
+    activeVersionId: 'Q-021/V01',
+    kickoffSentAt: '2026-07-17T09:00:00+08:00',
+    kickoffSentBy: 'Brandon',
+    evidence: [
+      {
+        id: 'EV-Q021-1',
+        kind: 'email',
+        label: 'BD 需求邮件',
+        locator: '【新需求】Northstar 蒸汽守卫资产包',
+        receivedAt: '2026-07-14T09:08:00+08:00',
+        from: 'bd.liu@studio.example',
+      },
+    ],
+  },
+  {
+    id: 'CQ-004',
+    kind: 'change',
+    projectCode: 'P-3D-024',
+    client: 'Northstar Studio',
+    title: '新增背部能源模块',
+    requirement:
+      '原始报价与需求清单中没有背部能源模块；需要补充高模、低模、烘焙、贴图和 LOD 工作，并更新受影响节点排期。',
+    status: 'AwaitingReview',
+    sourceFeedbackItemId: 'F-017/ITEM-04',
+    changeRequestId: 'CQ-004',
+    // 只有 MECH-01 受影响。MECH-02 与其他项目照常制作
+    affectedAssetIds: ['MECH-01'],
+    directorName: 'Evan',
+    reviewerPersonId: 'PER-leo',
+    createdAt: '2026-07-27T10:52:00+08:00',
+    activeVersionId: 'CQ-004/V01',
+    evidence: [
+      {
+        id: 'EV-CQ004-1',
+        kind: 'email',
+        label: '客户反馈原文',
+        locator: 'Re: P-3D-024 / MECH-01 Highpoly Review',
+        receivedAt: '2026-07-27T10:42:00+08:00',
+        from: 'client.review@northstar.example',
+      },
+      {
+        id: 'EV-CQ004-2',
+        kind: 'email',
+        label: '总监返回报价',
+        locator: 'RE: CQ-004 背部能源模块人天与节点',
+        receivedAt: '2026-07-27T11:18:00+08:00',
+        from: 'evan@studio.example',
+      },
+    ],
+  },
+  {
+    id: 'Q-031',
+    kind: 'initial',
+    projectCode: 'P-3D-033',
+    client: 'Northstar Studio',
+    title: '新角色 6 套时装',
+    requirement: '客户想加 6 套时装，需要报价和排期。项目尚未创建。',
+    status: 'AwaitingReview',
+    affectedAssetIds: ['COSTUME-01'],
+    directorName: 'Evan',
+    reviewerPersonId: 'PER-liu',
+    createdAt: '2026-07-26T16:31:00+08:00',
+    activeVersionId: 'Q-031/V01',
+    evidence: [
+      {
+        id: 'EV-Q031-1',
+        kind: 'email',
+        label: 'BD 需求邮件',
+        locator: '新角色 6 套时装需求',
+        receivedAt: '2026-07-26T16:30:00+08:00',
+        from: 'bd.liu@studio.example',
+      },
+    ],
+  },
+  {
+    id: 'Q-030',
+    kind: 'initial',
+    projectCode: 'P-2D-020',
+    client: 'Halcyon Games',
+    title: '场景概念图 12 张',
+    requirement: '12 张场景概念设计，含 2 轮修改。',
+    status: 'DirectorQuoting',
+    affectedAssetIds: [],
+    directorName: 'Yuki',
+    reviewerPersonId: 'PER-yuki',
+    createdAt: '2026-07-26T11:05:00+08:00',
+    evidence: [
+      {
+        id: 'EV-Q030-1',
+        kind: 'email',
+        label: 'BD 需求邮件',
+        locator: '场景概念图需求',
+        receivedAt: '2026-07-26T11:00:00+08:00',
+        from: 'bd.liu@studio.example',
+      },
+    ],
+  },
+  {
+    id: 'Q-029',
+    kind: 'initial',
+    projectCode: 'P-3D-034',
+    client: 'Aurora Interactive',
+    title: '载具模型 4 台',
+    requirement: '4 台载具，含中模与高模，不含贴图。',
+    status: 'Approved',
+    affectedAssetIds: ['VEHICLE-01'],
+    directorName: 'Evan',
+    reviewerPersonId: 'PER-liu',
+    createdAt: '2026-07-23T15:20:00+08:00',
+    activeVersionId: 'Q-029/V01',
+    evidence: [
+      {
+        id: 'EV-Q029-1',
+        kind: 'email',
+        label: 'BD 需求邮件',
+        locator: '载具模型报价请求',
+        receivedAt: '2026-07-23T15:18:00+08:00',
+        from: 'bd.liu@studio.example',
+      },
+    ],
+  },
+]
+
+/** 与 CQ-004 报价案件配对的变更单。反馈中心判为范围外时会从 CQ-005 起继续编号。 */
+const changeRequests: ChangeRequest[] = [
+  {
+    id: 'CQ-004',
+    projectCode: 'P-3D-024',
+    assetId: 'MECH-01',
+    sourceFeedbackItemId: 'F-017/ITEM-04',
+    title: '新增背部能源模块',
+    status: 'AwaitingReview',
   },
 ]
 
@@ -727,6 +999,23 @@ const feedbackBatches: FeedbackBatch[] = [
           rationale: '属于已报价高模的表面细节修正。',
         },
       },
+      {
+        // 已判为范围外并进入追加报价 CQ-004——报价页的主路径从这里接上
+        id: 'F-017/ITEM-04',
+        batchId: 'F-017',
+        assetId: 'MECH-01',
+        stageId: 'MECH-01/3D_BAKE',
+        title: '新增背部能源模块',
+        originalText: '另外希望背部增加一组能源模块，形态可以参考附图 04 的机甲。',
+        scope: 'out-of-scope',
+        status: 'WaitingChangeQuote',
+        ownerName: 'Chen',
+        estimatedReworkDays: 3,
+        aiSuggestion: {
+          scope: 'out-of-scope',
+          rationale: '原始需求清单和首次报价 Q-021 中没有背部模块，属于新增工作量。',
+        },
+      },
     ],
   },
 ]
@@ -821,10 +1110,13 @@ export function createDemoState(): DemoState {
     projects,
     sourceRecords,
     candidates,
+    people,
+    quoteCases,
+    quoteVersions,
     feedbackBatches,
     revisions,
     notificationDrafts,
     auditEvents,
-    changeRequests: [],
+    changeRequests,
   } satisfies DemoState)
 }
