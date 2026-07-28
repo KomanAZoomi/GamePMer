@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>设置中心 · 原型 v1</title>
+<style>
+:root{
+  --surface-page:#f5f7f5;--surface-card:#fff;--surface-rail:#fbfcfb;--surface-muted:#f6f8f6;
+  --surface-field:#f8faf9;--surface-info:#f7faf8;--surface-group:#f4f7f5;
+  --border-strong:#d9dfdb;--border-default:#dde3df;--border-subtle:#e4e8e5;--border-faint:#edf0ee;
+  --text-primary:#25362e;--text-secondary:#4c5b53;--text-muted:#6f7d76;--text-faint:#8b968f;
+  --accent:#42755f;--accent-ink:#285c47;--accent-soft:#e7f1ec;--accent-softer:#eff6f2;--accent-border:#c6dacf;
+  --amber:#c8802f;--amber-ink:#8c5a24;--amber-soft:#fdf3e7;--amber-border:#e6c8a4;
+  --danger:#b4553c;--danger-ink:#8f3f2b;--danger-soft:#fbeae4;--danger-border:#e8c4b6;
+  --info-soft:#e8eef5;--info-ink:#3c5570;--info-border:#cdd9e6;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-page);color:var(--text-primary);
+  font-family:'Segoe UI','Microsoft YaHei UI','Microsoft YaHei',system-ui,sans-serif;font-size:14px;line-height:1.55}
+h1,h2,h3,p,dl,dd,ol,ul{margin:0}
+ol,ul{padding:0;list-style:none}
+button{font:inherit;color:inherit;cursor:pointer}
+.mono{font-family:Consolas,'Cascadia Mono',monospace}
+
+.note{max-width:1880px;margin:20px auto 14px;padding:14px 18px;border:1px solid #dfe7e2;border-radius:12px;
+  background:var(--surface-info);color:#516159;font-size:13px;line-height:1.7}
+.note strong{color:#24382f}
+.note code{font-family:Consolas,monospace;font-size:12px;background:#fff;padding:1px 5px;border-radius:4px;border:1px solid #e3e9e5}
+
+.app{max-width:1880px;margin:0 auto 24px;display:grid;grid-template-columns:216px 1fr;
+  border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;background:#fff}
+
+.rail{display:flex;flex-direction:column;padding:16px 10px;background:var(--surface-rail);border-right:1px solid var(--border-subtle)}
+.brand{padding:0 8px;margin-bottom:16px;font-size:17px;font-weight:800;color:var(--text-primary)}
+.brand span{display:block;margin-top:3px;color:var(--text-faint);font-size:10px;font-weight:600;letter-spacing:.08em}
+.nav{display:grid;gap:2px}
+.nav a{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;
+  color:var(--text-secondary);font-size:14px;font-weight:550;text-decoration:none;border:1px solid transparent}
+.nav a.active{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent-border);font-weight:700}
+.nav em{font-style:normal;font-size:11px;color:var(--text-faint);background:var(--surface-muted);padding:1px 5px;border-radius:6px}
+.user{margin-top:auto;display:flex;gap:8px;align-items:center;padding:8px;border:1px solid var(--border-default);border-radius:8px;background:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);
+  display:grid;place-items:center;font-size:12px;font-weight:800}
+.user b{display:block;font-size:14px}.user small{color:var(--text-faint);font-size:12px}
+
+.main{display:grid;grid-template-rows:60px 1fr;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border-subtle);background:#fff}
+.search{flex:1;max-width:420px;padding:8px 12px;border:1px solid var(--border-default);border-radius:999px;
+  background:var(--surface-field);color:var(--text-faint);font-size:14px}
+.top-actions{margin-left:auto;display:flex;gap:8px}
+.btn{padding:6px 10px;border:1px solid var(--border-default);border-radius:8px;background:#fff;color:var(--text-secondary);font-size:13px;font-weight:550;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.amber{background:var(--amber-soft);border-color:var(--amber-border);color:var(--amber-ink)}
+.btn.sm{padding:4px 8px;font-size:12px}
+.btn.ghost{opacity:.45;cursor:not-allowed}
+
+.content{padding:12px 16px;background:var(--surface-page);display:grid;gap:12px;align-content:start}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.page-head h1{font-size:21px;font-weight:800}
+.page-head p{margin-top:3px;color:var(--text-muted);font-size:13px}
+
+.card{border:1px solid var(--border-default);border-radius:12px;background:#fff}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border-faint)}
+.card-head h2{font-size:15px;font-weight:700;display:flex;flex-direction:column;gap:2px}
+.card-head small{color:var(--text-faint);font-size:12px;font-weight:400}
+.count{padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700}
+
+.layout{display:grid;grid-template-columns:212px minmax(0,1fr) 336px;gap:12px;align-items:start}
+.stack{display:grid;gap:12px;min-width:0}
+
+/* 设置分组导航 */
+.subnav{padding:8px}
+.subnav-sec{margin:10px 8px 4px;color:var(--text-faint);font-size:11px;font-weight:800;letter-spacing:.08em}
+.subnav-sec:first-child{margin-top:2px}
+.subnav a{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;
+  color:var(--text-secondary);font-size:14px;text-decoration:none;border:1px solid transparent}
+.subnav a.active{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent-border);font-weight:700}
+.subnav a i{font-style:normal;font-size:11px;padding:1px 5px;border-radius:6px;background:var(--surface-muted);color:var(--text-faint)}
+.subnav a i.warn{background:var(--amber-soft);color:var(--amber-ink);font-weight:700}
+.subnav a i.ok{background:var(--accent-soft);color:var(--accent-ink);font-weight:700}
+
+/* 供应商表 */
+.ptable{width:100%;border-collapse:collapse}
+.ptable th,.ptable td{padding:10px 12px;border-bottom:1px solid var(--border-faint);text-align:left;font-size:13px;vertical-align:middle}
+.ptable th{color:var(--text-faint);font-size:12px;font-weight:800;background:var(--surface-rail);white-space:nowrap}
+.ptable tr.on td{background:var(--accent-softer)}
+.ptable td.name{font-weight:700;font-size:14px}
+.ptable td.name small{display:block;color:var(--text-faint);font-size:12px;font-weight:400}
+.ptable .url{font-family:Consolas,monospace;font-size:12px;color:var(--text-secondary);word-break:break-all}
+.radio{width:15px;height:15px;accent-color:var(--accent)}
+
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill.ok{background:var(--accent-soft);color:var(--accent-ink)}
+.pill.warn{background:var(--amber-soft);color:var(--amber-ink)}
+.pill.bad{background:var(--danger-soft);color:var(--danger-ink)}
+.pill.info{background:var(--info-soft);color:var(--info-ink)}
+.pill.mute{background:var(--surface-muted);color:var(--text-secondary)}
+
+/* 表单 */
+.form{padding:12px 14px;display:grid;gap:11px}
+.frow{display:grid;grid-template-columns:132px minmax(0,1fr);gap:12px;align-items:center}
+.frow>label{color:var(--text-muted);font-size:13px}
+.frow>label b{display:block;color:var(--text-secondary);font-size:13px;font-weight:650}
+.frow>label small{display:block;color:var(--text-faint);font-size:12px;margin-top:2px}
+.inp,.sel{width:100%;padding:7px 9px;border:1px solid var(--border-default);border-radius:7px;background:#fff;font:inherit;font-size:13px}
+.inp.mono{font-family:Consolas,monospace}
+.inp[readonly]{background:var(--surface-muted);color:var(--text-muted)}
+.inp-group{display:flex;gap:8px;align-items:center}
+.inp-group .inp{flex:1}
+.hint{color:var(--text-faint);font-size:12px}
+.hint.danger{color:var(--danger-ink);font-weight:600}
+.keybox{display:flex;gap:8px;align-items:center;padding:9px 10px;border:1px solid var(--amber-border);border-radius:8px;background:var(--amber-soft)}
+.keybox .mono{flex:1;font-size:13px;color:var(--amber-ink);letter-spacing:.08em}
+
+/* 用途分配 */
+.utable{width:100%;border-collapse:collapse}
+.utable th,.utable td{padding:9px 12px;border-bottom:1px solid var(--border-faint);text-align:left;font-size:13px;vertical-align:middle}
+.utable th{color:var(--text-faint);font-size:12px;font-weight:800;background:var(--surface-rail);white-space:nowrap}
+.utable td.use{font-weight:650}
+.utable td.use small{display:block;color:var(--text-faint);font-size:12px;font-weight:400}
+.utable .sel{min-width:150px}
+
+/* 连接器 */
+.conns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 14px}
+.conn{padding:11px;border:1px solid var(--border-default);border-radius:10px;background:var(--surface-rail)}
+.conn>b{display:block;font-size:14px}
+.conn p b{color:var(--text-secondary)}
+.conn .st{margin-top:5px}
+.conn p{margin-top:6px;color:var(--text-muted);font-size:12px;line-height:1.6}
+.conn .paths{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border-default);font-size:12px;color:var(--text-secondary)}
+.conn .paths span{display:block;margin-top:3px}
+.conn .paths i{font-style:normal;color:var(--accent-ink);font-weight:700}
+
+/* 右侧 */
+.side{display:grid;gap:12px;align-content:start}
+.sec{padding:12px 14px}
+.sec .s-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-faint);font-size:13px}
+.sec .s-row:last-of-type{border-bottom:0}
+.sec .s-row span{color:var(--text-muted)}
+.sec .s-row b{text-align:right;color:var(--text-secondary)}
+.sec .warn-box{margin-top:9px;padding:9px;border-radius:8px;background:var(--danger-soft);border:1px solid var(--danger-border);
+  color:var(--danger-ink);font-size:12px;line-height:1.6;font-weight:600}
+.log{padding:6px 0}
+.log-row{padding:8px 14px;border-bottom:1px solid var(--border-faint);font-size:12px;color:var(--text-muted)}
+.log-row:last-child{border-bottom:0}
+.log-row b{display:block;color:var(--text-secondary);font-size:13px;font-weight:650}
+.log-row .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:3px}
+.log-row .meta em{font-style:normal;padding:1px 6px;border-radius:5px;background:var(--surface-muted);font-size:11px}
+
+.q{max-width:1880px;margin:0 auto 40px;padding:16px 20px;border:1px solid var(--accent-border);border-radius:12px;background:#fff}
+.q h3{font-size:16px;font-weight:800;color:var(--accent-ink)}
+.q ol{margin-top:10px;display:grid;gap:8px;counter-reset:qq}
+.q li{padding-left:26px;position:relative;font-size:14px;line-height:1.65;color:var(--text-secondary)}
+.q li:before{counter-increment:qq;content:counter(qq);position:absolute;left:0;top:2px;width:19px;height:19px;border-radius:50%;
+  background:var(--accent-soft);color:var(--accent-ink);font-size:11px;font-weight:800;display:grid;place-items:center}
+.q b{color:var(--text-primary)}
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>设置中心 · 静态原型 v1（切片 7）</strong>　当前打开的是 <b>LLM 供应商</b> 分组，做法参考 cc-switch：<b>预设 + 切换</b>，地址和模型预填，你只填 API Key。
+  三条硬约束写在页面上：<b>Key 只提交到内网服务端保管</b>（前端不落盘、不进日志、不进导出）；<b>所有调用经内网网关，浏览器不直连任何外部域名</b>；
+  <b>每次调用都写审计</b>（谁、什么用途、哪个模型、多少 token）。AI 结果一律标「建议 · 未执行」。
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand">GamePMer<span>GAME ART PM WORKSPACE</span></div>
+    <nav class="nav">
+      <a href="#">任务管理</a>
+      <a href="#">项目总览</a>
+      <a href="#">候选收件箱<em>切片 3</em></a>
+      <a href="#">排期管理</a>
+      <a href="#">反馈中心</a>
+      <a href="#">报价与变更<em>切片 5</em></a>
+      <a href="#">结项中心<em>切片 6</em></a>
+      <a href="#">文件与归档<em>切片 6</em></a>
+      <a href="#">智能分析<em>切片 7</em></a>
+      <a href="#" class="active">设置中心</a>
+    </nav>
+    <div class="user"><span class="avatar">PM</span><span><b>Brandon</b><small>游戏美术 PM</small></span></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="search">搜索设置项、供应商、模板或权限…</div>
+      <div class="top-actions">
+        <button class="btn">查看变更历史</button>
+        <button class="btn amber">恢复示例数据</button>
+        <button class="btn primary">保存设置</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <div class="page-head">
+        <div>
+          <h1>设置中心</h1>
+          <p>工作区「产品美术中心」· 你的角色 <b>PM（可读写本工作区设置）</b> · 上次修改 2026-07-25 by Brandon</p>
+        </div>
+        <div><span class="pill warn">2 项待配置</span> <span class="pill mute">连接器全部未接入</span></div>
+      </div>
+
+      <div class="layout">
+
+        <!-- 设置分组 -->
+        <div class="card">
+          <div class="subnav">
+            <div class="subnav-sec">组织</div>
+            <a href="#">成员与角色<i>7</i></a>
+            <a href="#">制作组与容量<i>3</i></a>
+            <a href="#">工作日历<i class="ok">已配置</i></a>
+            <div class="subnav-sec">业务规则</div>
+            <a href="#">阶段模板<i>2D/3D</i></a>
+            <a href="#">命名与文件规则</a>
+            <a href="#">提醒与门禁</a>
+            <div class="subnav-sec">集成</div>
+            <a href="#">连接器<i class="warn">未接入</i></a>
+            <a href="#" class="active">LLM 供应商<i class="warn">待定</i></a>
+            <a href="#">通知模板<i>6</i></a>
+            <div class="subnav-sec">运维</div>
+            <a href="#">审计日志</a>
+            <a href="#">数据与演示</a>
+            <a href="#">关于与版本</a>
+          </div>
+        </div>
+
+        <!-- 主区 -->
+        <div class="stack">
+
+          <!-- 供应商预设 -->
+          <div class="card">
+            <div class="card-head">
+              <h2>LLM 供应商预设<small>地址与模型由预设预填，管理员或授权用户只需填 API Key</small></h2>
+              <div style="display:flex;gap:8px"><button class="btn sm">新增自定义预设</button><button class="btn sm">全部连通性测试</button></div>
+            </div>
+            <table class="ptable">
+              <thead>
+                <tr><th style="width:34px"></th><th>供应商预设</th><th>接口地址（内网网关转发）</th><th>可选模型</th><th>API Key</th><th>状态</th><th style="width:96px"></th></tr>
+              </thead>
+              <tbody>
+                <tr class="on">
+                  <td><input class="radio" type="radio" name="prov" checked></td>
+                  <td class="name">Anthropic Claude<small>Messages API · 官方 SDK</small></td>
+                  <td class="url">https://api.anthropic.com/v1</td>
+                  <td>claude-opus-5<br>claude-sonnet-5<br>claude-haiku-4-5</td>
+                  <td><span class="pill ok">已保存于服务端</span></td>
+                  <td><span class="pill ok">当前启用</span></td>
+                  <td><button class="btn sm">测试</button></td>
+                </tr>
+                <tr>
+                  <td><input class="radio" type="radio" name="prov"></td>
+                  <td class="name">OpenAI 兼容网关<small>可指向任意兼容 /chat/completions 的服务</small></td>
+                  <td class="url">（由管理员填写）</td>
+                  <td>由网关返回列表</td>
+                  <td><span class="pill mute">未填写</span></td>
+                  <td><span class="pill mute">未配置</span></td>
+                  <td><button class="btn sm ghost">测试</button></td>
+                </tr>
+                <tr>
+                  <td><input class="radio" type="radio" name="prov"></td>
+                  <td class="name">阿里云百炼<small>国内可直连 · 待公司确认采购</small></td>
+                  <td class="url">https://dashscope.aliyuncs.com/compatible-mode/v1</td>
+                  <td><span class="pill mute">待确认</span></td>
+                  <td><span class="pill mute">未填写</span></td>
+                  <td><span class="pill mute">未配置</span></td>
+                  <td><button class="btn sm ghost">测试</button></td>
+                </tr>
+                <tr>
+                  <td><input class="radio" type="radio" name="prov"></td>
+                  <td class="name">智谱 GLM<small>国内可直连 · 待公司确认采购</small></td>
+                  <td class="url">https://open.bigmodel.cn/api/paas/v4</td>
+                  <td><span class="pill mute">待确认</span></td>
+                  <td><span class="pill mute">未填写</span></td>
+                  <td><span class="pill mute">未配置</span></td>
+                  <td><button class="btn sm ghost">测试</button></td>
+                </tr>
+                <tr>
+                  <td><input class="radio" type="radio" name="prov"></td>
+                  <td class="name">DeepSeek<small>国内可直连 · 待公司确认采购</small></td>
+                  <td class="url">https://api.deepseek.com/v1</td>
+                  <td><span class="pill mute">待确认</span></td>
+                  <td><span class="pill mute">未填写</span></td>
+                  <td><span class="pill mute">未配置</span></td>
+                  <td><button class="btn sm ghost">测试</button></td>
+                </tr>
+                <tr>
+                  <td><input class="radio" type="radio" name="prov"></td>
+                  <td class="name">内网自托管<small>vLLM / Ollama · 数据完全不出内网</small></td>
+                  <td class="url">http://llm.intra.company.local:8000/v1</td>
+                  <td>由服务端返回列表</td>
+                  <td><span class="pill info">无需 Key</span></td>
+                  <td><span class="pill mute">未部署</span></td>
+                  <td><button class="btn sm ghost">测试</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 当前供应商详细配置 -->
+          <div class="card">
+            <div class="card-head">
+              <h2>当前启用 · Anthropic Claude<small>改动保存后立即对新调用生效，进行中的调用不受影响</small></h2>
+              <span class="pill ok">连通性正常 · 今天 08:12 测试</span>
+            </div>
+            <div class="form">
+              <div class="frow">
+                <label><b>接口地址</b><small>预设填好，一般不用改</small></label>
+                <input class="inp mono" value="https://api.anthropic.com/v1" readonly>
+              </div>
+              <div class="frow">
+                <label><b>API Key</b><small>提交后前端不再持有</small></label>
+                <div>
+                  <div class="keybox">
+                    <span class="mono">sk-ant-••••••••••••••••••••••••••••••••••4f2a</span>
+                    <button class="btn sm">替换</button>
+                    <button class="btn sm amber">清除</button>
+                  </div>
+                  <div class="hint danger" style="margin-top:6px">Key 存放在内网服务端的密钥库，工作台只保留后 4 位用于识别。不写入仓库、日志、导出文件或浏览器存储。</div>
+                </div>
+              </div>
+              <div class="frow">
+                <label><b>默认模型</b><small>各用途可单独覆盖</small></label>
+                <select class="sel">
+                  <option>claude-sonnet-5　（$3 / $15 每百万 token · 平衡）</option>
+                  <option>claude-opus-5　（$5 / $25 · 最强推理）</option>
+                  <option>claude-haiku-4-5　（$1 / $5 · 最快最便宜）</option>
+                </select>
+              </div>
+              <div class="frow">
+                <label><b>请求超时</b></label>
+                <div class="inp-group"><input class="inp" style="max-width:110px" value="60"><span class="hint">秒 · 超时后本次建议直接失败，不做静默重试之外的降级</span></div>
+              </div>
+              <div class="frow">
+                <label><b>失败重试</b></label>
+                <div class="inp-group"><input class="inp" style="max-width:110px" value="2"><span class="hint">次 · 仅对 429 / 5xx 重试，指数退避</span></div>
+              </div>
+              <div class="frow">
+                <label><b>月度预算上限</b><small>超出后停止调用</small></label>
+                <div class="inp-group"><input class="inp" style="max-width:130px" value="¥ 800"><span class="hint">本月已用 <b style="color:var(--accent-ink)">¥ 137</b>（17%）· 超出后 AI 建议区显示「本月额度已用尽」，业务功能不受影响</span></div>
+              </div>
+              <div class="frow">
+                <label><b>脱敏</b><small>发送前处理</small></label>
+                <div class="hint" style="line-height:1.8">
+                  <label style="display:block"><input type="checkbox" checked> 移除客户公司全称，替换为项目编号</label>
+                  <label style="display:block"><input type="checkbox" checked> 移除邮箱地址与电话</label>
+                  <label style="display:block"><input type="checkbox" checked> 不发送报价金额</label>
+                  <label style="display:block"><input type="checkbox"> 不发送文件路径</label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 用途分配 -->
+          <div class="card">
+            <div class="card-head"><h2>用途 → 模型分配<small>不同任务难度差一个数量级，没必要都用最贵的</small></h2><span class="count">5 个用途</span></div>
+            <table class="utable">
+              <thead>
+                <tr><th>用途</th><th>触发时机</th><th>供应商</th><th>模型</th><th>本月调用</th><th>开关</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="use">邮件字段提取<small>候选收件箱</small></td>
+                  <td>粘贴 / 转发 / 截图导入时</td>
+                  <td><select class="sel"><option>Anthropic Claude</option></select></td>
+                  <td><select class="sel"><option>claude-haiku-4-5</option><option>claude-sonnet-5</option></select></td>
+                  <td>218 次 · ¥42</td>
+                  <td><span class="pill ok">开</span></td>
+                </tr>
+                <tr>
+                  <td class="use">文件名解析<small>文件与归档</small></td>
+                  <td>盘位扫描命中不规范命名时</td>
+                  <td><select class="sel"><option>Anthropic Claude</option></select></td>
+                  <td><select class="sel"><option>claude-haiku-4-5</option></select></td>
+                  <td>64 次 · ¥9</td>
+                  <td><span class="pill ok">开</span></td>
+                </tr>
+                <tr>
+                  <td class="use">反馈范围内外分流建议<small>反馈中心</small></td>
+                  <td>反馈批次拆项后</td>
+                  <td><select class="sel"><option>Anthropic Claude</option></select></td>
+                  <td><select class="sel"><option>claude-sonnet-5</option><option>claude-opus-5</option></select></td>
+                  <td>39 次 · ¥58</td>
+                  <td><span class="pill ok">开</span></td>
+                </tr>
+                <tr>
+                  <td class="use">通知与邮件起草<small>反馈 / 结项 / 变更</small></td>
+                  <td>PM 点「生成草稿」时</td>
+                  <td><select class="sel"><option>Anthropic Claude</option></select></td>
+                  <td><select class="sel"><option>claude-sonnet-5</option></select></td>
+                  <td>22 次 · ¥28</td>
+                  <td><span class="pill ok">开</span></td>
+                </tr>
+                <tr>
+                  <td class="use">分析洞察<small>智能分析</small></td>
+                  <td>每日 08:00 定时 + 手动刷新</td>
+                  <td><select class="sel"><option>Anthropic Claude</option></select></td>
+                  <td><select class="sel"><option>claude-sonnet-5</option></select></td>
+                  <td>27 次 · ¥0（暂停中）</td>
+                  <td><span class="pill mute">关</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 连接器 -->
+          <div class="card">
+            <div class="card-head"><h2>连接器现状<small>官方接口需要企业管理员审批；未审批时用零依赖导入路径</small></h2><span class="pill warn">全部未接入</span></div>
+            <div class="conns">
+              <div class="conn">
+                <b>公司邮箱</b>
+                <div class="st"><span class="pill warn">未接入</span> <span class="pill info">可申请</span></div>
+                <p>读<b>本人</b>邮箱属于委托授权，通常你自己点一次同意即可；读全公司邮箱需要管理员同意，且很难通过。</p>
+                <div class="paths">替代路径<span>· <i>转发到共享邮箱</i>（只需 IT 建一个信箱）</span><span>· <i>粘贴邮件正文</i>（零审批）</span></div>
+              </div>
+              <div class="conn">
+                <b>企业微信</b>
+                <div class="st"><span class="pill bad">需管理员</span></div>
+                <p>自建应用必须由企业管理员在管理后台创建并授权，个人账号无法自助申请。机器人 webhook 只能发、不能读。</p>
+                <div class="paths">替代路径<span>· <i>转发给机器人</i></span><span>· <i>拖入聊天截图</i>（零审批）</span></div>
+              </div>
+              <div class="conn">
+                <b>飞书</b>
+                <div class="st"><span class="pill bad">需管理员</span></div>
+                <p>同企业微信。会话归档类权限还要额外合规审批，落地周期不可控。</p>
+                <div class="paths">替代路径<span>· <i>转发给机器人</i></span><span>· <i>粘贴文本 / 贴文件路径</i></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧 -->
+        <aside class="side">
+          <div class="card sec">
+            <div class="card-head" style="padding:0 0 8px;border:0"><h2 style="font-size:14px">密钥与调用边界</h2></div>
+            <div class="s-row"><span>Key 保管位置</span><b>内网服务端密钥库</b></div>
+            <div class="s-row"><span>前端持有</span><b>仅后 4 位，用于识别</b></div>
+            <div class="s-row"><span>调用发起方</span><b>内网服务端网关</b></div>
+            <div class="s-row"><span>浏览器直连外网</span><b>否</b></div>
+            <div class="s-row"><span>写入日志</span><b>否（含错误日志）</b></div>
+            <div class="s-row"><span>写入导出文件</span><b>否</b></div>
+            <div class="s-row"><span>可读取 Key 的角色</span><b>无（只写不读）</b></div>
+            <div class="warn-box">
+              当前是演示环境，没有任何真实凭证，也不要拿真实客户或公司数据测试。
+              Key 一旦填入即视为生产配置，请由管理员在正式内网环境操作。
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-head"><h2>最近 LLM 调用<small>每次调用都记审计</small></h2><span class="count">今天 31 次</span></div>
+            <div class="log">
+              <div class="log-row">
+                <b>反馈范围内外分流建议</b>
+                <div class="meta"><em>Brandon</em><em>claude-sonnet-5</em><em>F-017 / 3 项</em><em>4.1k → 0.9k tok</em><em>¥1.8</em></div>
+                今天 09:41 · 结果已标「建议 · 未执行」
+              </div>
+              <div class="log-row">
+                <b>文件名解析</b>
+                <div class="meta"><em>系统扫描</em><em>claude-haiku-4-5</em><em>3 个文件</em><em>0.6k → 0.2k tok</em><em>¥0.1</em></div>
+                今天 09:58 · 1 个仍需 PM 手工关联
+              </div>
+              <div class="log-row">
+                <b>邮件字段提取</b>
+                <div class="meta"><em>Brandon</em><em>claude-haiku-4-5</em><em>候选 IN-092</em><em>1.2k → 0.3k tok</em><em>¥0.2</em></div>
+                今天 10:15 · 置信度 88%，待 PM 核验
+              </div>
+              <div class="log-row">
+                <b>通知邮件起草</b>
+                <div class="meta"><em>Brandon</em><em>claude-sonnet-5</em><em>P-3D-024</em><em>2.8k → 1.1k tok</em><em>¥1.3</em></div>
+                今天 11:02 · 草稿未发送
+              </div>
+              <div class="log-row" style="color:var(--danger-ink)">
+                <b style="color:var(--danger-ink)">分析洞察 · 已跳过</b>
+                <div class="meta"><em>定时任务</em><em>—</em><em>用途开关关闭</em></div>
+                今天 08:00 · 未产生费用
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="q">
+  <h3>请你确认这一版，重点是这几条</h3>
+  <ol>
+    <li><b>供应商用「预设 + 单选切换」，地址和模型预填，你只填 Key</b>——这就是你说的 cc-switch 那套。除了列出的 6 个预设，还要加哪家？还是先只留 Claude + OpenAI 兼容 + 内网自托管三个，其余等采购定了再说？</li>
+    <li><b>「用途 → 模型」分开配</b>：提取和文件名解析用最便宜的档，分流和起草用中档。这个分法你认同吗？还是宁可统一一个模型、少一层配置？</li>
+    <li><b>月度预算上限 + 超额后停止调用</b>，超了只是 AI 建议区显示「额度已用尽」，<b>业务功能完全不受影响</b>——这个降级方式对吗？</li>
+    <li><b>脱敏选项默认勾三项</b>（客户全称、邮箱电话、报价金额不外发），文件路径默认不勾。这个默认值合理吗？公司对「什么能发给外部 LLM」有没有明文规定？</li>
+    <li>连接器那块我写的是<b>「企微/飞书需要管理员，个人申请不到；邮箱读自己的门槛低」</b>，并给了零审批的替代路径。这和你们公司的实际情况对得上吗？如果对不上，切片 3 的实施顺序要跟着改。</li>
+    <li>左侧设置分组现在 12 项。缺不缺？比如要不要有「客户与联系人」「外包供应商」这类？</li>
+  </ol>
+</div>
+
+</body>
+</html>

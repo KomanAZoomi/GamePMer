@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>智能分析 · 原型 v1</title>
+<style>
+:root{
+  --surface-page:#f5f7f5;--surface-card:#fff;--surface-rail:#fbfcfb;--surface-muted:#f6f8f6;
+  --surface-field:#f8faf9;--surface-info:#f7faf8;--surface-group:#f4f7f5;
+  --border-strong:#d9dfdb;--border-default:#dde3df;--border-subtle:#e4e8e5;--border-faint:#edf0ee;
+  --text-primary:#25362e;--text-secondary:#4c5b53;--text-muted:#6f7d76;--text-faint:#8b968f;
+  --accent:#42755f;--accent-ink:#285c47;--accent-soft:#e7f1ec;--accent-softer:#eff6f2;--accent-border:#c6dacf;
+  --amber:#c8802f;--amber-ink:#8c5a24;--amber-soft:#fdf3e7;--amber-border:#e6c8a4;
+  --danger:#b4553c;--danger-ink:#8f3f2b;--danger-soft:#fbeae4;--danger-border:#e8c4b6;
+  --info-soft:#e8eef5;--info-ink:#3c5570;
+  /* 归因四色：客户等待 / 范围内返修 / 团队延期 / 依赖阻塞 */
+  --cause-wait:#d8c39c;--cause-rework:#8fae9d;--cause-team:#b4553c;--cause-dep:#7d8ea3;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-page);color:var(--text-primary);
+  font-family:'Segoe UI','Microsoft YaHei UI','Microsoft YaHei',system-ui,sans-serif;font-size:14px;line-height:1.55}
+h1,h2,h3,p,dl,dd,ol,ul{margin:0}
+ol,ul{padding:0;list-style:none}
+button{font:inherit;color:inherit;cursor:pointer}
+
+.note{max-width:1880px;margin:20px auto 14px;padding:14px 18px;border:1px solid #dfe7e2;border-radius:12px;
+  background:var(--surface-info);color:#516159;font-size:13px;line-height:1.7}
+.note strong{color:#24382f}
+.note code{font-family:Consolas,monospace;font-size:12px;background:#fff;padding:1px 5px;border-radius:4px;border:1px solid #e3e9e5}
+
+.app{max-width:1880px;margin:0 auto 24px;display:grid;grid-template-columns:216px 1fr;
+  border:1px solid var(--border-strong);border-radius:16px;overflow:hidden;background:#fff}
+
+.rail{display:flex;flex-direction:column;padding:16px 10px;background:var(--surface-rail);border-right:1px solid var(--border-subtle)}
+.brand{padding:0 8px;margin-bottom:16px;font-size:17px;font-weight:800;color:var(--text-primary)}
+.brand span{display:block;margin-top:3px;color:var(--text-faint);font-size:10px;font-weight:600;letter-spacing:.08em}
+.nav{display:grid;gap:2px}
+.nav a{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;
+  color:var(--text-secondary);font-size:14px;font-weight:550;text-decoration:none;border:1px solid transparent}
+.nav a.active{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent-border);font-weight:700}
+.nav em{font-style:normal;font-size:11px;color:var(--text-faint);background:var(--surface-muted);padding:1px 5px;border-radius:6px}
+.user{margin-top:auto;display:flex;gap:8px;align-items:center;padding:8px;border:1px solid var(--border-default);border-radius:8px;background:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-soft);color:var(--accent-ink);
+  display:grid;place-items:center;font-size:12px;font-weight:800}
+.user b{display:block;font-size:14px}.user small{color:var(--text-faint);font-size:12px}
+
+.main{display:grid;grid-template-rows:60px 1fr;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;padding:0 16px;border-bottom:1px solid var(--border-subtle);background:#fff}
+.search{flex:1;max-width:420px;padding:8px 12px;border:1px solid var(--border-default);border-radius:999px;
+  background:var(--surface-field);color:var(--text-faint);font-size:14px}
+.top-actions{margin-left:auto;display:flex;gap:8px}
+.btn{padding:6px 10px;border:1px solid var(--border-default);border-radius:8px;background:#fff;color:var(--text-secondary);font-size:13px;font-weight:550;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.amber{background:var(--amber-soft);border-color:var(--amber-border);color:var(--amber-ink)}
+
+.content{padding:12px 16px;background:var(--surface-page);display:grid;gap:12px;align-content:start}
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.page-head h1{font-size:21px;font-weight:800}
+.page-head p{margin-top:3px;color:var(--text-muted);font-size:13px}
+.tabs{display:flex;gap:6px}
+.tab{padding:7px 14px;border:1px solid var(--border-default);border-radius:8px;background:#fff;color:var(--text-muted);font-size:14px}
+.tab.active{background:var(--accent-soft);border-color:var(--accent-border);color:var(--accent-ink);font-weight:700}
+
+.card{border:1px solid var(--border-default);border-radius:12px;background:#fff}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border-faint)}
+.card-head h2{font-size:15px;font-weight:700;display:flex;flex-direction:column;gap:2px}
+.card-head small{color:var(--text-faint);font-size:12px;font-weight:400}
+.count{padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700}
+
+.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.metric{padding:11px 13px;border:1px solid var(--border-default);border-radius:10px;background:#fff}
+.metric.warn{border-color:var(--amber-border);background:var(--amber-soft)}
+.metric.good{border-color:var(--accent-border);background:var(--accent-softer)}
+.metric span{display:block;color:var(--text-faint);font-size:12px}
+.metric b{display:block;margin-top:4px;font-size:24px;font-weight:800;line-height:1.1}
+.metric small{display:block;margin-top:3px;color:var(--text-muted);font-size:12px}
+.metric .up{color:var(--accent-ink);font-weight:700}
+.metric .down{color:var(--danger-ink);font-weight:700}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 348px;gap:12px;align-items:start}
+.stack{display:grid;gap:12px;min-width:0}
+.split{display:grid;grid-template-columns:1.35fr 1fr;gap:12px;align-items:start}
+
+/* 归因堆叠柱 */
+.legend{display:flex;flex-wrap:wrap;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border-faint);background:var(--surface-rail)}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.legend span{font-size:12px;color:var(--text-secondary)}
+.chart{padding:14px 14px 8px;display:grid;grid-template-columns:38px minmax(0,1fr);gap:8px}
+.yaxis{display:grid;align-content:space-between;height:212px;text-align:right;color:var(--text-faint);font-size:11px}
+.plot{position:relative;height:212px;border-left:1px solid var(--border-default);border-bottom:1px solid var(--border-default)}
+.grid-line{position:absolute;left:0;right:0;border-top:1px dashed var(--border-faint)}
+.cols{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:space-around;padding:0 6px}
+.col{width:46px;display:flex;flex-direction:column-reverse;position:relative}
+.col .seg{width:100%}
+.col .seg:first-child{border-radius:0 0 3px 3px}
+.col .seg:last-child{border-radius:3px 3px 0 0}
+.col .total{position:absolute;top:-19px;left:0;right:0;text-align:center;font-size:12px;font-weight:700;color:var(--text-secondary)}
+.xaxis{display:flex;justify-content:space-around;padding:6px 6px 0;margin-left:46px}
+.xaxis span{width:46px;text-align:center;color:var(--text-muted);font-size:12px}
+.chart-note{padding:0 14px 12px;color:var(--text-muted);font-size:12px;line-height:1.6}
+.chart-note b{color:var(--text-secondary)}
+
+/* 负载矩阵 */
+.mtx{width:100%;border-collapse:collapse}
+.mtx th,.mtx td{padding:9px 10px;border-bottom:1px solid var(--border-faint);text-align:left;font-size:13px}
+.mtx th{color:var(--text-faint);font-size:12px;font-weight:800;background:var(--surface-rail);white-space:nowrap}
+.mtx td.grp{font-weight:700}
+.mtx td.grp small{display:block;color:var(--text-faint);font-size:12px;font-weight:400}
+.util{display:grid;gap:3px;min-width:66px}
+.util .bar{height:7px;border-radius:4px;background:var(--surface-muted);overflow:hidden}
+.util .bar i{display:block;height:100%;background:var(--accent)}
+.util .bar.tight i{background:var(--amber)}
+.util .bar.over i{background:var(--danger)}
+.util b{font-size:12px;font-weight:700}
+.util b.tight{color:var(--amber-ink)}
+.util b.over{color:var(--danger-ink)}
+.util b.free{color:var(--accent-ink)}
+
+/* 健康度表 */
+.htable{width:100%;border-collapse:collapse}
+.htable th,.htable td{padding:9px 12px;border-bottom:1px solid var(--border-faint);text-align:left;font-size:13px}
+.htable th{color:var(--text-faint);font-size:12px;font-weight:800;background:var(--surface-rail);white-space:nowrap}
+.htable td.prj{font-weight:700}
+.htable td.prj small{display:block;color:var(--text-faint);font-size:12px;font-weight:400}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.pill.ok{background:var(--accent-soft);color:var(--accent-ink)}
+.pill.warn{background:var(--amber-soft);color:var(--amber-ink)}
+.pill.bad{background:var(--danger-soft);color:var(--danger-ink)}
+.pill.info{background:var(--info-soft);color:var(--info-ink)}
+.pill.mute{background:var(--surface-muted);color:var(--text-secondary)}
+.mini{display:flex;height:8px;border-radius:4px;overflow:hidden;min-width:96px}
+.mini i{display:block;height:100%}
+
+/* 右侧 */
+.side{display:grid;gap:12px;align-content:start}
+.insight{padding:12px 14px;display:grid;gap:10px}
+.ins{padding:11px;border:1px solid var(--border-default);border-radius:10px;background:var(--surface-rail)}
+.ins.warn{border-color:var(--amber-border);background:var(--amber-soft)}
+.ins.info{border-color:#cdd9e6;background:#f4f7fb}
+.ins b{display:block;font-size:13px;font-weight:800}
+.ins p{margin-top:5px;color:var(--text-secondary);font-size:12px;line-height:1.6}
+.ins .src{display:block;margin-top:6px;color:var(--text-faint);font-size:11px}
+.ins .foot{display:flex;align-items:center;gap:8px;margin-top:8px}
+.ins .tag{padding:2px 7px;border-radius:6px;background:#fff;border:1px solid var(--accent-border);color:var(--accent-ink);font-size:11px;font-weight:800}
+.ins .act{margin-left:auto;font-size:12px;color:var(--accent-ink);text-decoration:underline}
+.scope{padding:12px 14px}
+.scope .s-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-faint);font-size:13px}
+.scope .s-row:last-of-type{border-bottom:0}
+.scope .s-row span{color:var(--text-muted)}
+.scope .s-row b{text-align:right;color:var(--text-secondary)}
+.scope p{margin-top:8px;padding:9px;border-radius:8px;background:var(--danger-soft);border:1px solid var(--danger-border);
+  color:var(--danger-ink);font-size:12px;line-height:1.6;font-weight:600}
+
+.q{max-width:1880px;margin:0 auto 40px;padding:16px 20px;border:1px solid var(--accent-border);border-radius:12px;background:#fff}
+.q h3{font-size:16px;font-weight:800;color:var(--accent-ink)}
+.q ol{margin-top:10px;display:grid;gap:8px;counter-reset:qq}
+.q li{padding-left:26px;position:relative;font-size:14px;line-height:1.65;color:var(--text-secondary)}
+.q li:before{counter-increment:qq;content:counter(qq);position:absolute;left:0;top:2px;width:19px;height:19px;border-radius:50%;
+  background:var(--accent-soft);color:var(--accent-ink);font-size:11px;font-weight:800;display:grid;place-items:center}
+.q b{color:var(--text-primary)}
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>智能分析 · 静态原型 v1（切片 7）</strong>　这一页<b>不产生任何新数据</b>，只是项目、资产、阶段、反馈、报价和结项这些正式记录的投影——点任何一个数字都能追回到具体阶段。
+  两条硬约束：<b>延期归因必须把「客户等待」和「团队延期」分开算</b>（客户拖的不能记在制作组头上）；
+  <b>分析只到制作组 / 项目 / 资产 / 阶段，不下钻到个人</b>——这不是没做，是设计上不做。
+</div>
+
+<div class="app">
+  <aside class="rail">
+    <div class="brand">GamePMer<span>GAME ART PM WORKSPACE</span></div>
+    <nav class="nav">
+      <a href="#">任务管理</a>
+      <a href="#">项目总览</a>
+      <a href="#">候选收件箱<em>切片 3</em></a>
+      <a href="#">排期管理</a>
+      <a href="#">反馈中心</a>
+      <a href="#">报价与变更<em>切片 5</em></a>
+      <a href="#">结项中心<em>切片 6</em></a>
+      <a href="#">文件与归档<em>切片 6</em></a>
+      <a href="#" class="active">智能分析</a>
+      <a href="#">设置中心<em>切片 7</em></a>
+    </nav>
+    <div class="user"><span class="avatar">PM</span><span><b>Brandon</b><small>游戏美术 PM</small></span></div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="search">搜索项目、客户、制作组或指标口径…</div>
+      <div class="top-actions">
+        <button class="btn">近 6 个月</button>
+        <button class="btn">全部客户</button>
+        <button class="btn">导出报表</button>
+        <button class="btn primary">生成月度复盘</button>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <div class="page-head">
+        <div>
+          <h1>智能分析</h1>
+          <p>统计区间 2026-02-01 ~ 2026-07-27 · 17 个项目 · 143 个资产 · 512 个阶段 ·
+            数据截止今天 08:00　<span class="pill mute">口径：制作组级，不含个人</span></p>
+        </div>
+        <div class="tabs">
+          <span class="tab active">交付表现</span>
+          <span class="tab">延期归因</span>
+          <span class="tab">产能与负载</span>
+          <span class="tab">报价与变更</span>
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric good"><span>阶段按期交付率</span><b>87.4%</b><small><span class="up">↑ 4.1pt</span> 较上季度</small></div>
+        <div class="metric"><span>平均返修轮次</span><b>1.34</b><small>每个资产 · <span class="up">↓ 0.11</span></small></div>
+        <div class="metric warn"><span>客户等待占比</span><b>22.6%</b><small>占全部延期工作日</small></div>
+        <div class="metric warn"><span>团队延期占比</span><b>18.9%</b><small><span class="down">↑ 2.3pt</span> 需要看 3D-A 组</small></div>
+        <div class="metric"><span>范围外变更率</span><b>11.2%</b><small>16 / 143 个资产触发追加报价</small></div>
+      </div>
+
+      <div class="layout">
+        <div class="stack">
+
+          <!-- 延期归因 -->
+          <div class="card">
+            <div class="card-head">
+              <h2>延期归因 · 按月<small>纵轴为「阶段实际完成 − 当前计划完成」的工作日累计，只统计已完成阶段</small></h2>
+              <span class="count">近 6 个月</span>
+            </div>
+            <div class="legend">
+              <span><i style="background:var(--cause-wait)"></i>客户等待（不计入团队延期）</span>
+              <span><i style="background:var(--cause-rework)"></i>范围内返修</span>
+              <span><i style="background:var(--cause-team)"></i>团队延期</span>
+              <span><i style="background:var(--cause-dep)"></i>依赖阻塞</span>
+            </div>
+            <div class="chart">
+              <div class="yaxis"><span>80</span><span>60</span><span>40</span><span>20</span><span>0</span></div>
+              <div class="plot">
+                <div class="grid-line" style="top:0"></div>
+                <div class="grid-line" style="top:25%"></div>
+                <div class="grid-line" style="top:50%"></div>
+                <div class="grid-line" style="top:75%"></div>
+                <div class="cols">
+                  <div class="col">
+                    <div class="total">62</div>
+                    <div class="seg" style="height:22px;background:var(--cause-wait)"></div>
+                    <div class="seg" style="height:52px;background:var(--cause-rework)"></div>
+                    <div class="seg" style="height:76px;background:var(--cause-team)"></div>
+                    <div class="seg" style="height:14px;background:var(--cause-dep)"></div>
+                  </div>
+                  <div class="col">
+                    <div class="total">54</div>
+                    <div class="seg" style="height:29px;background:var(--cause-wait)"></div>
+                    <div class="seg" style="height:45px;background:var(--cause-rework)"></div>
+                    <div class="seg" style="height:58px;background:var(--cause-team)"></div>
+                    <div class="seg" style="height:11px;background:var(--cause-dep)"></div>
+                  </div>
+                  <div class="col">
+                    <div class="total">47</div>
+                    <div class="seg" style="height:34px;background:var(--cause-wait)"></div>
+                    <div class="seg" style="height:40px;background:var(--cause-rework)"></div>
+                    <div class="seg" style="height:44px;background:var(--cause-team)"></div>
+                    <div class="seg" style="height:8px;background:var(--cause-dep)"></div>
+                  </div>
+                  <div class="col">
+                    <div class="total">39</div>
+                    <div class="seg" style="height:31px;background:var(--cause-wait)"></div>
+                    <div class="seg" style="height:33px;background:var(--cause-rework)"></div>
+                    <div class="seg" style="height:34px;background:var(--cause-team)"></div>
+                    <div class="seg" style="height:6px;background:var(--cause-dep)"></div>
+                  </div>
+                  <div class="col">
+                    <div class="total">44</div>
+                    <div class="seg" style="height:41px;background:var(--cause-wait)"></div>
+                    <div class="seg" style="height:30px;background:var(--cause-rework)"></div>
+                    <div class="seg" style="height:41px;background:var(--cause-team)"></div>
+                    <div class="seg" style="height:5px;background:var(--cause-dep)"></div>
+                  </div>
+                  <div class="col">
+                    <div class="total">51</div>
+                    <div class="seg" style="height:38px;background:var(--cause-wait)"></div>
+                    <div class="seg" style="height:35px;background:var(--cause-rework)"></div>
+                    <div class="seg" style="height:56px;background:var(--cause-team)"></div>
+                    <div class="seg" style="height:9px;background:var(--cause-dep)"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="xaxis"><span>2月</span><span>3月</span><span>4月</span><span>5月</span><span>6月</span><span>7月</span></div>
+            <div class="chart-note">
+              7 月团队延期回升到 <b>19.4 工作日</b>，集中在 <b>3D 角色 A 组</b>；同期该组负载连续三周超 100%。
+              客户等待整体<b>下降</b>——这部分从来不算团队的账，也不进制作组的按期率。
+            </div>
+          </div>
+
+          <div class="split">
+            <!-- 负载 -->
+            <div class="card">
+              <div class="card-head"><h2>制作组负载 · 近 6 周<small>已占用人天 ÷ 可用人天（扣公司休息日）</small></h2><span class="count">3 组</span></div>
+              <table class="mtx">
+                <thead>
+                  <tr><th>制作组</th><th>6/22</th><th>6/29</th><th>7/6</th><th>7/13</th><th>7/20</th><th>7/27</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="grp">3D 角色 A 组<small>组长 Leo · 7.5 人天/周</small></td>
+                    <td><div class="util"><div class="bar"><i style="width:82%"></i></div><b>82%</b></div></td>
+                    <td><div class="util"><div class="bar tight"><i style="width:94%"></i></div><b class="tight">94%</b></div></td>
+                    <td><div class="util"><div class="bar over"><i style="width:100%"></i></div><b class="over">108%</b></div></td>
+                    <td><div class="util"><div class="bar over"><i style="width:100%"></i></div><b class="over">112%</b></div></td>
+                    <td><div class="util"><div class="bar over"><i style="width:100%"></i></div><b class="over">104%</b></div></td>
+                    <td><div class="util"><div class="bar tight"><i style="width:93%"></i></div><b class="tight">93%</b></div></td>
+                  </tr>
+                  <tr>
+                    <td class="grp">3D 场景 B 组<small>组长 Rui · 15 人天/周</small></td>
+                    <td><div class="util"><div class="bar"><i style="width:61%"></i></div><b class="free">61%</b></div></td>
+                    <td><div class="util"><div class="bar"><i style="width:68%"></i></div><b class="free">68%</b></div></td>
+                    <td><div class="util"><div class="bar"><i style="width:73%"></i></div><b class="free">73%</b></div></td>
+                    <td><div class="util"><div class="bar"><i style="width:66%"></i></div><b class="free">66%</b></div></td>
+                    <td><div class="util"><div class="bar"><i style="width:71%"></i></div><b class="free">71%</b></div></td>
+                    <td><div class="util"><div class="bar"><i style="width:64%"></i></div><b class="free">64%</b></div></td>
+                  </tr>
+                  <tr>
+                    <td class="grp">2D 角色 A 组<small>组长 Yuki · 10 人天/周</small></td>
+                    <td><div class="util"><div class="bar"><i style="width:77%"></i></div><b>77%</b></div></td>
+                    <td><div class="util"><div class="bar"><i style="width:80%"></i></div><b>80%</b></div></td>
+                    <td><div class="util"><div class="bar tight"><i style="width:91%"></i></div><b class="tight">91%</b></div></td>
+                    <td><div class="util"><div class="bar"><i style="width:85%"></i></div><b>85%</b></div></td>
+                    <td><div class="util"><div class="bar"><i style="width:79%"></i></div><b>79%</b></div></td>
+                    <td><div class="util"><div class="bar"><i style="width:83%"></i></div><b>83%</b></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 阶段耗时 -->
+            <div class="card">
+              <div class="card-head"><h2>阶段实际 vs 预估<small>3D PBR 六阶段 · 中位数</small></h2><span class="count">全部项目</span></div>
+              <table class="mtx">
+                <thead><tr><th>阶段</th><th>预估</th><th>实际</th><th>偏差</th></tr></thead>
+                <tbody>
+                  <tr><td class="grp">中模</td><td>2.0 人天</td><td>2.1 人天</td><td><span class="pill ok">+5%</span></td></tr>
+                  <tr><td class="grp">高模</td><td>4.0 人天</td><td>5.2 人天</td><td><span class="pill bad">+30%</span></td></tr>
+                  <tr><td class="grp">低模</td><td>2.0 人天</td><td>2.0 人天</td><td><span class="pill ok">0%</span></td></tr>
+                  <tr><td class="grp">烘焙</td><td>1.5 人天</td><td>1.4 人天</td><td><span class="pill ok">−7%</span></td></tr>
+                  <tr><td class="grp">贴图</td><td>3.0 人天</td><td>3.6 人天</td><td><span class="pill warn">+20%</span></td></tr>
+                  <tr><td class="grp">LOD</td><td>1.0 人天</td><td>1.1 人天</td><td><span class="pill ok">+10%</span></td></tr>
+                </tbody>
+              </table>
+              <div class="chart-note" style="padding:10px 14px 12px">
+                <b>高模</b>长期低估 30%，是团队延期的最大单一来源。建议在报价模板里把 3D 高模默认人天从 4.0 上调——但这会影响对客户的报价，需要总监与 BD 同意。
+              </div>
+            </div>
+          </div>
+
+          <!-- 项目健康度 -->
+          <div class="card">
+            <div class="card-head"><h2>项目健康度<small>每一列都能点开到具体阶段清单</small></h2><span class="count">4 个在管</span></div>
+            <table class="htable">
+              <thead>
+                <tr><th>项目</th><th>进度</th><th>按期率</th><th>返修轮次</th><th>延期构成</th><th>变更</th><th>风险</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="prj">P-3D-024<small>蒸汽守卫资产包 · Northstar</small></td>
+                  <td>19 / 32 阶段</td>
+                  <td>81%</td>
+                  <td>1.8</td>
+                  <td><div class="mini"><i style="width:34%;background:var(--cause-wait)"></i><i style="width:41%;background:var(--cause-rework)"></i><i style="width:20%;background:var(--cause-team)"></i><i style="width:5%;background:var(--cause-dep)"></i></div></td>
+                  <td>CQ-004 · ¥9,000</td>
+                  <td><span class="pill warn">返修集中</span></td>
+                </tr>
+                <tr>
+                  <td class="prj">P-2D-018<small>角色概念设计 · Halcyon</small></td>
+                  <td>11 / 12 阶段</td>
+                  <td>92%</td>
+                  <td>1.1</td>
+                  <td><div class="mini"><i style="width:71%;background:var(--cause-wait)"></i><i style="width:18%;background:var(--cause-rework)"></i><i style="width:11%;background:var(--cause-team)"></i></div></td>
+                  <td>无</td>
+                  <td><span class="pill info">等待客户</span></td>
+                </tr>
+                <tr>
+                  <td class="prj">P-3D-031<small>场景道具包 · Northstar</small></td>
+                  <td>8 / 24 阶段</td>
+                  <td>96%</td>
+                  <td>1.0</td>
+                  <td><div class="mini"><i style="width:22%;background:var(--cause-wait)"></i><i style="width:12%;background:var(--cause-rework)"></i><i style="width:52%;background:var(--cause-team)"></i><i style="width:14%;background:var(--cause-dep)"></i></div></td>
+                  <td>无</td>
+                  <td><span class="pill ok">正常</span></td>
+                </tr>
+                <tr>
+                  <td class="prj">P-3D-011<small>NPC 资产包 · Aurora</small></td>
+                  <td>已结项</td>
+                  <td>89%</td>
+                  <td>1.4</td>
+                  <td><div class="mini"><i style="width:28%;background:var(--cause-wait)"></i><i style="width:30%;background:var(--cause-rework)"></i><i style="width:36%;background:var(--cause-team)"></i><i style="width:6%;background:var(--cause-dep)"></i></div></td>
+                  <td>CQ-001 · ¥14,000</td>
+                  <td><span class="pill mute">已归档</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 右侧 -->
+        <aside class="side">
+          <div class="card">
+            <div class="card-head"><h2>AI 洞察<small>全部为建议，不改任何数据</small></h2><span class="count">4</span></div>
+            <div class="insight">
+              <div class="ins warn">
+                <b>3D 角色 A 组连续 3 周超载</b>
+                <p>7/6 ~ 7/20 负载 108% / 112% / 104%，同期该组团队延期占比从 12% 升到 19%。P-3D-024 的返修与 P-3D-031 的新开工撞在同一档期。</p>
+                <span class="src">依据：CapacityBucket 3 条 + StagePlan 14 条</span>
+                <div class="foot"><span class="tag">建议 · 未执行</span><a href="#" class="act">查看该组档期 →</a></div>
+              </div>
+              <div class="ins">
+                <b>3D 高模阶段系统性低估 30%</b>
+                <p>近 6 个月 41 个高模阶段中位实际 5.2 人天，预估 4.0。建议在报价模板中调整默认人天，并同步给总监与 BD。</p>
+                <span class="src">依据：41 个已完成阶段的实际 vs 预估</span>
+                <div class="foot"><span class="tag">建议 · 未执行</span><a href="#" class="act">生成待办 →</a></div>
+              </div>
+              <div class="ins info">
+                <b>Halcyon 客户平均等待 6.2 个工作日</b>
+                <p>高于全部客户中位数（3.1）。该客户的等待已全部单独归因，未计入任何制作组的按期率。可考虑在报价时把等待窗口写进交付条款。</p>
+                <span class="src">依据：P-2D-018 等 3 个项目的客户确认时间</span>
+                <div class="foot"><span class="tag">建议 · 未执行</span><a href="#" class="act">查看等待明细 →</a></div>
+              </div>
+              <div class="ins">
+                <b>范围外变更平均延迟 4.5 天开工</b>
+                <p>从「判为范围外」到「变更开工」平均 4.5 个工作日，其中 3.1 天花在等复核。复核环节可能是瓶颈。</p>
+                <span class="src">依据：16 个 ChangeRequest 的状态时间戳</span>
+                <div class="foot"><span class="tag">建议 · 未执行</span><a href="#" class="act">查看变更清单 →</a></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card scope">
+            <div class="card-head" style="padding:0 0 8px;border:0"><h2 style="font-size:14px">口径说明</h2></div>
+            <div class="s-row"><span>按期交付率</span><b>实际完成 ≤ 当前计划完成</b></div>
+            <div class="s-row"><span>基准 vs 当前</span><b>偏差按基准算，延期按当前算</b></div>
+            <div class="s-row"><span>客户等待</span><b>提交客户 → 客户确认，单独计</b></div>
+            <div class="s-row"><span>团队延期</span><b>已扣除客户等待与依赖阻塞</b></div>
+            <div class="s-row"><span>返修轮次</span><b>范围内反馈触发的重做次数</b></div>
+            <div class="s-row"><span>统计对象</span><b>制作组 / 项目 / 资产 / 阶段</b></div>
+            <p>不统计、不展示、不导出任何个人维度的产出或绩效数据。制作组内部谁做的哪一版，工作台不记录。</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="q">
+  <h3>请你确认这一版，重点是这几条</h3>
+  <ol>
+    <li><b>延期归因分四类：客户等待 / 范围内返修 / 团队延期 / 依赖阻塞。</b>够不够？还是要拆得更细（比如「等报价复核」「等素材」单独算）？这四类会一路用到甘特、任务和报表，改起来成本不低，现在定比较好。</li>
+    <li><b>右下角「口径说明」常驻</b>——因为按期率这种数字一旦口径没说清，开会时一定会吵。放这里够显眼吗？</li>
+    <li><b>明确写「不统计个人绩效」。</b>我理解这是你的红线，所以做成了带红框的强调块。但也想确认：组长会不会需要看到组内分配？如果需要，那是另一个页面还是这里加权限？</li>
+    <li>「阶段实际 vs 预估」这张表指向的是<b>报价模板要不要改</b>。这个结论涉及对外报价，工作台只提建议、不自动改模板——这个边界对吗？</li>
+    <li>AI 洞察现在是 4 条卡片，每条都写了「依据：xx 条记录」并且能点回原始数据。你会用这个功能吗？还是更希望它安静一点、只在指标异常时才冒出来？</li>
+  </ol>
+</div>
+
+</body>
+</html>

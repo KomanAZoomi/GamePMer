@@ -26,30 +26,35 @@
 
 用浏览器直接打开即可查看，无需服务器、无外部依赖。
 
-| 文件 | 对应模块 | 设计说明章节 |
-|---|---|---|
-| `white-reference-clone-home-v1.html` | 任务管理首页 | §6.1 |
-| `candidate-inbox-page-v1.html` | 候选收件箱 | §6.3 |
-| `project-detail-gantt-page-v1.html` | 项目详情与完整甘特图 | §6.4 |
-| `feedback-center-replan-page-v1.html` | 反馈中心与排期重排 | §6.5 |
-| `quotation-and-change-page-v1.html` | 报价与变更 | §6.6 |
-| `closeout-backup-billing-page-v1.html` | 结项、备份与出账 | §6.7 |
-| `business-line-and-ui-audit-v1.html` | 端到端业务线与 UI 自查 | §5 |
-| `white-workspace-architecture-options-v1.html` | 信息架构方案对比（过程稿） | §4 |
+| 文件 | 对应模块 | 设计说明章节 | 截图 | 用户确认 |
+|---|---|---|---|---|
+| `white-reference-clone-home-v1.html` | 任务管理首页 | §6.1 | `01` | 已确认 |
+| `schedule-capacity-page-v1.html` | 排期管理与团队档期 | §6.2 | `08` | 已确认（C3a 补） |
+| `candidate-inbox-page-v1.html` | 候选收件箱 | §6.3 | `03` | 已确认 |
+| `project-detail-gantt-page-v1.html` | 项目详情与完整甘特图 | §6.4 | `04` | 已确认 |
+| `feedback-center-replan-page-v1.html` | 反馈中心与排期重排 | §6.5 | `05` | 已确认 |
+| `quotation-and-change-page-v1.html` | 报价与变更 | §6.6 | `06` | 已确认 |
+| `closeout-backup-billing-page-v1.html` | 结项、备份与出账 | §6.7 | `07` | 已确认 |
+| `file-archive-page-v1.html` | 文件与归档 | §6.8 | `09` | **待确认** |
+| `analytics-page-v1.html` | 智能分析 | §6.9 | `10` | **待确认** |
+| `settings-page-v1.html` | 设置中心（含 LLM 供应商） | §6.10 / §3.2 | `11` | **待确认** |
+| `business-line-and-ui-audit-v1.html` | 端到端业务线与 UI 自查 | §5 | `02` | 已确认 |
+| `white-workspace-architecture-options-v1.html` | 信息架构方案对比（过程稿） | §4 | — | 过程稿 |
+
+`08`–`11` 这四份是后补的，样式与前七份略有差异：它们是独立完整 HTML（自带设计令牌），
+前七份是产自 `.superpowers` 的片段。**结构、导航、配色和术语一致**，差异只在文件形态。
 
 ### `screenshots/` — 审阅截图
 
-`01`–`07` 前缀的 PNG 是各模块的审阅态截图，是最快的视觉参照。
+`01`–`11` 前缀的 PNG 是各模块的审阅态截图（1920 宽），是最快的视觉参照。
 
 带 `reference-*-comparison` 的 JPG 是**用户参考图与本方案原型的并排对比**，用于确认
 「忠实延续参考图的结构思路」这一约束有没有被稀释。改动布局前应先看这组对比图。
 
-## 已知缺口
+## 缺口状态
 
-**排期管理与团队档期页（设计说明 §6.2）没有原型和截图。** 它是七个核心页面中唯一只有文字规格的一个，
-而它恰好承担「团队装不装得下」这一核心价值，且直接关联 M1 失败点第 3 条「录入排期和档期太过简单」。
-
-实现该页面前必须先补一版静态原型交用户确认，不能直接从文字进入编码。
+十个导航模块现已全部有原型。其中三份（文件与归档、智能分析、设置中心）**尚未经用户确认**，
+在确认前不得进入对应模块的编码——这是复盘流程 S1 阶段门的硬要求。
 
 ## 使用规则
 
