@@ -55,6 +55,32 @@ for (const viewport of [
     await page.waitForTimeout(250)
     await page.screenshot({ path: `${OUT}/${PREFIX}-kickoff-blocked-1440.png`, fullPage: true })
     console.log(`✓ ${PREFIX}-kickoff-blocked-1440.png`)
+
+    // 总监报价录入：从「总监报价中」把案件推下去
+    await page.getByRole('button', { name: '恢复示例数据' }).click()
+    await page.waitForTimeout(200)
+    await page.getByLabel('报价案件').getByText(/Q-030/).click()
+    await page.getByRole('button', { name: '录入总监报价' }).click()
+    await page.getByRole('button', { name: '按 2D 模板生成' }).click()
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-entry-blocked-1440.png`, fullPage: true })
+    console.log(`✓ ${PREFIX}-entry-blocked-1440.png`)
+
+    const drawer = page.getByLabel('录入报价')
+    for (let row = 1; row <= 3; row += 1) {
+      await drawer.getByLabel(`第 ${row} 行 人天`).fill(String(2 + row))
+      await drawer.getByLabel(`第 ${row} 行 开始日`).fill('2026-08-17')
+      await drawer.getByLabel(`第 ${row} 行 结束日`).fill('2026-08-21')
+    }
+    await drawer.getByLabel('工期影响').fill('6')
+    await page.waitForTimeout(200)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-entry-ready-1440.png`, fullPage: true })
+    console.log(`✓ ${PREFIX}-entry-ready-1440.png`)
+
+    await drawer.getByRole('button', { name: '提交给组长/BD 复核' }).click()
+    await page.waitForTimeout(250)
+    await page.screenshot({ path: `${OUT}/${PREFIX}-entry-submitted-1440.png`, fullPage: true })
+    console.log(`✓ ${PREFIX}-entry-submitted-1440.png`)
   }
 
   await page.close()

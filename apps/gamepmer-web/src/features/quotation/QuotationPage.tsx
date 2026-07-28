@@ -17,6 +17,7 @@ import { dateRange } from '../../domain/workCalendar'
 import type { QuoteTab, WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { NotificationList } from '../feedback/NotificationList'
 import { ApprovalTrack } from './ApprovalTrack'
+import { QuoteEntryDrawer } from './QuoteEntryDrawer'
 
 interface QuotationPageProps {
   workspace: WorkspaceState
@@ -36,6 +37,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   const { demo, today, quoteTab, selectedQuoteCaseId } = workspace
   const [note, setNote] = useState('')
   const [via, setVia] = useState('Outlook')
+  const [entryOpen, setEntryOpen] = useState(false)
 
   const buckets = useMemo(() => {
     const byNewest = [...demo.quoteCases].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -77,6 +79,10 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   const canKickoff = selected.status === 'Approved' && kickoffIssues.length === 0
 
   const summary = projectQuoteSummary(demo, selected.projectCode)
+  // 只要还没开工，总监就该能提交报价——包括被退回之后。
+  // 少了这个入口，「退回总监修改」就是死胡同。
+  const canQuote = selected.status !== 'KickoffSent' && selected.status !== 'Rejected'
+  const project = demo.projects.find((entry) => entry.code === selected.projectCode)
   const frozenStages = demo.projects
     .flatMap((p) => p.assets)
     .flatMap((a) => a.stages)
@@ -136,6 +142,22 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
           <small>开工邮件已发出</small>
         </div>
       </div>
+
+      {entryOpen && canQuote && (
+        <div className="gp-card gp-quote-entry-card">
+          <QuoteEntryDrawer
+            caseId={selected.id}
+            projectCode={selected.projectCode}
+            project={project}
+            previous={version}
+            onCancel={() => setEntryOpen(false)}
+            onSubmit={(lines, impact) => {
+              store.submitQuote(selected.id, lines, impact)
+              setEntryOpen(false)
+            }}
+          />
+        </div>
+      )}
 
       <div className="gp-quotation-body">
         <aside className="gp-card gp-case-list" aria-label="报价案件">
@@ -216,9 +238,36 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
           </div>
 
           {version ? (
-            <QuoteTable version={version} />
+            <>
+              <QuoteTable version={version} />
+              {canQuote && !entryOpen && (
+                <div className="gp-quote-requote">
+                  <button type="button" className="gp-btn" onClick={() => setEntryOpen(true)}>
+                    录入总监报价
+                  </button>
+                  <span>
+                    {selected.status === 'DirectorQuoting'
+                      ? '已退回总监。重新提交会生成新版本，当前 v' +
+                        version.version +
+                        ' 原样留档。'
+                      : '改动会生成新版本并重新进入复核——已复核的版本不会被静默覆盖。'}
+                  </span>
+                </div>
+              )}
+            </>
           ) : (
-            <p className="gp-empty">总监尚未返回报价。人天与节点到齐后才会出现报价单。</p>
+            <div className="gp-quote-empty">
+              <p>总监尚未返回报价。报价要展开到每个可验收阶段，人天与节点齐了才会出现报价单。</p>
+              {canQuote && !entryOpen && (
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-primary"
+                  onClick={() => setEntryOpen(true)}
+                >
+                  录入总监报价
+                </button>
+              )}
+            </div>
           )}
 
           <ApprovalTrack
@@ -441,6 +490,8 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
               <p>
                 {selected.directorName} 尚未返回人天与节点。报价必须带排期——只有一个总金额的报价没法排产，
                 结项时也没法对账。
+                <br />
+                总监把人天和节点发回来后，用中间那张卡的「录入总监报价」填进去。
               </p>
             </div>
           )}
@@ -563,9 +614,8 @@ function QuoteTable({ version }: { version: QuoteVersion }) {
           <tr key={line.id}>
             <td className="gp-line-title">
               <strong>{line.title}</strong>
-              <span>
-                {line.assetId} · {line.note}
-              </span>
+              {/* 项目还没建时资产为空、模板行说明也可能为空——别渲染出一个孤零零的「·」 */}
+              <span>{[line.assetId, line.note].filter(Boolean).join(' · ') || '—'}</span>
             </td>
             <td className="gp-num">{line.personDays}</td>
             <td className="gp-num">{money(line.unitPrice)}</td>

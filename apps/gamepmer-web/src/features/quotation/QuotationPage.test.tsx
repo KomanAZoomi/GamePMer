@@ -241,6 +241,107 @@ describe('驳回与阻断', () => {
   })
 })
 
+describe('总监录入报价——每个状态都要能往下走', () => {
+  it('「总监报价中」的案件有录入入口，不是一句「等待总监返回」就没了', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+    await user.click(within(screen.getByLabelText('报价案件')).getByText(/Q-030/))
+
+    expect(screen.getByRole('button', { name: '录入总监报价' })).toBeEnabled()
+  })
+
+  it('录入人天与节点后提交，案件进入待复核', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+    await user.click(within(screen.getByLabelText('报价案件')).getByText(/Q-030/))
+    await user.click(screen.getByRole('button', { name: '录入总监报价' }))
+
+    const drawer = screen.getByLabelText('录入报价')
+    await user.click(within(drawer).getByRole('button', { name: '按 2D 模板生成' }))
+
+    // 模板给出三行，逐行填人天与节点
+    const dayInputs = within(drawer).getAllByLabelText(/人天$/)
+    expect(dayInputs.length).toBe(3)
+    for (const input of dayInputs) {
+      await user.clear(input)
+      await user.type(input, '2')
+    }
+    for (const input of within(drawer).getAllByLabelText(/开始日$/)) {
+      await user.type(input, '2026-08-17')
+    }
+    for (const input of within(drawer).getAllByLabelText(/结束日$/)) {
+      await user.type(input, '2026-08-18')
+    }
+
+    await user.click(within(drawer).getByRole('button', { name: '提交给组长/BD 复核' }))
+
+    expect(caseOf('Q-030').status).toBe('AwaitingReview')
+    expect(store.getState().demo.quoteVersions.filter((v) => v.caseId === 'Q-030')).toHaveLength(1)
+  })
+
+  it('缺人天或缺节点时提交被阻断，并说明缺哪一行', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+    await user.click(within(screen.getByLabelText('报价案件')).getByText(/Q-030/))
+    await user.click(screen.getByRole('button', { name: '录入总监报价' }))
+
+    const drawer = screen.getByLabelText('录入报价')
+    await user.click(within(drawer).getByRole('button', { name: '按 2D 模板生成' }))
+
+    expect(within(drawer).getByRole('button', { name: /提交（被阻断）/ })).toBeDisabled()
+    expect(within(drawer).getAllByText(/缺人天/).length).toBeGreaterThan(0)
+    expect(caseOf('Q-030').status).toBe('DirectorQuoting')
+  })
+
+  it('退回总监后能重新提交，产生 v2 且 v1 留档', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+
+    await user.click(screen.getByRole('button', { name: '退回总监修改' }))
+    expect(caseOf('CQ-004').status).toBe('DirectorQuoting')
+
+    // 退回不是死胡同：同一张案件能重新录入
+    await user.click(screen.getByRole('button', { name: '录入总监报价' }))
+    const drawer = screen.getByLabelText('录入报价')
+    // 上一版内容预填，总监只需改动，不用重打一遍
+    expect(within(drawer).getAllByLabelText(/人天$/).length).toBe(5)
+
+    const first = within(drawer).getAllByLabelText(/人天$/)[0]
+    await user.clear(first)
+    await user.type(first, '2')
+    await user.click(within(drawer).getByRole('button', { name: '提交给组长/BD 复核' }))
+
+    expect(caseOf('CQ-004').status).toBe('AwaitingReview')
+    const versions = store.getState().demo.quoteVersions.filter((v) => v.caseId === 'CQ-004')
+    expect(versions).toHaveLength(2)
+    expect(versions.find((v) => v.version === 1)!.supersededAt).toBeTruthy()
+    // v1 的内容一字未改
+    expect(versions.find((v) => v.version === 1)!.lines[0].personDays).toBe(1.5)
+  })
+
+  it('项目还没创建时，资产与阶段可以自由填写并说明原因', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+    await user.click(within(screen.getByLabelText('报价案件')).getByText(/Q-030/))
+    await user.click(screen.getByRole('button', { name: '录入总监报价' }))
+
+    const drawer = screen.getByLabelText('录入报价')
+    expect(within(drawer).getByText(/P-2D-020 还不是正式项目/)).toBeInTheDocument()
+    // 资产是自由文本，不是下拉——库里根本没有可选项
+    await user.click(within(drawer).getByRole('button', { name: '按 2D 模板生成' }))
+    expect(within(drawer).getAllByLabelText(/资产$/)[0].tagName).toBe('INPUT')
+  })
+
+  it('已开工的案件不再提供录入入口，改动要走新变更单', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+    await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    await user.click(screen.getByRole('button', { name: /我已发出变更开工邮件/ }))
+
+    expect(screen.queryByRole('button', { name: '录入总监报价' })).toBeNull()
+  })
+})
+
 describe('原报价永不覆盖', () => {
   it('应结汇总同时列出首次报价与追加报价', async () => {
     const { user } = renderQuotation()

@@ -145,6 +145,30 @@ export function kickoffBlockingIssues(state: DemoState, caseId: string): string[
   return issues
 }
 
+/**
+ * 这个案件现在能做什么。
+ *
+ * 存在的理由是**防止流转断点**：C8 第一版就漏掉了「总监报价中」的录入入口，
+ * 结果 Q-030 卡死、「退回总监修改」也成了死胡同。有了这个投影，
+ * 任何一个非终态却没有可用动作的状态都会被测试当场抓住。
+ */
+export type QuoteAction = 'quote' | 'review' | 'kickoff'
+
+export function availableActions(state: DemoState, caseId: string): QuoteAction[] {
+  const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
+  if (!quoteCase) return []
+
+  const actions: QuoteAction[] = []
+  // 只要还没开工、也没被终止，总监就能提交（新）报价
+  if (quoteCase.status !== 'KickoffSent' && quoteCase.status !== 'Rejected') actions.push('quote')
+  if (quoteCase.status === 'AwaitingReview') actions.push('review')
+  if (quoteCase.status === 'Approved') actions.push('kickoff')
+  return actions
+}
+
+/** 终态：没有后续动作是对的，不算断点。 */
+export const TERMINAL_QUOTE_STATUSES: QuoteCase['status'][] = ['KickoffSent', 'Rejected']
+
 // ---------------------------------------------------------------- 待办投影
 
 export interface ReviewTodo {

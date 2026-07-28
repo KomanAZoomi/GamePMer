@@ -124,3 +124,48 @@ test('恢复示例数据把报价状态一并复位', async ({ page }) => {
   await page.goto('/#/quotation')
   await expect(page.getByRole('button', { name: /以组长兼BD身份复核通过/ })).toBeVisible()
 })
+
+test('总监报价中的案件能录入报价并往下流转', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByLabel('报价案件').getByText(/Q-030/).click()
+  await page.getByRole('button', { name: '录入总监报价' }).click()
+
+  const drawer = page.getByLabel('录入报价')
+  await expect(drawer.getByText(/P-2D-020 还不是正式项目/)).toBeVisible()
+  await drawer.getByRole('button', { name: '按 2D 模板生成' }).click()
+
+  // 只填模板不填人天/节点时提交被阻断，并逐行说明
+  await expect(drawer.getByRole('button', { name: /提交（被阻断）/ })).toBeDisabled()
+  await expect(drawer.getByText('缺人天').first()).toBeVisible()
+
+  for (let row = 1; row <= 3; row += 1) {
+    await drawer.getByLabel(`第 ${row} 行 人天`).fill('2')
+    await drawer.getByLabel(`第 ${row} 行 开始日`).fill('2026-08-17')
+    await drawer.getByLabel(`第 ${row} 行 结束日`).fill('2026-08-18')
+  }
+  await drawer.getByLabel('工期影响').fill('6')
+  await drawer.getByRole('button', { name: '提交给组长/BD 复核' }).click()
+
+  // 进入待复核，并出现在待复核清单里
+  await expect(page.getByLabel('报价详情').getByRole('button', { name: /复核通过/ })).toBeVisible()
+  await expect(
+    page.getByLabel('待复核清单').getByRole('row').filter({ hasText: 'Q-030' }),
+  ).toHaveCount(1)
+})
+
+test('退回总监不是死胡同：能以上一版为底稿重新提交', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: '退回总监修改' }).click()
+
+  await page.getByRole('button', { name: '录入总监报价' }).click()
+  const drawer = page.getByLabel('录入报价')
+  // 上一版预填，五行都在
+  await expect(drawer.getByLabel('第 5 行 人天')).toHaveValue('0.6')
+
+  await drawer.getByLabel('第 1 行 人天').fill('2')
+  await drawer.getByRole('button', { name: '提交给组长/BD 复核' }).click()
+
+  // 回到待复核，且报价版本区能看到 v1 已被取代
+  await expect(page.getByLabel('报价详情').getByText('CQ-004 / v2')).toBeVisible()
+  await expect(page.getByText('已被新版本取代')).toBeVisible()
+})

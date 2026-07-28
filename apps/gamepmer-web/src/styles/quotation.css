@@ -527,3 +527,205 @@
 .gp-kickoff-inner .gp-notifications {
   margin: 0;
 }
+
+/* ---------------------------------------------------------------- 报价录入 */
+
+.gp-quote-empty {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+  padding: var(--space-5) var(--space-4);
+}
+
+.gp-quote-empty p {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  line-height: 1.65;
+}
+
+.gp-quote-requote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-faint);
+}
+
+.gp-quote-requote span {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+}
+
+/* 录入抽屉整宽渲染：九列表格塞在 560px 的中栏里没法用。
+   同时 min-width:0 是必须的——网格项默认按 min-content 撑开，
+   底下的 overflow-x 就永远不会生效，整块会溢出去盖住右侧详情。 */
+.gp-quote-entry-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.gp-quote-entry {
+  min-width: 0;
+  background: var(--surface-rail);
+}
+
+.gp-quote-entry-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--accent-softer);
+}
+
+.gp-quote-entry-head h3 {
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-weight: var(--weight-heavy);
+}
+
+.gp-quote-entry-head small {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+}
+
+.gp-quote-entry-note {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-faint);
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-quote-entry-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.gp-quote-entry-toolbar > span,
+.gp-quote-entry-toolbar label > span {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}
+
+.gp-quote-entry-toolbar label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gp-quote-entry-sep {
+  flex: 1;
+}
+
+.gp-entry-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.gp-entry-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.gp-entry-table th,
+.gp-entry-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-faint);
+  text-align: left;
+  font-size: var(--text-2xs);
+  vertical-align: middle;
+}
+
+.gp-entry-table th {
+  color: var(--text-faint);
+  font-weight: var(--weight-heavy);
+  white-space: nowrap;
+  background: var(--surface-muted);
+}
+
+.gp-entry-table tr.is-invalid td {
+  background: var(--danger-soft);
+}
+
+.gp-entry-table .gp-input {
+  width: 100%;
+  min-width: 68px;
+  padding: 4px 6px;
+  font-size: var(--text-2xs);
+}
+
+.gp-entry-table .gp-input.is-invalid {
+  border-color: var(--danger);
+}
+
+.gp-entry-table .gp-input-num {
+  min-width: 56px;
+  text-align: right;
+}
+
+.gp-entry-table .gp-input-date {
+  min-width: 124px;
+}
+
+.gp-row-flag {
+  white-space: nowrap;
+  font-weight: var(--weight-bold);
+}
+
+.gp-row-flag.is-ok {
+  color: var(--accent-ink);
+}
+
+.gp-row-flag.is-err {
+  color: var(--danger-ink);
+}
+
+.gp-quote-entry-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+}
+
+.gp-quote-entry-impact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.gp-quote-entry-impact > span {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}
+
+.gp-quote-entry-impact .gp-input {
+  width: 70px;
+  text-align: right;
+}
+
+.gp-quote-entry-summary {
+  flex: 1;
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-quote-entry-issues {
+  color: var(--danger-ink);
+  font-weight: var(--weight-bold);
+}

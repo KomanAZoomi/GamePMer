@@ -4,6 +4,7 @@ import type { AxisScale } from '../../domain/gantt'
 import type { StageRow } from '../../domain/conflicts'
 import type {
   DemoState,
+  QuoteLine,
   RevisionReason,
   ScheduleRevisionDraft,
   SourceChannel,
@@ -19,6 +20,7 @@ import {
 import {
   reviewQuote as reviewQuoteCase,
   sendKickoff as sendQuoteKickoff,
+  submitQuoteVersion,
 } from '../../domain/quotation'
 import { confirmScheduleEntry as confirmEntry } from '../../domain/scheduleEntry'
 import {
@@ -104,6 +106,7 @@ export interface WorkspaceStore {
   ingestCandidate(request: IngestRequest): void
   selectQuoteCase(caseId: string): void
   setQuoteTab(tab: QuoteTab): void
+  submitQuote(caseId: string, lines: QuoteLine[], scheduleImpactWorkdays: number): void
   reviewQuote(caseId: string, decision: 'approve' | 'reject', note: string): void
   sendKickoff(caseId: string, via: string): void
   resetDemo(): void
@@ -324,6 +327,19 @@ export function createWorkspaceStore(
     },
     setQuoteTab(tab) {
       state = { ...state, quoteTab: tab }
+      emit()
+    },
+    submitQuote(caseId, lines, scheduleImpactWorkdays) {
+      const quoteCase = state.demo.quoteCases.find((entry) => entry.id === caseId)
+      const demo = submitQuoteVersion(state.demo, caseId, {
+        lines,
+        scheduleImpactWorkdays,
+        submittedBy: quoteCase?.directorName ?? 'Evan',
+        actor: 'Brandon',
+        now: clock.now(),
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedQuoteCaseId: caseId }
       emit()
     },
     reviewQuote(caseId, decision, note) {

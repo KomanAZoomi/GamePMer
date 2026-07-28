@@ -4,7 +4,9 @@ import { createDemoState } from '../data/seed'
 import { DEMO_TODAY } from './clock'
 import {
   QuoteBlocked,
+  TERMINAL_QUOTE_STATUSES,
   activeVersion,
+  availableActions,
   kickoffBlockingIssues,
   quoteTotals,
   reviewBlockingIssues,
@@ -57,6 +59,61 @@ const NEW_LINES: QuoteLine[] = [
     plannedFinish: '2026-08-05',
   },
 ]
+
+describe('每个非终态都要有出路', () => {
+  /**
+   * 这一组是 C8 验收时发现「总监报价中」没有录入入口后补的。
+   * 当时 Q-030 卡死，「退回总监修改」也成了死胡同——测试全绿，产品走不通。
+   */
+  const ALL_STATUSES = [
+    'Received',
+    'Assigned',
+    'DirectorQuoting',
+    'AwaitingReview',
+    'Approved',
+    'KickoffSent',
+    'Rejected',
+  ] as const
+
+  for (const status of ALL_STATUSES) {
+    it(`${status} 状态下${TERMINAL_QUOTE_STATUSES.includes(status) ? '是终态，没有后续动作' : '至少有一个可用动作'}`, () => {
+      const state = createDemoState()
+      const patched: DemoState = {
+        ...state,
+        quoteCases: state.quoteCases.map((entry) =>
+          entry.id === 'CQ-004' ? { ...entry, status } : entry,
+        ),
+      }
+      const actions = availableActions(patched, 'CQ-004')
+      if (TERMINAL_QUOTE_STATUSES.includes(status)) {
+        expect(actions).toEqual([])
+      } else {
+        expect(actions.length).toBeGreaterThan(0)
+      }
+    })
+  }
+
+  it('被退回总监之后仍然能重新提交——退回不是死胡同', () => {
+    const state = createDemoState()
+    const rejected = reviewQuote(state, 'CQ-004', {
+      decision: 'reject',
+      actor: 'Leo',
+      now: NOW,
+      note: '人天偏高',
+    })
+    expect(availableActions(rejected, 'CQ-004')).toContain('quote')
+
+    const resubmitted = submitQuoteVersion(rejected, 'CQ-004', {
+      lines: NEW_LINES,
+      scheduleImpactWorkdays: 2,
+      submittedBy: 'Evan',
+      actor: 'Evan',
+      now: NOW,
+    })
+    expect(findCase(resubmitted, 'CQ-004').status).toBe('AwaitingReview')
+    expect(activeVersion(resubmitted, 'CQ-004')!.version).toBe(2)
+  })
+})
 
 describe('报价合计', () => {
   it('人天与金额按行累加，不是手填的总额', () => {
