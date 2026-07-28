@@ -37,6 +37,7 @@ export function ProjectsPage({ workspace, store, onNavigate }: ProjectsPageProps
   )
 
   const revisions = demo.revisions.filter((item) => item.projectCode === project.code)
+  const activeRevisions = revisions.filter((item) => !item.revokedAt)
 
   return (
     <div className="gp-project-page">
@@ -109,7 +110,7 @@ export function ProjectsPage({ workspace, store, onNavigate }: ProjectsPageProps
           <Metric
             label="相对基准"
             value={maxShift > 0 ? `+${maxShift}` : '0'}
-            note={`工作日 · ${shiftedStages.length} 个阶段已修订`}
+            note={`工作日 · ${shiftedStages.length} 个阶段已修订 · ${activeRevisions.length} 个生效修订`}
           />
         </div>
 
@@ -139,10 +140,16 @@ export function ProjectsPage({ workspace, store, onNavigate }: ProjectsPageProps
           ) : (
             <ol className="gp-revision-list">
               {revisions.map((revision) => (
-                <li key={revision.id}>
+                <li key={revision.id} className={revision.revokedAt ? 'is-revoked' : undefined}>
                   <span className="gp-revision-version">v{revision.version}</span>
                   <span className="gp-revision-body">
                     <strong>{revision.note}</strong>
+                    {revision.revokedAt && (
+                      <span className="gp-revision-revoked">
+                        已于 {revision.revokedAt.slice(0, 10)} 由 {revision.revokedBy} 撤销 ·{' '}
+                        {revision.revokedReason}
+                      </span>
+                    )}
                     <span>
                       {revision.changes
                         .map(

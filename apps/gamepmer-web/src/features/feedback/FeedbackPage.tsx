@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { RouteKey } from '../../app/navigation'
 import { groupName } from '../../domain/lookup'
 import type { FeedbackBatch, FeedbackItem } from '../../domain/model'
-import { untouchedAssets } from '../../domain/replan'
+import { activeRevisionFor, revisionNotified, untouchedAssets } from '../../domain/replan'
 import { EMPTY_CALENDAR, countWorkdays, dateRange } from '../../domain/workCalendar'
 import type { WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { DraftPreview } from './DraftPreview'
@@ -50,6 +50,9 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
     () => (draft ? untouchedAssets(demo, draft) : []),
     [demo, draft],
   )
+
+  const activeRevision = selected ? activeRevisionFor(demo, selected.id) : undefined
+  const notified = activeRevision ? revisionNotified(demo, activeRevision.id) : false
 
   const notifications = demo.notificationDrafts.filter(
     (item) => item.sourceKind === 'schedule-revision',
@@ -197,7 +200,10 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
 
           {notifications.length > 0 && (
             <section className="gp-notifications" aria-label="通知草稿">
-              <h3>通知草稿 · 未发送</h3>
+              <h3>
+                通知 · {notifications.filter((n) => n.status === 'draft').length} 封待发送 /{' '}
+                {notifications.filter((n) => n.status === 'sent').length} 封已发送
+              </h3>
               {notifications.map((item) => (
                 <article key={item.id} className="gp-notification">
                   <header>
@@ -210,7 +216,19 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                   <pre className="gp-notification-body">{item.body}</pre>
                   <p className="gp-notification-note">
                     生成草稿不等于发送。发送需要 PM 主动执行，系统不会自动发信。
+                    {item.status === 'draft' && '发出之后关联修订就不能再撤销了。'}
                   </p>
+                  {item.status === 'draft' ? (
+                    <button
+                      type="button"
+                      className="gp-btn"
+                      onClick={() => store.sendNotification(item.id)}
+                    >
+                      发送这封通知
+                    </button>
+                  ) : (
+                    <p className="gp-notification-sent">已于 {item.sentAt?.slice(0, 16).replace('T', ' ')} 发送</p>
+                  )}
                 </article>
               ))}
             </section>
@@ -380,14 +398,27 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
             <p className="gp-reclassify-note">
               判错了可以「重新判定」退回待分流
               {selected.scope === 'out-of-scope' && '，变更单与冻结标记会一并撤销'}。
-              一旦确认排期修订，就要走一次新的修订来调整，不能假装之前没发生。
             </p>
           )}
 
-          {selected.status === 'InRework' && (
-            <p className="gp-reclassify-note">
-              已确认排期修订，范围判定不可再撤销。如需调整，请重新生成一次排期修订。
-            </p>
+          {selected.status === 'InRework' && activeRevision && (
+            <div className="gp-revoke-box">
+              <p>
+                已确认排期修订 <strong>v{activeRevision.version}</strong>。
+                {notified
+                  ? '通知已经发出，团队可能已按新排期安排——要调整请走一次新的修订，而不是撤销这一次。'
+                  : '通知还没发出去，外面没人知道这次修订，可以整个撤销。'}
+              </p>
+              {!notified && (
+                <button
+                  type="button"
+                  className="gp-btn"
+                  onClick={() => store.revokeRevision(activeRevision.id)}
+                >
+                  撤销修订并退回待分流
+                </button>
+              )}
+            </div>
           )}
         </aside>
       </div>

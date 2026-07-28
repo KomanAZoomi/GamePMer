@@ -199,6 +199,13 @@ export interface ScheduleRevision {
   confirmedBy: string
   confirmedAt: string
   changes: StageDateChange[]
+  /**
+   * 撤销痕迹。撤销不是删除——版本号不复用，历史里能看到「v1 已撤销」。
+   * 只有通知尚未发出的修订才允许撤销。
+   */
+  revokedAt?: string
+  revokedBy?: string
+  revokedReason?: string
 }
 
 // ---------------------------------------------------------------- 通知与审计

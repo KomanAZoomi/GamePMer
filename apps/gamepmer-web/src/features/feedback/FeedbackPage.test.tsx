@@ -232,14 +232,68 @@ describe('范围判定可撤销', () => {
     expect(store.getState().draft).toBeUndefined()
   })
 
-  it('已确认排期修订后不再提供重新判定', async () => {
-    const { user } = await renderFeedback()
+  async function confirmReplanFlow(user: ReturnType<typeof userEvent.setup>) {
     await user.click(screen.getByRole('button', { name: '判为范围内' }))
     await user.click(screen.getByRole('button', { name: '生成排期草案' }))
     await user.click(within(screen.getByLabelText('排期修订草案')).getByRole('button', { name: '确认重排' }))
+  }
 
-    expect(screen.queryByRole('button', { name: '重新判定' })).toBeNull()
-    expect(screen.getByText(/不可再撤销/)).toBeInTheDocument()
+  it('通知没发出去时，已确认的修订可以整个撤销', async () => {
+    const { user, store } = await renderFeedback()
+    await confirmReplanFlow(user)
+
+    expect(screen.getByText(/通知还没发出去/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '撤销修订并退回待分流' }))
+
+    // 日期回滚
+    expect(stageOf(store, 'MECH-01/3D_LOW')?.currentStart).toBe('2026-07-27')
+    expect(stageOf(store, 'MECH-01/3D_LOW')?.currentFinish).toBe('2026-07-29')
+    // 反馈项退回待分流
+    expect(store.getState().demo.feedbackBatches[0].items[0].status).toBe('NeedsClassification')
+    expect(screen.getByRole('button', { name: '判为范围外' })).toBeInTheDocument()
+    // 未发送的草稿一并作废
+    expect(
+      store.getState().demo.notificationDrafts.filter((n) => n.sourceKind === 'schedule-revision'),
+    ).toHaveLength(0)
+  })
+
+  it('撤销不是删除：修订历史里仍能看到 v1 已撤销', async () => {
+    const { user, store } = await renderFeedback()
+    await confirmReplanFlow(user)
+    await user.click(screen.getByRole('button', { name: '撤销修订并退回待分流' }))
+
+    const revision = store.getState().demo.revisions.find((r) => r.projectCode === 'P-3D-024')
+    expect(revision?.version).toBe(1)
+    expect(revision?.revokedBy).toBe('Brandon')
+
+    const nav = screen.getByRole('navigation', { name: '全局导航' })
+    await user.click(within(nav).getByRole('button', { name: /项目总览/ }))
+    const history = screen.getByLabelText('排期修订历史')
+    expect(within(history).getByText(/由 Brandon 撤销/)).toBeInTheDocument()
+  })
+
+  it('撤销后再次确认时版本号不复用', async () => {
+    const { user, store } = await renderFeedback()
+    await confirmReplanFlow(user)
+    await user.click(screen.getByRole('button', { name: '撤销修订并退回待分流' }))
+    await confirmReplanFlow(user)
+
+    const versions = store
+      .getState()
+      .demo.revisions.filter((r) => r.projectCode === 'P-3D-024')
+      .map((r) => r.version)
+    expect(versions).toEqual([1, 2])
+  })
+
+  it('通知一旦发出，就不能再撤销这次修订', async () => {
+    const { user } = await renderFeedback()
+    await confirmReplanFlow(user)
+
+    const notifications = screen.getByLabelText('通知草稿')
+    await user.click(within(notifications).getAllByRole('button', { name: '发送这封通知' })[0])
+
+    expect(screen.queryByRole('button', { name: '撤销修订并退回待分流' })).toBeNull()
+    expect(screen.getByText(/通知已经发出/)).toBeInTheDocument()
   })
 })
 

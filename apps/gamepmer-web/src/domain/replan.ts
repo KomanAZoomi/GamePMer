@@ -2,6 +2,7 @@ import { checkStageRows } from './conflicts'
 import type {
   Asset,
   ChangeRequest,
+  ScheduleRevision,
   DemoState,
   FeedbackItem,
   IsoDate,
@@ -228,7 +229,11 @@ export function confirmReplan(state: DemoState, input: ConfirmReplanInput): Demo
     if (target && !target.flags.includes('Rework')) target.flags.push('Rework')
   }
 
-  const version = next.revisions.filter((entry) => entry.projectCode === draft.projectCode).length + 1
+  // 版本号按历史最大值递增，撤销过的号不复用——否则审计里会出现两个 v1
+  const version =
+    next.revisions
+      .filter((entry) => entry.projectCode === draft.projectCode)
+      .reduce((max, entry) => Math.max(max, entry.version), 0) + 1
   const revisionId = `REV-${draft.projectCode}-${version}`
   next.revisions.push({
     id: revisionId,
@@ -374,6 +379,129 @@ export class ReclassifyBlocked extends Error {
   }
 }
 
+/** 该修订关联的通知是否已经发出去过。发出去了，外部就已经按新排期安排了。 */
+export function revisionNotified(state: DemoState, revisionId: string): boolean {
+  return state.notificationDrafts.some(
+    (item) => item.sourceId === revisionId && item.status === 'sent',
+  )
+}
+
+export function activeRevisionFor(
+  state: DemoState,
+  feedbackItemId: string,
+): ScheduleRevision | undefined {
+  return state.revisions.find(
+    (item) => item.sourceFeedbackItemId === feedbackItemId && !item.revokedAt,
+  )
+}
+
+/**
+ * 撤销一次排期修订。
+ *
+ * 不可逆的分界点是**通知已发送**，不是内部确认：
+ * 草稿还躺在系统里没发出去，组长和艺术总监根本不知道有过这次修订，
+ * 外部世界没有任何东西需要收回，那就应该能撤销。
+ * 一旦邮件真的发出去，团队已经按新排期安排了，才必须走一次新的修订。
+ *
+ * 撤销＝回滚日期 + 标记修订已撤销 + 作废未发送草稿，
+ * 但审计事件只增不减：撤销本身也是一条要留痕的操作。
+ */
+export function revokeRevision(
+  state: DemoState,
+  revisionId: string,
+  at: string,
+  actor: string,
+  reason = '判定有误，撤销后重新处理',
+): DemoState {
+  const revision = state.revisions.find((item) => item.id === revisionId)
+  if (!revision) throw new Error(`找不到修订：${revisionId}`)
+  if (revision.revokedAt) throw new ReclassifyBlocked(`修订 ${revisionId} 已经撤销过了。`)
+  if (revisionNotified(state, revisionId)) {
+    throw new ReclassifyBlocked(
+      `修订 ${revisionId} 的通知已经发出，团队可能已按新排期安排。请走一次新的修订来调整，而不是撤销这一次。`,
+    )
+  }
+
+  const next = structuredClone(state)
+  const target = next.revisions.find((item) => item.id === revisionId)
+  const project = next.projects.find((item) => item.code === revision.projectCode)
+  const asset = project?.assets.find((item) => item.id === revision.assetId)
+  if (!target || !asset) throw new Error(`找不到修订关联资产：${revision.assetId}`)
+
+  // 日期回滚到修订前
+  for (const change of revision.changes) {
+    const stage = asset.stages.find((item) => item.id === change.stageId)
+    if (!stage) continue
+    stage.currentStart = change.oldStart
+    stage.currentFinish = change.oldFinish
+    stage.revisionReason = undefined
+  }
+
+  target.revokedAt = at
+  target.revokedBy = actor
+  target.revokedReason = reason
+
+  // 未发送的通知草稿从未存在于外部世界，直接作废
+  const discarded = next.notificationDrafts.filter((item) => item.sourceId === revisionId).length
+  next.notificationDrafts = next.notificationDrafts.filter((item) => item.sourceId !== revisionId)
+
+  // 反馈项退回待分流，重排需求重新亮起
+  const item = revision.sourceFeedbackItemId
+    ? findFeedbackItem(next, revision.sourceFeedbackItemId)
+    : undefined
+  if (item) {
+    item.scope = 'unclassified'
+    item.status = 'NeedsClassification'
+    const stage = asset.stages.find((entry) => entry.id === item.stageId)
+    if (stage && !stage.flags.includes('ScheduleRevisionRequired')) {
+      stage.flags.push('ScheduleRevisionRequired')
+    }
+  }
+
+  next.auditEvents.push({
+    id: `AE-revoke-${revisionId}-${at}`,
+    at,
+    actor,
+    action: `撤销排期修订 v${revision.version}`,
+    targetKind: 'ScheduleRevision',
+    targetId: revisionId,
+    before: revision.changes.map((c) => `${c.stageId} ${c.newStart}—${c.newFinish}`).join('；'),
+    after: revision.changes.map((c) => `${c.stageId} ${c.oldStart}—${c.oldFinish}`).join('；'),
+    reason: `${reason}；同时作废 ${discarded} 封未发送通知草稿`,
+  })
+
+  return next
+}
+
+/** 发送通知草稿。发送之后关联修订就不能再撤销了。 */
+export function sendNotification(
+  state: DemoState,
+  notificationId: string,
+  at: string,
+  actor: string,
+): DemoState {
+  const next = structuredClone(state)
+  const notification = next.notificationDrafts.find((item) => item.id === notificationId)
+  if (!notification) throw new Error(`找不到通知草稿：${notificationId}`)
+
+  notification.status = 'sent'
+  notification.sentAt = at
+
+  next.auditEvents.push({
+    id: `AE-send-${notificationId}-${at}`,
+    at,
+    actor,
+    action: '发送通知',
+    targetKind: 'NotificationDraft',
+    targetId: notificationId,
+    before: 'draft',
+    after: 'sent',
+    reason: `收件人 ${notification.recipientName}（${notification.recipientRole}）`,
+  })
+
+  return next
+}
+
 /**
  * 撤销范围判定，退回待分流。
  *
@@ -389,10 +517,12 @@ export function reclassifyFeedback(
 ): DemoState {
   const current = findFeedbackItem(state, itemId)
   if (!current) throw new Error(`找不到反馈项：${itemId}`)
-  if (current.status === 'InRework' || current.status === 'Resubmitted' || current.status === 'Closed') {
-    throw new ReclassifyBlocked(
-      '该反馈已确认排期修订，不能直接改回待分流。如需调整，请重新生成一次排期修订。',
-    )
+  if (current.status === 'Resubmitted' || current.status === 'Closed') {
+    throw new ReclassifyBlocked('该反馈已重提或关闭，不能改回待分流。')
+  }
+  if (current.status === 'InRework') {
+    // 已确认过修订：撤销要连同修订一起回滚，走 revokeRevision
+    throw new ReclassifyBlocked('该反馈已确认排期修订，请改用「撤销修订」。')
   }
 
   const next = structuredClone(state)

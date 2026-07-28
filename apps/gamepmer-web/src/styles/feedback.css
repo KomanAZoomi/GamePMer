@@ -330,3 +330,51 @@
     rgba(255, 255, 255, 0.55) 4px 8px
   );
 }
+
+.gp-revoke-box {
+  margin-top: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--amber-border);
+  border-radius: var(--radius-md);
+  background: var(--amber-soft);
+}
+
+.gp-revoke-box p {
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-revoke-box strong {
+  color: var(--amber-ink);
+}
+
+.gp-revoke-box .gp-btn {
+  margin-top: var(--space-3);
+}
+
+.gp-notification-sent {
+  margin-top: var(--space-2);
+  color: var(--accent-ink);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
+
+/* 已撤销的修订：保留在历史里，不假装没发生过 */
+.gp-revision-list li.is-revoked {
+  opacity: 0.72;
+}
+
+.gp-revision-list li.is-revoked .gp-revision-version {
+  background: var(--surface-muted);
+  color: var(--text-faint);
+  text-decoration: line-through;
+}
+
+.gp-revision-revoked {
+  display: block;
+  margin-top: 2px;
+  color: var(--amber-ink);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
