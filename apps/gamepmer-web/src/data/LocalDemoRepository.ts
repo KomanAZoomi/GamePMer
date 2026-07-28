@@ -41,6 +41,8 @@ const REQUIRED_COLLECTIONS = [
   'quoteCases',
   'quoteVersions',
   'closeoutCases',
+  'drives',
+  'fileIndex',
   'feedbackBatches',
   'revisions',
   'notificationDrafts',

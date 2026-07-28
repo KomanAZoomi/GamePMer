@@ -20,6 +20,11 @@ import {
   restoreCandidate as restoreInboxCandidate,
 } from '../../domain/inbox'
 import {
+  ignoreFile as ignoreIndexedFile,
+  linkFile as linkIndexedFile,
+  restoreFile as restoreIndexedFile,
+} from '../../domain/fileIndex'
+import {
   archiveCase as archiveCloseoutCase,
   completeGate as completeCloseoutGate,
   reopenGate as reopenCloseoutGate,
@@ -66,6 +71,9 @@ export interface WorkspaceState {
   quoteTab: QuoteTab
   selectedCloseoutCaseId?: string
   closeoutTab: CloseoutTab
+  selectedFileId?: string
+  fileDriveId?: string
+  fileTab: FileTab
   /** 排期草案只活在界面状态里，永不落盘——草案不污染正式数据 */
   draft?: ScheduleRevisionDraft
 }
@@ -75,6 +83,8 @@ export type InboxTab = 'review' | 'blocked' | 'done'
 export type QuoteTab = 'active' | 'ready' | 'done'
 
 export type CloseoutTab = 'active' | 'ready' | 'archived'
+
+export type FileTab = 'all' | 'pending' | 'handled'
 
 export interface IngestRequest {
   text: string
@@ -130,6 +140,12 @@ export interface WorkspaceStore {
   ): void
   reopenCloseoutGate(caseId: string, code: CloseoutGateCode, reason: string): void
   archiveCloseoutCase(caseId: string): void
+  selectFile(entryId: string): void
+  setFileDrive(driveId: string | undefined): void
+  setFileTab(tab: FileTab): void
+  linkFile(entryId: string, stageId: string): void
+  ignoreFile(entryId: string, reason: string): void
+  restoreFile(entryId: string): void
   resetDemo(): void
 }
 
@@ -151,6 +167,8 @@ function initialState(demo: DemoState, today: string): WorkspaceState {
     quoteTab: 'active',
     selectedCloseoutCaseId: demo.closeoutCases.find((entry) => entry.status !== 'Archived')?.id,
     closeoutTab: 'active',
+    selectedFileId: demo.fileIndex.find((entry) => entry.status === 'unresolved')?.id,
+    fileTab: 'all',
   }
 }
 
@@ -417,6 +435,42 @@ export function createWorkspaceStore(
       const demo = archiveCloseoutCase(state.demo, caseId, { actor: 'Brandon', now: clock.now() })
       repository.save(demo)
       state = { ...state, demo, selectedCloseoutCaseId: caseId, closeoutTab: 'archived' }
+      emit()
+    },
+    selectFile(entryId) {
+      state = { ...state, selectedFileId: entryId }
+      emit()
+    },
+    setFileDrive(driveId) {
+      state = { ...state, fileDriveId: driveId }
+      emit()
+    },
+    setFileTab(tab) {
+      state = { ...state, fileTab: tab }
+      emit()
+    },
+    linkFile(entryId, stageId) {
+      const demo = linkIndexedFile(state.demo, entryId, stageId, {
+        actor: 'Brandon',
+        now: clock.now(),
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedFileId: entryId }
+      emit()
+    },
+    ignoreFile(entryId, reason) {
+      const demo = ignoreIndexedFile(state.demo, entryId, reason, {
+        actor: 'Brandon',
+        now: clock.now(),
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedFileId: entryId }
+      emit()
+    },
+    restoreFile(entryId) {
+      const demo = restoreIndexedFile(state.demo, entryId, { actor: 'Brandon', now: clock.now() })
+      repository.save(demo)
+      state = { ...state, demo, selectedFileId: entryId }
       emit()
     },
     resetDemo() {

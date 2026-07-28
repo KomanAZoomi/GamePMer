@@ -496,9 +496,68 @@ export interface CloseoutCase {
   archivedAt?: string
 }
 
+// ---------------------------------------------------------------- 文件索引
+
+/** 登记在册的盘位。`archive` 归 IT 管辖，工作台只读索引。 */
+export interface Drive {
+  id: string
+  kind: PathReference['kind']
+  label: string
+  path: string
+}
+
+/**
+ * 文件名解析结果。
+ *
+ * 规范是 `资产名_阶段名_YYYYMMDD_rNN`。只有前三段也能识别（版本按 r01 待确认）；
+ * 一段都对不上时四个字段全是 undefined——**不猜、不填默认值**。
+ */
+export interface FileNameParse {
+  assetId?: string
+  stageCode?: StageCode
+  fileDate?: IsoDate
+  revision?: string
+  /** 0~1。解析出的资产/阶段在库里找得到才算高置信 */
+  confidence: number
+  /** 解析不通过的原因，直接显示给 PM 看 */
+  problem?: string
+}
+
+export type FileLinkStatus =
+  | 'auto' // 自动关联成功
+  | 'needs-review' // 解析出来了但置信度不足，等 PM 确认
+  | 'unresolved' // 完全解析不出，等 PM 手工关联
+  | 'linked' // PM 手工关联过
+  | 'ignored' // PM 判定与正式流程无关
+
+/**
+ * 盘上一个文件的索引条目。
+ *
+ * **`fileName` 永远是盘上的原始名字。** 命名不规范时保留原名进待关联队列——
+ * 工作台不改名、不移动、不删除，丢证据比留一条难看的记录严重得多。
+ */
+export interface FileIndexEntry {
+  id: string
+  driveId: string
+  /** 原始文件名，任何情况下都不改写 */
+  fileName: string
+  /** 盘上目录（不含文件名） */
+  folder: string
+  discoveredAt: string
+  parse: FileNameParse
+  status: FileLinkStatus
+  /** 关联到的阶段 id；auto/linked 时有值 */
+  linkedStageId?: string
+  linkedBy?: string
+  linkedAt?: string
+  ignoredReason?: string
+  /** AI 给的关联建议与依据，标「建议 · 未执行」 */
+  aiHint?: string
+}
+
 // ---------------------------------------------------------------- 聚合状态
 
-export const DEMO_SCHEMA_VERSION = 5
+export const DEMO_SCHEMA_VERSION = 6
 
 export interface DemoState {
   schemaVersion: typeof DEMO_SCHEMA_VERSION
@@ -511,6 +570,8 @@ export interface DemoState {
   quoteCases: QuoteCase[]
   quoteVersions: QuoteVersion[]
   closeoutCases: CloseoutCase[]
+  drives: Drive[]
+  fileIndex: FileIndexEntry[]
   feedbackBatches: FeedbackBatch[]
   revisions: ScheduleRevision[]
   notificationDrafts: NotificationDraft[]

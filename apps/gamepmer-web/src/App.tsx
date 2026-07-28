@@ -10,6 +10,7 @@ import { FeedbackPage } from './features/feedback/FeedbackPage'
 import { InboxPage } from './features/inbox/InboxPage'
 import { QuotationPage } from './features/quotation/QuotationPage'
 import { CloseoutPage } from './features/closeout/CloseoutPage'
+import { FilesPage } from './features/files/FilesPage'
 import { createWorkspaceStore, selectHomeView, type WorkspaceStore } from './features/workspace/workspaceStore'
 
 const defaultStore = createWorkspaceStore()
@@ -58,13 +59,15 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
       {route === 'closeout' && (
         <CloseoutPage workspace={workspace} store={store} onNavigate={navigate} />
       )}
+      {route === 'files' && <FilesPage workspace={workspace} store={store} onNavigate={navigate} />}
       {route !== 'tasks' &&
         route !== 'projects' &&
         route !== 'schedule' &&
         route !== 'feedback' &&
         route !== 'inbox' &&
         route !== 'quotation' &&
-        route !== 'closeout' && <PlaceholderPage item={navItem} />}
+        route !== 'closeout' &&
+        route !== 'files' && <PlaceholderPage item={navItem} />}
     </AppShell>
   )
 }

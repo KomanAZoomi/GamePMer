@@ -89,9 +89,9 @@ export const NAV_ITEMS: NavItem[] = [
     key: 'files',
     label: '文件与归档',
     summary: '制作盘、提交盘、反馈盘与备份路径的索引；工作台不移动真实文件。',
-    checkpoint: '切片 6',
-    checkpointLabel: '本轮之后的切片 6',
-    ready: false,
+    checkpoint: 'C10',
+    checkpointLabel: '检查点 C10',
+    ready: true,
   },
   {
     key: 'analytics',

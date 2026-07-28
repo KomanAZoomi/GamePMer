@@ -1,0 +1,412 @@
+/* ================================================================ 文件与归档
+ *
+ * 这一页只做索引。视觉上要让两件事一眼可见：
+ * 1. 文件名的四段分别解析成了什么（分色标出，缺哪段一目了然）。
+ * 2. 工作台不搬文件——边界说明常驻在页头，不藏在角落里。
+ */
+
+.gp-files {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.gp-files .gp-metrics-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+/* 边界说明常驻。同事会以为点了按钮文件就归档了——这句必须显眼。 */
+.gp-files-boundary {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-info);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  line-height: 1.7;
+}
+
+.gp-files-boundary strong {
+  color: var(--text-primary);
+}
+
+.gp-files-boundary code {
+  padding: 1px 5px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+}
+
+.gp-files-body {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr) 340px;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* ---------------------------------------------------------------- 盘位 */
+
+.gp-drive-items {
+  display: grid;
+  gap: 4px;
+  padding: var(--space-3);
+  margin: 0;
+  list-style: none;
+}
+
+.gp-drive {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.gp-drive:hover {
+  border-color: var(--border-default);
+}
+
+.gp-drive.is-active {
+  border-color: var(--accent-border);
+  background: var(--accent-softer);
+}
+
+/* 归档盘归 IT 管辖，视觉上与自家盘位区分开 */
+.gp-drive.is-it {
+  border-style: dashed;
+}
+
+.gp-drive strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.gp-drive .gp-path {
+  font-size: var(--text-2xs);
+  overflow-wrap: anywhere;
+}
+
+.gp-drive-stat {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}
+
+.gp-drive-stat em {
+  font-style: normal;
+  color: var(--amber-ink);
+  font-weight: var(--weight-bold);
+}
+
+/* ---------------------------------------------------------------- 文件表 */
+
+.gp-file-table-card {
+  min-width: 0;
+}
+
+.gp-file-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.gp-file-table {
+  width: 100%;
+  min-width: 460px;
+  border-collapse: collapse;
+}
+
+.gp-file-table th,
+.gp-file-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  text-align: left;
+  font-size: var(--text-2xs);
+  vertical-align: top;
+}
+
+.gp-file-table th {
+  background: var(--surface-rail);
+  color: var(--text-faint);
+  font-weight: var(--weight-heavy);
+  white-space: nowrap;
+}
+
+.gp-file-table tr.is-active td {
+  background: var(--accent-softer);
+}
+
+.gp-file-table td.gp-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.gp-file-folder em {
+  font-style: normal;
+  color: var(--text-faint);
+}
+
+.gp-file-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.gp-file-head .gp-pill {
+  flex: none;
+}
+
+.gp-file-name {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gp-file-folder {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  overflow-wrap: anywhere;
+}
+
+.gp-file-parse {
+  color: var(--text-secondary);
+}
+
+.gp-file-unresolved {
+  color: var(--danger-ink);
+}
+
+/* 文件名分段着色：资产 / 阶段 / 日期 / 版本 */
+.gp-fname {
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: var(--text-2xs);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.gp-fname.is-raw {
+  color: var(--danger-ink);
+}
+
+.gp-seg {
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.gp-seg.is-asset {
+  background: #e3edf7;
+  color: #2f4f6d;
+}
+
+.gp-seg.is-stage {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.gp-seg.is-date {
+  background: #f0eadd;
+  color: #6d5a34;
+}
+
+.gp-seg.is-rev {
+  background: #f2e7f0;
+  color: #6b4463;
+}
+
+.gp-seg.is-missing {
+  margin-left: 5px;
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+  font-weight: var(--weight-bold);
+}
+
+/* ---------------------------------------------------------------- 右详情 */
+
+.gp-file-detail {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  align-content: start;
+}
+
+.gp-file-title {
+  color: var(--text-primary);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: var(--text-base);
+  font-weight: var(--weight-heavy);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.gp-file-detail-folder {
+  font-size: var(--text-2xs);
+  overflow-wrap: anywhere;
+}
+
+.gp-parse-box {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-parse-box h3 {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heavy);
+}
+
+.gp-parse-box dl {
+  display: grid;
+  gap: 6px;
+  margin-top: var(--space-3);
+}
+
+.gp-parse-box dl > div {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+}
+
+.gp-parse-box dt {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+}
+
+.gp-parse-box dd {
+  color: var(--text-primary);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
+
+.gp-parse-box dd.is-missing {
+  color: var(--danger-ink);
+  font-weight: var(--weight-regular);
+}
+
+.gp-parse-problem {
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-default);
+  color: var(--amber-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-link-form {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: var(--accent-softer);
+}
+
+.gp-link-form h3 {
+  color: var(--accent-ink);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-heavy);
+}
+
+.gp-link-form label {
+  display: grid;
+  gap: 4px;
+}
+
+.gp-link-form label > span {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}
+
+.gp-link-hint,
+.gp-link-note {
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+/* ---------------------------------------------------------------- 归档批次 */
+
+.gp-archive-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.gp-archive-card {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-archive-card.is-done {
+  border-color: var(--accent-border);
+  background: var(--accent-softer);
+}
+
+.gp-archive-card.is-current {
+  border-color: var(--amber-border);
+  background: var(--amber-soft);
+}
+
+.gp-archive-card strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.gp-archive-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.gp-archive-row b {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.gp-archive-card .gp-linkish {
+  justify-self: start;
+  margin-top: 4px;
+  font-size: var(--text-2xs);
+}
+
+.gp-archive-note {
+  padding: 0 var(--space-4) var(--space-4);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.65;
+}
+
+.gp-archive-note strong {
+  color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------------------- 窄屏 */
+
+@media (max-width: 1439px) {
+  .gp-files-body {
+    grid-template-columns: 208px minmax(0, 1fr) 306px;
+  }
+}

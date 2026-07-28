@@ -1,4 +1,5 @@
 import { DEMO_SCHEMA_VERSION } from '../domain/model'
+import { parseFileName } from '../domain/fileIndex'
 import type {
   Asset,
   AuditEvent,
@@ -7,7 +8,9 @@ import type {
   CloseoutCase,
   CloseoutGate,
   CloseoutGateCode,
+  Drive,
   EvidenceRef,
+  FileIndexEntry,
   InboxCandidate,
   Person,
   QuoteCase,
@@ -673,6 +676,150 @@ const changeRequests: ChangeRequest[] = [
   },
 ]
 
+// ---------------------------------------------------------------- 盘位与文件索引
+
+const drives: Drive[] = [
+  { id: 'DR-feedback', kind: 'feedback', label: '反馈盘', path: '\\\\NAS-ART\\Feedback' },
+  { id: 'DR-production', kind: 'production', label: '制作盘', path: '\\\\NAS-ART\\Production' },
+  { id: 'DR-delivery', kind: 'delivery', label: '提交盘', path: '\\\\NAS-ART\\Delivery' },
+  { id: 'DR-final', kind: 'final', label: '最终包', path: '\\\\NAS-ART\\Final' },
+  { id: 'DR-archive', kind: 'archive', label: '归档盘（IT 管辖）', path: '\\\\ARCHIVE\\2026' },
+]
+
+interface FileSeed {
+  id: string
+  driveId: string
+  fileName: string
+  folder: string
+  discoveredAt: string
+  status: FileIndexEntry['status']
+  linkedStageId?: string
+  linkedBy?: string
+  linkedAt?: string
+  ignoredReason?: string
+  aiHint?: string
+}
+
+/**
+ * 文件索引种子。
+ *
+ * 覆盖三档解析结果：规范命名自动关联、缺版本号待确认、完全不规范待手工关联。
+ * 最后一类**原文件名原样保留**——这是这一页最重要的一条规则。
+ */
+const FILE_SEEDS: FileSeed[] = [
+  {
+    id: 'FI-0001',
+    driveId: 'DR-production',
+    fileName: 'MECH-01_低模_20260803_r02.fbx',
+    folder: '\\P-3D-024\\MECH-01',
+    discoveredAt: '2026-07-27T14:22:00+08:00',
+    status: 'auto',
+    linkedStageId: 'MECH-01/3D_LOW',
+  },
+  {
+    id: 'FI-0002',
+    driveId: 'DR-production',
+    fileName: 'MECH-01_烘焙_20260805_r01.zip',
+    folder: '\\P-3D-024\\MECH-01',
+    discoveredAt: '2026-07-27T11:07:00+08:00',
+    status: 'auto',
+    linkedStageId: 'MECH-01/3D_BAKE',
+  },
+  {
+    // 缺版本号：解析出前三段，按 r01 待确认
+    id: 'FI-0003',
+    driveId: 'DR-production',
+    fileName: 'MECH-02_高模_20260727.max',
+    folder: '\\P-3D-024\\MECH-02',
+    discoveredAt: '2026-07-27T10:41:00+08:00',
+    status: 'needs-review',
+    aiHint: '同目录下没有 r01，推测这是首版。确认后建议按 r01 归档。',
+  },
+  {
+    // 完全不规范：原文件名保留，等 PM 手工关联
+    id: 'FI-0004',
+    driveId: 'DR-production',
+    fileName: '机甲主角_最终版本_改过的_v3_ok.fbx',
+    folder: '\\P-3D-024\\临时',
+    discoveredAt: '2026-07-27T09:58:00+08:00',
+    status: 'unresolved',
+    aiHint:
+      '文件名含「最终版本」「改过的」「ok」等非规范词，无法定位阶段。同目录下 MECH-01_低模_20260803_r02.fbx 与本文件大小接近（±3%），可能是同一阶段的另一版；两者哈希不同，不能自动认定。',
+  },
+  {
+    id: 'FI-0005',
+    driveId: 'DR-production',
+    fileName: 'CHAR-08_细化50_20260724_r03.psd',
+    folder: '\\P-2D-018\\CHAR-08',
+    discoveredAt: '2026-07-24T18:30:00+08:00',
+    status: 'auto',
+    linkedStageId: 'CHAR-08/2D_DETAIL_50',
+  },
+  {
+    id: 'FI-0006',
+    driveId: 'DR-production',
+    fileName: 'PROP-01_中模_20260727_r01.fbx',
+    folder: '\\P-3D-031\\PROP-01',
+    discoveredAt: '2026-07-27T17:12:00+08:00',
+    status: 'auto',
+    linkedStageId: 'PROP-01/3D_MID',
+  },
+  {
+    // 资产名里字母 O 与数字 0 混淆：解析得出格式，但库里查无此资产
+    id: 'FI-0007',
+    driveId: 'DR-production',
+    fileName: 'PROP-O1_高模_20260729_r01.fbx',
+    folder: '\\P-3D-031\\PROP-01',
+    discoveredAt: '2026-07-27T16:04:00+08:00',
+    status: 'needs-review',
+    aiHint: '资产名 PROP-O1 在库里不存在，字母 O 疑似应为数字 0（PROP-01）。请核对后手工关联。',
+  },
+  {
+    id: 'FI-0008',
+    driveId: 'DR-delivery',
+    fileName: 'RELAY-01_LOD_20260717_r01.zip',
+    folder: '\\P-3D-011\\RELAY-01',
+    discoveredAt: '2026-07-17T16:40:00+08:00',
+    status: 'auto',
+    linkedStageId: 'RELAY-01/3D_LOD',
+  },
+  {
+    id: 'FI-0009',
+    driveId: 'DR-feedback',
+    fileName: 'review_03.jpg',
+    folder: '\\P-3D-024\\F-017_20260727',
+    discoveredAt: '2026-07-27T10:42:00+08:00',
+    status: 'ignored',
+    ignoredReason: '客户批注图，已挂在反馈批次 F-017 的证据上，不作为阶段交付物',
+  },
+  {
+    id: 'FI-0010',
+    driveId: 'DR-final',
+    fileName: 'P-3D-011_最终包_v2.zip',
+    folder: '\\P-3D-011',
+    discoveredAt: '2026-07-22T11:05:00+08:00',
+    status: 'linked',
+    linkedStageId: 'RELAY-01/3D_LOD',
+    linkedBy: 'Evan',
+    linkedAt: '2026-07-22T11:06:00+08:00',
+  },
+]
+
+const fileIndex: FileIndexEntry[] = FILE_SEEDS.map((seed) => ({
+  id: seed.id,
+  driveId: seed.driveId,
+  fileName: seed.fileName,
+  folder: seed.folder,
+  discoveredAt: seed.discoveredAt,
+  parse: parseFileName(seed.fileName),
+  status: seed.status,
+  linkedStageId: seed.linkedStageId,
+  linkedBy: seed.linkedBy,
+  linkedAt: seed.linkedAt,
+  ignoredReason: seed.ignoredReason,
+  aiHint: seed.aiHint,
+}))
+
 // ---------------------------------------------------------------- 结项、备份与出账
 
 const gate = (
@@ -1311,6 +1458,8 @@ export function createDemoState(): DemoState {
     quoteCases,
     quoteVersions,
     closeoutCases,
+    drives,
+    fileIndex,
     feedbackBatches,
     revisions,
     notificationDrafts,
