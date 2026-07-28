@@ -90,7 +90,7 @@ describe('范围内返修主路径', () => {
     expect(store.getState().demo.revisions.filter((r) => r.projectCode === 'P-3D-024')).toHaveLength(0)
   })
 
-  it('可以按整工作日微调草案', async () => {
+  it('微调后后续阶段自动顺延，确认按钮不会被自己制造的冲突卡住', async () => {
     const { user } = await renderFeedback()
     const detail = screen.getByLabelText('反馈项详情')
     await user.click(within(detail).getByRole('button', { name: '判为范围内' }))
@@ -98,8 +98,12 @@ describe('范围内返修主路径', () => {
 
     const draft = screen.getByLabelText('排期修订草案')
     await user.click(within(draft).getByRole('button', { name: '低模 顺延一个工作日' }))
+
     // 7/29—7/31 再推一个工作日 → 7/30—8/3，跳过周末
     expect(within(draft).getByText('07-30 — 08-03')).toBeInTheDocument()
+    // 烘焙原本 8/3 会与之相撞，自动让到 8/4
+    expect(within(draft).getByText('08-04 — 08-04')).toBeInTheDocument()
+    expect(within(draft).getByRole('button', { name: '确认重排' })).toBeEnabled()
   })
 
   it('取消草案后正式计划零变化', async () => {
@@ -191,6 +195,51 @@ describe('范围外追加路径', () => {
     const items = store.getState().demo.feedbackBatches[0].items
     expect(items.find((i) => i.id === 'F-017/ITEM-01')?.scope).toBe('in-scope')
     expect(items.find((i) => i.id === 'F-017/ITEM-02')?.scope).toBe('out-of-scope')
+  })
+})
+
+describe('范围判定可撤销', () => {
+  it('判为范围内后可以重新判定，退回待分流', async () => {
+    const { user, store } = await renderFeedback()
+    await user.click(screen.getByRole('button', { name: '判为范围内' }))
+    await user.click(screen.getByRole('button', { name: '重新判定' }))
+
+    const item = store.getState().demo.feedbackBatches[0].items[0]
+    expect(item.scope).toBe('unclassified')
+    expect(screen.getByRole('button', { name: '判为范围外' })).toBeInTheDocument()
+  })
+
+  it('撤销范围外判定时变更单与冻结一并回收', async () => {
+    const { user, store } = await renderFeedback()
+    const list = screen.getByLabelText('资产级反馈项')
+    await user.click(within(list).getByRole('button', { name: '新增腰部挂件' }))
+    await user.click(screen.getByRole('button', { name: '判为范围外' }))
+    expect(store.getState().demo.changeRequests).toHaveLength(1)
+
+    await user.click(screen.getByRole('button', { name: '重新判定' }))
+    expect(store.getState().demo.changeRequests).toHaveLength(0)
+    expect(stageOf(store, 'MECH-01/3D_HIGH')?.flags).not.toContain('WaitingChangeQuote')
+  })
+
+  it('重新判定会一并丢掉基于旧判定生成的草案', async () => {
+    const { user, store } = await renderFeedback()
+    await user.click(screen.getByRole('button', { name: '判为范围内' }))
+    await user.click(screen.getByRole('button', { name: '生成排期草案' }))
+    expect(screen.getByLabelText('排期修订草案')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '重新判定' }))
+    expect(screen.queryByLabelText('排期修订草案')).toBeNull()
+    expect(store.getState().draft).toBeUndefined()
+  })
+
+  it('已确认排期修订后不再提供重新判定', async () => {
+    const { user } = await renderFeedback()
+    await user.click(screen.getByRole('button', { name: '判为范围内' }))
+    await user.click(screen.getByRole('button', { name: '生成排期草案' }))
+    await user.click(within(screen.getByLabelText('排期修订草案')).getByRole('button', { name: '确认重排' }))
+
+    expect(screen.queryByRole('button', { name: '重新判定' })).toBeNull()
+    expect(screen.getByText(/不可再撤销/)).toBeInTheDocument()
   })
 })
 

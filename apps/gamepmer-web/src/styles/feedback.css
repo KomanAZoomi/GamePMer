@@ -293,6 +293,16 @@
   bottom: 0;
 }
 
+.gp-reclassify-note {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
 /* 甘特里的草案层：斜纹 + 虚线，形状与正式计划截然不同 */
 .gp-bar.is-draft {
   top: 16px;

@@ -341,21 +341,54 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                   判为范围内
                 </button>
               </>
-            ) : selected.scope === 'in-scope' && selected.status === 'Confirmed' ? (
-              <button
-                type="button"
-                className="gp-btn gp-btn-primary"
-                onClick={() => store.startReplan(selected.id)}
-                disabled={Boolean(draft)}
-              >
-                {draft ? '草案已生成' : '生成排期草案'}
-              </button>
+            ) : selected.status === 'Confirmed' || selected.status === 'WaitingChangeQuote' ? (
+              <>
+                <button
+                  type="button"
+                  className="gp-btn"
+                  onClick={() => store.reclassifyFeedback(selected.id)}
+                >
+                  重新判定
+                </button>
+                {selected.scope === 'in-scope' ? (
+                  <button
+                    type="button"
+                    className="gp-btn gp-btn-primary"
+                    onClick={() => store.startReplan(selected.id)}
+                    disabled={Boolean(draft)}
+                  >
+                    {draft ? '草案已生成' : '生成排期草案'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="gp-btn gp-btn-primary"
+                    onClick={() => onNavigate('quotation')}
+                  >
+                    去追加报价
+                  </button>
+                )}
+              </>
             ) : (
               <button type="button" className="gp-btn" onClick={() => onNavigate('projects')}>
                 查看项目甘特
               </button>
             )}
           </div>
+
+          {(selected.status === 'Confirmed' || selected.status === 'WaitingChangeQuote') && (
+            <p className="gp-reclassify-note">
+              判错了可以「重新判定」退回待分流
+              {selected.scope === 'out-of-scope' && '，变更单与冻结标记会一并撤销'}。
+              一旦确认排期修订，就要走一次新的修订来调整，不能假装之前没发生。
+            </p>
+          )}
+
+          {selected.status === 'InRework' && (
+            <p className="gp-reclassify-note">
+              已确认排期修订，范围判定不可再撤销。如需调整，请重新生成一次排期修订。
+            </p>
+          )}
         </aside>
       </div>
     </div>

@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { createDemoState } from '../data/seed'
 import { DEMO_TODAY } from './clock'
 import {
+  ReclassifyBlocked,
   ReplanBlocked,
   classifyInScope,
   classifyOutOfScope,
   confirmReplan,
+  draftBlockingIssues,
   generateReplanDraft,
   moveDraftStage,
+  reclassifyFeedback,
 } from './replan'
 
 const AT = '2026-07-27T14:00:00+08:00'
@@ -79,13 +82,99 @@ describe('moveDraftStage', () => {
     expect(low?.shiftedWorkdays).toBe(3)
   })
 
-  it('只动指定阶段，其他阶段不受影响', () => {
+  it('后续阶段排不开时自动跟着顺延，不留下依赖倒置让 PM 收拾', () => {
     const state = fresh()
     const draft = generateReplanDraft(state, ITEM, DEMO_TODAY)
     const moved = moveDraftStage(draft, 'MECH-01/3D_LOW', 1, state.calendars[0])
-    const bake = moved.changes.find((change) => change.stageId === 'MECH-01/3D_BAKE')
-    const original = draft.changes.find((change) => change.stageId === 'MECH-01/3D_BAKE')
-    expect(bake).toEqual(original)
+    const at = (id: string) => moved.changes.find((change) => change.stageId === id)
+
+    expect(at('MECH-01/3D_LOW')).toMatchObject({ newStart: '2026-07-30', newFinish: '2026-08-03' })
+    expect(at('MECH-01/3D_BAKE')).toMatchObject({ newStart: '2026-08-04', newFinish: '2026-08-04' })
+    // 贴图跨过 8/5 公司休息日
+    expect(at('MECH-01/3D_TEXTURE')).toMatchObject({ newStart: '2026-08-06', newFinish: '2026-08-10' })
+    expect(at('MECH-01/3D_LOD')).toMatchObject({ newStart: '2026-08-11', newFinish: '2026-08-12' })
+  })
+
+  it('级联后的草案本身不含阻断', () => {
+    const state = fresh()
+    const draft = generateReplanDraft(state, ITEM, DEMO_TODAY)
+    const moved = moveDraftStage(draft, 'MECH-01/3D_LOW', 1, state.calendars[0])
+    expect(draftBlockingIssues(state, moved)).toHaveLength(0)
+  })
+
+  it('前置挡着时不能再往前提', () => {
+    const state = fresh()
+    const draft = generateReplanDraft(state, ITEM, DEMO_TODAY)
+    // 低模已经紧接在高模之后，再提前应当被钳制住
+    const moved = moveDraftStage(draft, 'MECH-01/3D_LOW', -1, state.calendars[0])
+    expect(moved.changes.find((change) => change.stageId === 'MECH-01/3D_LOW')?.newStart).toBe(
+      '2026-07-29',
+    )
+  })
+
+  it('上游没被推动时后续保持原样', () => {
+    const state = fresh()
+    const draft = generateReplanDraft(state, ITEM, DEMO_TODAY)
+    const moved = moveDraftStage(draft, 'MECH-01/3D_LOD', 1, state.calendars[0])
+    // LOD 是最后一个阶段，动它不该波及任何其他行
+    for (const id of ['MECH-01/3D_HIGH', 'MECH-01/3D_LOW', 'MECH-01/3D_BAKE', 'MECH-01/3D_TEXTURE']) {
+      expect(moved.changes.find((c) => c.stageId === id)).toEqual(
+        draft.changes.find((c) => c.stageId === id),
+      )
+    }
+  })
+})
+
+describe('撤销范围判定', () => {
+  it('判为范围内后可以退回待分流', () => {
+    const state = fresh()
+    const classified = classifyInScope(state, ITEM, AT, 'Brandon')
+    const reset = reclassifyFeedback(classified, ITEM, AT, 'Brandon')
+    const item = reset.feedbackBatches[0].items.find((entry) => entry.id === ITEM)
+
+    expect(item?.scope).toBe('unclassified')
+    expect(item?.status).toBe('NeedsClassification')
+  })
+
+  it('撤销范围外判定时一并回收变更单与冻结标记', () => {
+    const state = fresh()
+    const classified = classifyOutOfScope(state, 'F-017/ITEM-02', AT, 'Brandon')
+    expect(classified.changeRequests).toHaveLength(1)
+
+    const reset = reclassifyFeedback(classified, 'F-017/ITEM-02', AT, 'Brandon')
+    expect(reset.changeRequests).toHaveLength(0)
+    const high = reset.projects[0].assets[0].stages.find((s) => s.id === 'MECH-01/3D_HIGH')
+    expect(high?.flags).not.toContain('WaitingChangeQuote')
+  })
+
+  it('同阶段还有别的范围外反馈时不解除冻结', () => {
+    const state = fresh()
+    let next = classifyOutOfScope(state, 'F-017/ITEM-02', AT, 'Brandon')
+    next = classifyOutOfScope(next, 'F-017/ITEM-03', AT, 'Brandon')
+    next = reclassifyFeedback(next, 'F-017/ITEM-02', AT, 'Brandon')
+
+    const high = next.projects[0].assets[0].stages.find((s) => s.id === 'MECH-01/3D_HIGH')
+    expect(high?.flags).toContain('WaitingChangeQuote')
+    expect(next.changeRequests).toHaveLength(1)
+  })
+
+  it('已确认排期修订后不允许直接撤销判定', () => {
+    const state = fresh()
+    const draft = generateReplanDraft(state, ITEM, DEMO_TODAY)
+    const confirmed = confirmReplan(state, { draft, note: '', actor: 'Brandon', at: AT })
+
+    expect(() => reclassifyFeedback(confirmed, ITEM, AT, 'Brandon')).toThrow(ReclassifyBlocked)
+  })
+
+  it('撤销写审计，留下判定被改过的痕迹', () => {
+    const state = fresh()
+    const classified = classifyInScope(state, ITEM, AT, 'Brandon')
+    const reset = reclassifyFeedback(classified, ITEM, AT, 'Brandon')
+    const event = reset.auditEvents.at(-1)
+
+    expect(event?.action).toBe('撤销反馈范围判定')
+    expect(event?.before).toBe('in-scope')
+    expect(event?.after).toBe('unclassified')
   })
 })
 

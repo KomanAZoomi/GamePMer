@@ -10,6 +10,7 @@ import {
   confirmReplan,
   generateReplanDraft,
   moveDraftStage,
+  reclassifyFeedback,
 } from '../../domain/replan'
 import { EMPTY_CALENDAR } from '../../domain/workCalendar'
 import { projectWorkItems, summarizeMetrics, type HomeMetrics, type WorkItem } from '../../domain/workItems'
@@ -50,6 +51,7 @@ export interface WorkspaceStore {
   ): void
   selectFeedbackItem(itemId: string): void
   classifyFeedback(itemId: string, scope: 'in-scope' | 'out-of-scope'): void
+  reclassifyFeedback(itemId: string): void
   startReplan(itemId: string): void
   moveDraft(stageId: string, deltaWorkdays: number): void
   cancelDraft(): void
@@ -138,6 +140,14 @@ export function createWorkspaceStore(
           : classifyOutOfScope(state.demo, itemId, clock.now(), 'Brandon')
       repository.save(demo)
       state = { ...state, demo, selectedFeedbackItemId: itemId }
+      emit()
+    },
+    reclassifyFeedback(itemId) {
+      const demo = reclassifyFeedback(state.demo, itemId, clock.now(), 'Brandon')
+      repository.save(demo)
+      // 撤销判定时连带丢掉基于它生成的草案
+      const draft = state.draft?.sourceFeedbackItemId === itemId ? undefined : state.draft
+      state = { ...state, demo, draft, selectedFeedbackItemId: itemId }
       emit()
     },
     startReplan(itemId) {

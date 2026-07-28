@@ -112,26 +112,56 @@ export function generateReplanDraft(
   }
 }
 
-/** 按整工作日手工调整草案里的某个阶段；落在休息日的日期由工作日历自动跳过。 */
+function shiftBetween(from: IsoDate, to: IsoDate, calendar: WorkCalendar): number {
+  return to >= from
+    ? countWorkdays(from, to, calendar) - 1
+    : -(countWorkdays(to, from, calendar) - 1)
+}
+
+/**
+ * 按整工作日手工调整草案里的某个阶段。
+ *
+ * 调整会沿依赖链往下带：把一个阶段往后推，后面排不开的阶段自动跟着顺延；
+ * 往前提则钳制到不早于前一个阶段的结束。
+ * 单独挪一行、再让 PM 自己去收拾一串「依赖倒置」，正是录排期不顺手的典型。
+ * 落在周末或公司休息日的日期由工作日历自动跳过。
+ */
 export function moveDraftStage(
   draft: ScheduleRevisionDraft,
   stageId: string,
   deltaWorkdays: number,
   calendar: WorkCalendar = EMPTY_CALENDAR,
 ): ScheduleRevisionDraft {
-  return {
-    ...draft,
-    changes: draft.changes.map((change) =>
-      change.stageId === stageId
-        ? {
-            ...change,
-            newStart: moveByWorkdays(change.newStart, deltaWorkdays, calendar),
-            newFinish: moveByWorkdays(change.newFinish, deltaWorkdays, calendar),
-            shiftedWorkdays: change.shiftedWorkdays + deltaWorkdays,
-          }
-        : change,
-    ),
+  const index = draft.changes.findIndex((change) => change.stageId === stageId)
+  if (index < 0) return draft
+
+  const changes = draft.changes.map((change) => ({ ...change }))
+  const target = changes[index]
+  const span = Math.max(1, countWorkdays(target.newStart, target.newFinish, calendar))
+
+  let newStart = moveByWorkdays(target.newStart, deltaWorkdays, calendar)
+  const previous = changes[index - 1]
+  if (previous) {
+    const earliest = moveByWorkdays(previous.newFinish, 1, calendar)
+    if (newStart < earliest) newStart = earliest
   }
+
+  target.newStart = newStart
+  target.newFinish = moveByWorkdays(newStart, span - 1, calendar)
+  target.shiftedWorkdays = shiftBetween(target.oldStart, newStart, calendar)
+
+  // 后续阶段只在排不开时才动，本来就有余量的保持原样
+  for (let cursor = index + 1; cursor < changes.length; cursor += 1) {
+    const current = changes[cursor]
+    const earliest = moveByWorkdays(changes[cursor - 1].newFinish, 1, calendar)
+    if (current.newStart >= earliest) break
+    const currentSpan = Math.max(1, countWorkdays(current.newStart, current.newFinish, calendar))
+    current.newStart = earliest
+    current.newFinish = moveByWorkdays(earliest, currentSpan - 1, calendar)
+    current.shiftedWorkdays = shiftBetween(current.oldStart, earliest, calendar)
+  }
+
+  return { ...draft, changes }
 }
 
 export function draftBlockingIssues(
@@ -332,6 +362,86 @@ export function classifyOutOfScope(
     targetId: itemId,
     before: 'unclassified',
     after: `out-of-scope / ${changeRequest.id}`,
+  })
+
+  return next
+}
+
+export class ReclassifyBlocked extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ReclassifyBlocked'
+  }
+}
+
+/**
+ * 撤销范围判定，退回待分流。
+ *
+ * PM 判错是常事，判定必须可改。但只能撤销尚未产生正式后果的判定：
+ * 一旦排期修订已经确认写入，撤销分类并不能把修订收回去——
+ * 那种情况要走一次新的修订，而不是假装之前没发生。
+ */
+export function reclassifyFeedback(
+  state: DemoState,
+  itemId: string,
+  at: string,
+  actor: string,
+): DemoState {
+  const current = findFeedbackItem(state, itemId)
+  if (!current) throw new Error(`找不到反馈项：${itemId}`)
+  if (current.status === 'InRework' || current.status === 'Resubmitted' || current.status === 'Closed') {
+    throw new ReclassifyBlocked(
+      '该反馈已确认排期修订，不能直接改回待分流。如需调整，请重新生成一次排期修订。',
+    )
+  }
+
+  const next = structuredClone(state)
+  const item = findFeedbackItem(next, itemId)
+  if (!item) throw new Error(`找不到反馈项：${itemId}`)
+
+  const before = item.scope
+
+  // 范围外判定连带创建过变更单和冻结标记，撤销时一并回收
+  if (item.scope === 'out-of-scope') {
+    const changeRequest = next.changeRequests.find((entry) => entry.sourceFeedbackItemId === itemId)
+    if (changeRequest && changeRequest.status !== 'ClassifiedExtra') {
+      throw new ReclassifyBlocked(
+        `变更单 ${changeRequest.id} 已进入报价流程，不能直接撤销范围判定。`,
+      )
+    }
+    next.changeRequests = next.changeRequests.filter(
+      (entry) => entry.sourceFeedbackItemId !== itemId,
+    )
+
+    // 同一阶段可能还有别的范围外反馈，只有全部撤销后才解除冻结
+    const stillFrozen = next.feedbackBatches.some((batch) =>
+      batch.items.some(
+        (entry) =>
+          entry.id !== itemId && entry.stageId === item.stageId && entry.scope === 'out-of-scope',
+      ),
+    )
+    if (!stillFrozen) {
+      for (const project of next.projects) {
+        for (const asset of project.assets) {
+          const stage = asset.stages.find((entry) => entry.id === item.stageId)
+          if (stage) stage.flags = stage.flags.filter((flag) => flag !== 'WaitingChangeQuote')
+        }
+      }
+    }
+  }
+
+  item.scope = 'unclassified'
+  item.status = 'NeedsClassification'
+
+  next.auditEvents.push({
+    id: `AE-scope-reset-${itemId}-${at}`,
+    at,
+    actor,
+    action: '撤销反馈范围判定',
+    targetKind: 'FeedbackItem',
+    targetId: itemId,
+    before,
+    after: 'unclassified',
   })
 
   return next
