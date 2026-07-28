@@ -31,13 +31,19 @@ export function HomePage({ workspace, view, onSelect, onNavigate }: HomePageProp
             </p>
           </div>
           <div className="gp-chip-row">
-            <button type="button" className="gp-chip">
+            {/* 首页筛选尚未实现。留个能点的空壳比明说还没做更糟，所以禁用并写明去处 */}
+            <button
+              type="button"
+              className="gp-chip"
+              disabled
+              title="首页筛选尚未实现。排期管理页已有按项目、制作组、负责人和风险筛选，可先在那里用"
+            >
               筛选
             </button>
-            <button type="button" className="gp-chip">
+            <button type="button" className="gp-chip" disabled title="排序尚未实现，当前按优先级排列">
               排序
             </button>
-            <button type="button" className="gp-chip">
+            <button type="button" className="gp-chip" disabled title="状态筛选尚未实现">
               状态
             </button>
           </div>

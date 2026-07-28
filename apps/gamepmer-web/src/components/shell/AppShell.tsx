@@ -66,16 +66,22 @@ export function AppShell({
             <input type="search" placeholder="搜索任务、项目、资产、文件路径…" />
           </label>
           <div className="gp-top-actions">
-            <button type="button" className="gp-btn gp-btn-quiet">
-              消息 {pendingMessages}
-            </button>
-            <button type="button" className="gp-btn gp-btn-quiet">
-              邮件 {pendingMails}
-            </button>
+            {/* 这两个是计数指示器，不是动作——做成按钮会让人以为点得开 */}
+            <span className="gp-counter" title="待分流的客户反馈项">
+              待分流 {pendingMessages}
+            </span>
+            <span className="gp-counter" title="待发出的通知草稿">
+              待发通知 {pendingMails}
+            </span>
             <button type="button" className="gp-btn gp-btn-quiet" onClick={onResetDemo}>
               恢复示例数据
             </button>
-            <button type="button" className="gp-btn gp-btn-primary">
+            <button
+              type="button"
+              className="gp-btn gp-btn-primary"
+              disabled
+              title="任务由正式业务状态投影生成，手工新建任务计划在候选收件箱（切片 3）一并交付"
+            >
               新建任务
             </button>
           </div>

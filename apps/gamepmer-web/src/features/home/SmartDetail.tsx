@@ -128,8 +128,25 @@ export function SmartDetail({ state, item, onOpenSource }: SmartDetailProps) {
       )}
 
       <div className="gp-detail-actions">
-        <button type="button" className="gp-btn gp-btn-quiet">
-          查看来源
+        {/* 工作台不打开网络盘，也不代开邮件客户端——能做的是把路径交到你手上 */}
+        <button
+          type="button"
+          className="gp-btn gp-btn-quiet"
+          disabled={!feedback}
+          title={
+            feedback
+              ? '复制原始邮件主题与反馈盘路径，到 Outlook 或资源管理器里打开'
+              : '该待办没有关联的外部来源证据'
+          }
+          onClick={() => {
+            if (!feedback) return
+            const text = feedback.batch.evidence
+              .map((evidence) => `${evidence.label}：${evidence.locator}`)
+              .join('\n')
+            navigator.clipboard?.writeText(text).catch(() => undefined)
+          }}
+        >
+          复制来源路径
         </button>
         <button
           type="button"

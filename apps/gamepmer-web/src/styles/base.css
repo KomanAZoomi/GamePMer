@@ -189,3 +189,25 @@ input {
   font-size: var(--text-2xs);
   word-break: break-all;
 }
+
+/* 计数指示器：只报数，不是可点的动作 */
+.gp-counter {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* 尚未实现的控件：禁用而不是留个能点的空壳，鼠标悬停说明去处 */
+.gp-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gp-chip:disabled:hover {
+  border-color: var(--border-default);
+  color: var(--text-muted);
+}
