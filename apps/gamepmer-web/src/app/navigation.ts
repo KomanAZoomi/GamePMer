@@ -105,9 +105,9 @@ export const NAV_ITEMS: NavItem[] = [
     key: 'settings',
     label: '设置中心',
     summary: '人员角色、制作组、阶段模板、工作日历、连接器与 LLM 供应商预设。',
-    checkpoint: '切片 7',
-    checkpointLabel: '本轮之后的切片 7',
-    ready: false,
+    checkpoint: 'C12',
+    checkpointLabel: '检查点 C12',
+    ready: true,
   },
 ]
 

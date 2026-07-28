@@ -12,6 +12,7 @@ import { QuotationPage } from './features/quotation/QuotationPage'
 import { CloseoutPage } from './features/closeout/CloseoutPage'
 import { FilesPage } from './features/files/FilesPage'
 import { AnalyticsPage } from './features/analytics/AnalyticsPage'
+import { SettingsPage } from './features/settings/SettingsPage'
 import { createWorkspaceStore, selectHomeView, type WorkspaceStore } from './features/workspace/workspaceStore'
 
 const defaultStore = createWorkspaceStore()
@@ -64,6 +65,9 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
       {route === 'analytics' && (
         <AnalyticsPage workspace={workspace} store={store} onNavigate={navigate} />
       )}
+      {route === 'settings' && (
+        <SettingsPage workspace={workspace} store={store} onNavigate={navigate} />
+      )}
       {route !== 'tasks' &&
         route !== 'projects' &&
         route !== 'schedule' &&
@@ -72,7 +76,8 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
         route !== 'quotation' &&
         route !== 'closeout' &&
         route !== 'files' &&
-        route !== 'analytics' && <PlaceholderPage item={navItem} />}
+        route !== 'analytics' &&
+        route !== 'settings' && <PlaceholderPage item={navItem} />}
     </AppShell>
   )
 }

@@ -1,0 +1,525 @@
+/* ================================================================ 设置中心
+ *
+ * 这一页最需要说死的是**密钥边界**：Key 去哪了、前端留了什么、谁能读。
+ * 所以右侧那张边界表常驻，红框的警告不折叠。
+ */
+
+.gp-settings {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.gp-settings-body {
+  display: grid;
+  grid-template-columns: 196px minmax(0, 1fr) 316px;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* ---------------------------------------------------------------- 分组导航 */
+
+.gp-settings-nav {
+  padding: var(--space-3);
+}
+
+.gp-settings-group {
+  margin: var(--space-3) var(--space-2) 4px;
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heavy);
+  letter-spacing: 0.08em;
+}
+
+.gp-settings-nav > div:first-child .gp-settings-group {
+  margin-top: 2px;
+}
+
+.gp-settings-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.gp-settings-link:hover {
+  background: var(--surface-muted);
+}
+
+.gp-settings-link.is-active {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: var(--weight-bold);
+}
+
+.gp-warn-tag {
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+  font-style: normal;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
+
+/* ---------------------------------------------------------------- 主区 */
+
+.gp-settings-main {
+  min-width: 0;
+}
+
+.gp-settings-scroll {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.gp-settings-muted {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+}
+
+.gp-settings-note {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.7;
+}
+
+.gp-settings-main > .gp-settings-note {
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.gp-provider-table,
+.gp-binding-table,
+.gp-role-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gp-provider-table {
+  min-width: 540px;
+}
+
+.gp-provider-table th,
+.gp-provider-table td,
+.gp-binding-table th,
+.gp-binding-table td,
+.gp-role-table th,
+.gp-role-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-faint);
+  text-align: left;
+  font-size: var(--text-2xs);
+  vertical-align: middle;
+}
+
+.gp-provider-table th,
+.gp-binding-table th,
+.gp-role-table th {
+  background: var(--surface-rail);
+  color: var(--text-faint);
+  font-weight: var(--weight-heavy);
+  white-space: nowrap;
+}
+
+.gp-provider-table tr.is-active td {
+  background: var(--accent-softer);
+}
+
+.gp-provider-table tbody tr {
+  cursor: pointer;
+}
+
+.gp-radio {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+
+.gp-provider-name strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.gp-provider-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.gp-provider-name span {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-faint);
+}
+
+.gp-provider-url,
+.gp-model-id {
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.gp-model-id {
+  display: block;
+}
+
+/* ---------------------------------------------------------------- 密钥 */
+
+.gp-key-box {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+  background: var(--surface-rail);
+}
+
+.gp-key-box h3,
+.gp-binding h3,
+.gp-redaction h3,
+.gp-rule-block h3,
+.gp-group-list h3 {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.gp-key-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.gp-key-mask {
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: var(--text-sm);
+  color: var(--amber-ink);
+  letter-spacing: 0.06em;
+}
+
+.gp-key-row .gp-input {
+  flex: 1;
+  min-width: 220px;
+}
+
+.gp-key-row .gp-input.is-invalid {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.gp-key-note {
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}
+
+/* 红框不折叠：Key 的去向必须一眼看到 */
+.gp-key-danger {
+  margin: var(--space-3) var(--space-4) var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  line-height: 1.7;
+}
+
+.gp-key-box .gp-key-danger {
+  margin: var(--space-3) 0 0;
+}
+
+/* ---------------------------------------------------------------- 用途分配 */
+
+.gp-binding,
+.gp-redaction {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+}
+
+.gp-binding .gp-settings-note {
+  margin: 4px 0 var(--space-3);
+}
+
+.gp-redaction ul {
+  display: grid;
+  gap: 6px;
+  margin-top: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.gp-redaction li {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.gp-redaction strong {
+  color: var(--text-primary);
+  font-size: var(--text-2xs);
+}
+
+.gp-redaction em {
+  grid-column: 2;
+  color: var(--text-faint);
+  font-style: normal;
+  font-size: var(--text-2xs);
+}
+
+/* ---------------------------------------------------------------- 连接器 */
+
+.gp-connector-list {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  margin: 0;
+  list-style: none;
+}
+
+.gp-connector-list li {
+  padding: var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-connector-list li.is-on {
+  border-color: var(--accent-border);
+  background: var(--accent-softer);
+}
+
+.gp-connector-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.gp-connector-head strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  margin-right: var(--space-2);
+}
+
+.gp-connector-list p {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.65;
+}
+
+.gp-connector-fallback {
+  color: var(--accent-ink);
+}
+
+/* ---------------------------------------------------------------- 组织与规则 */
+
+.gp-merge-note,
+.gp-group-list,
+.gp-rule-block {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+}
+
+.gp-merge-note p,
+.gp-rule-block p {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  line-height: 1.7;
+}
+
+.gp-rule-block code {
+  padding: 1px 5px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+}
+
+.gp-rule-items,
+.gp-template-list {
+  display: grid;
+  gap: 4px;
+  margin-top: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.gp-rule-items li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+}
+
+.gp-rule-items em {
+  color: var(--text-faint);
+  font-style: normal;
+}
+
+/* 规模数字与已知限制：运维页只有文字段落时太空 */
+.gp-scale-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.gp-scale-list li {
+  display: grid;
+  gap: 2px;
+  padding: 9px 11px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-scale-list strong {
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+.gp-scale-list span {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+}
+
+.gp-limit-list {
+  display: grid;
+  gap: 6px;
+  margin-top: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.gp-limit-list li {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+}
+
+.gp-limit-list strong {
+  color: var(--text-primary);
+  font-size: var(--text-2xs);
+}
+
+.gp-limit-list span {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.65;
+}
+
+.gp-template-list li,
+.gp-group-list li {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.gp-group-list ul {
+  display: grid;
+  gap: 4px;
+  margin-top: var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.gp-template-list strong,
+.gp-group-list strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.gp-rule-block .gp-btn {
+  margin-top: var(--space-3);
+}
+
+/* ---------------------------------------------------------------- 右侧边界 */
+
+.gp-settings-side {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  align-content: start;
+}
+
+.gp-boundary-list {
+  display: grid;
+  gap: 6px;
+}
+
+.gp-boundary-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.gp-boundary-list > div:last-child {
+  border-bottom: 0;
+}
+
+.gp-boundary-list dt {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+}
+
+.gp-boundary-list dd {
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  text-align: right;
+}
+
+.gp-settings-side code {
+  padding: 1px 4px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+}
+
+/* ---------------------------------------------------------------- 窄屏 */
+
+@media (max-width: 1439px) {
+  .gp-settings-body {
+    grid-template-columns: 172px minmax(0, 1fr) 286px;
+  }
+}

@@ -34,19 +34,32 @@ describe('工作台外壳', () => {
     expect(NAV_ITEMS).toHaveLength(10)
   })
 
-  it('未实现的模块点得动，并说明在哪个检查点交付', async () => {
-    const { user } = renderApp()
-    await user.click(screen.getByRole('button', { name: /设置中心/ }))
-    expect(screen.getByRole('heading', { name: '设置中心' })).toBeInTheDocument()
-    expect(screen.getByText(/尚未实现/)).toBeInTheDocument()
-  })
+  /**
+   * 十个模块现已全部实现，占位页无处可达。
+   * 这条测试守的是：以后新增导航项时，要么真做，要么老老实实标 `ready: false`
+   * 并给出交付检查点——不允许出现点进去空白的第三种情况。
+   */
+  it('十个模块全部给出真实页面，没有一个还停在占位说明', async () => {
+    for (const item of NAV_ITEMS) {
+      const { user, unmount } = renderApp()
+      // 首页里也有跳转到反馈中心之类的按钮，只点左侧导航里的那个
+      const nav = screen.getByRole('navigation', { name: '全局导航' })
+      await user.click(within(nav).getByRole('button', { name: new RegExp(item.label) }))
 
-  it('已实现的模块给出真实页面，而不是占位说明', async () => {
-    const { user } = renderApp()
-    await user.click(screen.getByRole('button', { name: /候选收件箱/ }))
-    expect(screen.getByRole('heading', { name: '候选收件箱' })).toBeInTheDocument()
-    expect(screen.queryByText(/尚未实现/)).not.toBeInTheDocument()
-    expect(screen.getByLabelText('候选记录')).toBeInTheDocument()
+      // 页面标题不一定与导航项字面相同（项目总览进的是具体项目、排期管理叫「排期管理与团队档期」），
+      // 所以只要求页面确实渲染出了一级标题
+      expect(screen.getAllByRole('heading', { level: 1 }).length).toBeGreaterThan(0)
+      if (item.ready) {
+        expect(screen.queryByText(/尚未实现/)).not.toBeInTheDocument()
+      } else {
+        // 还没做的必须说清在哪个检查点交付，不能点进去一片空白
+        expect(screen.getByText(/尚未实现/)).toBeInTheDocument()
+        expect(screen.getByText(new RegExp(item.checkpointLabel))).toBeInTheDocument()
+      }
+      unmount()
+    }
+
+    expect(NAV_ITEMS.every((item) => item.ready)).toBe(true)
   })
 })
 

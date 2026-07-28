@@ -19,6 +19,7 @@ import {
   ingestText,
   restoreCandidate as restoreInboxCandidate,
 } from '../../domain/inbox'
+import { saveApiKey as persistApiKey } from '../../domain/settings'
 import {
   removePath as removeProjectPath,
   savePath as saveProjectPath,
@@ -139,6 +140,7 @@ export interface WorkspaceStore {
   selectPathProject(projectCode: string): void
   saveProjectPath(input: Omit<SavePathInput, 'actor' | 'now'>): void
   removeProjectPath(entryId: string): void
+  saveApiKey(providerId: string, key: string): void
   resetDemo(): void
 }
 
@@ -442,6 +444,18 @@ export function createWorkspaceStore(
     },
     removeProjectPath(entryId) {
       const demo = removeProjectPath(state.demo, entryId, { actor: 'Brandon', now: clock.now() })
+      repository.save(demo)
+      state = { ...state, demo }
+      emit()
+    },
+    saveApiKey(providerId, key) {
+      // 只有后 4 位会进 state；完整 Key 在正式版提交给内网服务端密钥库
+      const demo = persistApiKey(state.demo, {
+        providerId,
+        key,
+        actor: 'Brandon',
+        now: clock.now(),
+      })
       repository.save(demo)
       state = { ...state, demo }
       emit()
