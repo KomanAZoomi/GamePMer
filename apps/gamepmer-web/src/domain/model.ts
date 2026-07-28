@@ -435,9 +435,70 @@ export interface QuoteCase {
   evidence: EvidenceRef[]
 }
 
+// ---------------------------------------------------------------- 结项、备份与出账
+
+/** 公司文件路径索引。工作台只记路径，真实的移动、剪切和删除一律由 IT 执行。 */
+export interface PathReference {
+  id: string
+  kind: 'production' | 'delivery' | 'feedback' | 'final' | 'archive'
+  label: string
+  path: string
+  /** 最后一次由人确认过这条路径可访问的时间；没确认过就是 undefined，不假装它存在 */
+  verifiedAt?: string
+}
+
+/**
+ * 结项门禁编码。**严格串行**——每一步只能在前一步完成后才能做。
+ *
+ * 这条链上没有一步是可以「先记着回头补」的：跳过任何一步，
+ * 出账时就会缺一份说不清的证据。
+ */
+export type CloseoutGateCode =
+  | 'assets-approved' // 全部资产验收
+  | 'final-package' // 总监整理最终包
+  | 'client-final' // 客户最终确认
+  | 'it-backup' // IT 剪切备份
+  | 'billing-notified' // 通知 BD 出账
+
+export interface CloseoutGate {
+  code: CloseoutGateCode
+  title: string
+  description: string
+  /** 这一步需要什么证据才算数，界面上要原样列给 PM 看 */
+  requires: string
+  completedAt?: string
+  completedBy?: string
+  /** 完成这一步时登记的正式证据 */
+  evidence: EvidenceRef[]
+  note?: string
+}
+
+/** `Precheck → AwaitingFinalPackage → AwaitingCustomerFinal → AwaitingIT → ReadyToBill → BillingNotified → Archived` */
+export type CloseoutStatus =
+  | 'Precheck'
+  | 'AwaitingFinalPackage'
+  | 'AwaitingCustomerFinal'
+  | 'AwaitingIT'
+  | 'ReadyToBill'
+  | 'BillingNotified'
+  | 'Archived'
+
+export interface CloseoutCase {
+  id: string
+  projectCode: string
+  client: string
+  status: CloseoutStatus
+  openedAt: string
+  gates: CloseoutGate[]
+  /** 最终包与归档路径索引；工作台不搬文件 */
+  paths: PathReference[]
+  finalPackageOwner: string
+  archivedAt?: string
+}
+
 // ---------------------------------------------------------------- 聚合状态
 
-export const DEMO_SCHEMA_VERSION = 4
+export const DEMO_SCHEMA_VERSION = 5
 
 export interface DemoState {
   schemaVersion: typeof DEMO_SCHEMA_VERSION
@@ -449,6 +510,7 @@ export interface DemoState {
   people: Person[]
   quoteCases: QuoteCase[]
   quoteVersions: QuoteVersion[]
+  closeoutCases: CloseoutCase[]
   feedbackBatches: FeedbackBatch[]
   revisions: ScheduleRevision[]
   notificationDrafts: NotificationDraft[]

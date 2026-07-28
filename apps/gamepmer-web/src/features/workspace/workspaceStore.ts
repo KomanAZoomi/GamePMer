@@ -3,7 +3,9 @@ import { createDemoClock } from '../../domain/clock'
 import type { AxisScale } from '../../domain/gantt'
 import type { StageRow } from '../../domain/conflicts'
 import type {
+  CloseoutGateCode,
   DemoState,
+  EvidenceRef,
   QuoteLine,
   RevisionReason,
   ScheduleRevisionDraft,
@@ -17,6 +19,11 @@ import {
   ingestText,
   restoreCandidate as restoreInboxCandidate,
 } from '../../domain/inbox'
+import {
+  archiveCase as archiveCloseoutCase,
+  completeGate as completeCloseoutGate,
+  reopenGate as reopenCloseoutGate,
+} from '../../domain/closeout'
 import {
   reviewQuote as reviewQuoteCase,
   sendKickoff as sendQuoteKickoff,
@@ -57,6 +64,8 @@ export interface WorkspaceState {
   inboxTab: InboxTab
   selectedQuoteCaseId?: string
   quoteTab: QuoteTab
+  selectedCloseoutCaseId?: string
+  closeoutTab: CloseoutTab
   /** 排期草案只活在界面状态里，永不落盘——草案不污染正式数据 */
   draft?: ScheduleRevisionDraft
 }
@@ -64,6 +73,8 @@ export interface WorkspaceState {
 export type InboxTab = 'review' | 'blocked' | 'done'
 
 export type QuoteTab = 'active' | 'ready' | 'done'
+
+export type CloseoutTab = 'active' | 'ready' | 'archived'
 
 export interface IngestRequest {
   text: string
@@ -109,6 +120,16 @@ export interface WorkspaceStore {
   submitQuote(caseId: string, lines: QuoteLine[], scheduleImpactWorkdays: number): void
   reviewQuote(caseId: string, decision: 'approve' | 'reject', note: string): void
   sendKickoff(caseId: string, via: string): void
+  selectCloseoutCase(caseId: string): void
+  setCloseoutTab(tab: CloseoutTab): void
+  completeCloseoutGate(
+    caseId: string,
+    code: CloseoutGateCode,
+    evidence: EvidenceRef[],
+    note: string,
+  ): void
+  reopenCloseoutGate(caseId: string, code: CloseoutGateCode, reason: string): void
+  archiveCloseoutCase(caseId: string): void
   resetDemo(): void
 }
 
@@ -128,6 +149,8 @@ function initialState(demo: DemoState, today: string): WorkspaceState {
     inboxTab: 'review',
     selectedQuoteCaseId: demo.quoteCases.find((entry) => entry.status === 'AwaitingReview')?.id,
     quoteTab: 'active',
+    selectedCloseoutCaseId: demo.closeoutCases.find((entry) => entry.status !== 'Archived')?.id,
+    closeoutTab: 'active',
   }
 }
 
@@ -358,6 +381,42 @@ export function createWorkspaceStore(
       const demo = sendQuoteKickoff(state.demo, caseId, { actor: 'Brandon', now: clock.now(), via })
       repository.save(demo)
       state = { ...state, demo, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    selectCloseoutCase(caseId) {
+      state = { ...state, selectedCloseoutCaseId: caseId }
+      emit()
+    },
+    setCloseoutTab(tab) {
+      state = { ...state, closeoutTab: tab }
+      emit()
+    },
+    completeCloseoutGate(caseId, code, evidence, note) {
+      // 领域层在有阻断时抛错且零副作用；让它冒泡，界面不显示虚假的成功
+      const demo = completeCloseoutGate(state.demo, caseId, code, {
+        actor: 'Brandon',
+        now: clock.now(),
+        evidence,
+        note,
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedCloseoutCaseId: caseId }
+      emit()
+    },
+    reopenCloseoutGate(caseId, code, reason) {
+      const demo = reopenCloseoutGate(state.demo, caseId, code, {
+        actor: 'Brandon',
+        now: clock.now(),
+        reason,
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedCloseoutCaseId: caseId }
+      emit()
+    },
+    archiveCloseoutCase(caseId) {
+      const demo = archiveCloseoutCase(state.demo, caseId, { actor: 'Brandon', now: clock.now() })
+      repository.save(demo)
+      state = { ...state, demo, selectedCloseoutCaseId: caseId, closeoutTab: 'archived' }
       emit()
     },
     resetDemo() {

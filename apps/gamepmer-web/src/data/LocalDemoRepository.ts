@@ -40,6 +40,7 @@ const REQUIRED_COLLECTIONS = [
   'people',
   'quoteCases',
   'quoteVersions',
+  'closeoutCases',
   'feedbackBatches',
   'revisions',
   'notificationDrafts',

@@ -9,6 +9,7 @@ import { SchedulePage } from './features/schedule/SchedulePage'
 import { FeedbackPage } from './features/feedback/FeedbackPage'
 import { InboxPage } from './features/inbox/InboxPage'
 import { QuotationPage } from './features/quotation/QuotationPage'
+import { CloseoutPage } from './features/closeout/CloseoutPage'
 import { createWorkspaceStore, selectHomeView, type WorkspaceStore } from './features/workspace/workspaceStore'
 
 const defaultStore = createWorkspaceStore()
@@ -54,12 +55,16 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
       {route === 'quotation' && (
         <QuotationPage workspace={workspace} store={store} onNavigate={navigate} />
       )}
+      {route === 'closeout' && (
+        <CloseoutPage workspace={workspace} store={store} onNavigate={navigate} />
+      )}
       {route !== 'tasks' &&
         route !== 'projects' &&
         route !== 'schedule' &&
         route !== 'feedback' &&
         route !== 'inbox' &&
-        route !== 'quotation' && <PlaceholderPage item={navItem} />}
+        route !== 'quotation' &&
+        route !== 'closeout' && <PlaceholderPage item={navItem} />}
     </AppShell>
   )
 }

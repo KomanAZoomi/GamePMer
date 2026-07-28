@@ -81,9 +81,9 @@ export const NAV_ITEMS: NavItem[] = [
     key: 'closeout',
     label: '结项中心',
     summary: '最终包、客户确认、IT 回执与 BD 出账的证据门禁。',
-    checkpoint: '切片 6',
-    checkpointLabel: '本轮之后的切片 6',
-    ready: false,
+    checkpoint: 'C9',
+    checkpointLabel: '检查点 C9',
+    ready: true,
   },
   {
     key: 'files',

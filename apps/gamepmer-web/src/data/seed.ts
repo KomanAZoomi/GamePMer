@@ -4,6 +4,10 @@ import type {
   AuditEvent,
   CandidateField,
   ChangeRequest,
+  CloseoutCase,
+  CloseoutGate,
+  CloseoutGateCode,
+  EvidenceRef,
   InboxCandidate,
   Person,
   QuoteCase,
@@ -419,6 +423,30 @@ const quoteVersions: QuoteVersion[] = [
     },
   },
   {
+    // P-3D-011 的首次报价，已开工并已交付——结项出账要汇总的就是它
+    id: 'Q-018/V01',
+    caseId: 'Q-018',
+    version: 1,
+    submittedBy: 'Evan',
+    submittedAt: '2026-07-02T10:15:00+08:00',
+    scheduleImpactWorkdays: 0,
+    lines: [
+      line('Q-018/L01', 'RELAY-01', '3D_MID', '中继终端 · 中模', '基础结构', 2, '2026-07-06', '2026-07-07'),
+      line('Q-018/L02', 'RELAY-01', '3D_HIGH', '中继终端 · 高模', '面板与线缆细节', 2, '2026-07-08', '2026-07-09'),
+      line('Q-018/L03', 'RELAY-01', '3D_LOW', '中继终端 · 低模', '拓扑与 UV', 1, '2026-07-10', '2026-07-10'),
+      line('Q-018/L04', 'RELAY-01', '3D_BAKE', '中继终端 · 烘焙', '法线与 AO', 1, '2026-07-13', '2026-07-13'),
+      line('Q-018/L05', 'RELAY-01', '3D_TEXTURE', '中继终端 · 贴图', 'PBR 材质', 2, '2026-07-14', '2026-07-15'),
+      line('Q-018/L06', 'RELAY-01', '3D_LOD', '中继终端 · LOD', '三级细节', 2, '2026-07-16', '2026-07-17'),
+    ],
+    review: {
+      personId: 'PER-liu',
+      roles: ['BD'],
+      decision: 'approve',
+      decidedAt: '2026-07-02T16:40:00+08:00',
+      note: '价格与客户预算一致。',
+    },
+  },
+  {
     // 追加报价：等待复核，4.5 人天 / ¥9,000 / +3 工作日
     // 8/5 是公司休息日，8/8~8/9 是周末，节点已避开
     id: 'CQ-004/V01',
@@ -494,6 +522,32 @@ const quoteCases: QuoteCase[] = [
         label: 'BD 需求邮件',
         locator: '【新需求】Northstar 蒸汽守卫资产包',
         receivedAt: '2026-07-14T09:08:00+08:00',
+        from: 'bd.liu@studio.example',
+      },
+    ],
+  },
+  {
+    id: 'Q-018',
+    kind: 'initial',
+    projectCode: 'P-3D-011',
+    client: 'Aurora Interactive',
+    title: 'NPC 中继终端资产',
+    requirement: 'BD 转来的首次需求：中继终端一套完整 PBR 资产。',
+    status: 'KickoffSent',
+    affectedAssetIds: ['RELAY-01'],
+    directorName: 'Evan',
+    reviewerPersonId: 'PER-liu',
+    createdAt: '2026-07-01T14:00:00+08:00',
+    activeVersionId: 'Q-018/V01',
+    kickoffSentAt: '2026-07-03T09:20:00+08:00',
+    kickoffSentBy: 'Brandon',
+    evidence: [
+      {
+        id: 'EV-Q018-1',
+        kind: 'email',
+        label: 'BD 需求邮件',
+        locator: '【新需求】Aurora 中继终端资产',
+        receivedAt: '2026-07-01T13:55:00+08:00',
         from: 'bd.liu@studio.example',
       },
     ],
@@ -616,6 +670,149 @@ const changeRequests: ChangeRequest[] = [
     sourceFeedbackItemId: 'F-017/ITEM-04',
     title: '新增背部能源模块',
     status: 'AwaitingReview',
+  },
+]
+
+// ---------------------------------------------------------------- 结项、备份与出账
+
+const gate = (
+  code: CloseoutGateCode,
+  title: string,
+  description: string,
+  requires: string,
+  done?: { at: string; by: string; evidence?: EvidenceRef[]; note?: string },
+): CloseoutGate => ({
+  code,
+  title,
+  description,
+  requires,
+  completedAt: done?.at,
+  completedBy: done?.by,
+  evidence: done?.evidence ?? [],
+  note: done?.note,
+})
+
+const GATE_SPECS: Array<[CloseoutGateCode, string, string, string]> = [
+  [
+    'assets-approved',
+    '全部资产验收',
+    '2D/3D 阶段与返修任务全部关闭。',
+    '由阶段状态自动推导，不能手工打勾',
+  ],
+  [
+    'final-package',
+    '总监整理最终包',
+    '交付文件、源文件、贴图和 LOD 清单齐全。',
+    '最终包路径 + 总监确认',
+  ],
+  ['client-final', '客户最终确认', '最终提交已通过邮件确认，无未关闭反馈。', '客户的正式邮件回执'],
+  ['it-backup', 'IT 剪切备份', '由 IT 执行剪切与归档，工作台只登记路径。', 'IT 的正式邮件回执'],
+  ['billing-notified', '通知 BD 出账', '报价、交付清单与全部证据齐备后通知 BD。', '出账通知邮件草稿已发出'],
+]
+
+const buildGates = (
+  done: Partial<Record<CloseoutGateCode, { at: string; by: string; evidence?: EvidenceRef[]; note?: string }>>,
+): CloseoutGate[] => GATE_SPECS.map(([code, title, desc, requires]) => gate(code, title, desc, requires, done[code]))
+
+const closeoutCases: CloseoutCase[] = [
+  {
+    // 主路径：RELAY-01 六个阶段全部验收，当前卡在 IT 备份回执
+    id: 'CO-011',
+    projectCode: 'P-3D-011',
+    client: 'Aurora Interactive',
+    status: 'AwaitingIT',
+    openedAt: '2026-07-21T09:30:00+08:00',
+    finalPackageOwner: 'Evan',
+    paths: [
+      {
+        id: 'PR-011-final',
+        kind: 'final',
+        label: '最终包',
+        path: '\\\\NAS-ART\\Final\\P-3D-011\\v2',
+        verifiedAt: '2026-07-22T11:05:00+08:00',
+      },
+      {
+        id: 'PR-011-src',
+        kind: 'production',
+        label: '制作盘源路径',
+        path: '\\\\NAS-ART\\Production\\P-3D-011',
+        verifiedAt: '2026-07-22T11:05:00+08:00',
+      },
+      {
+        id: 'PR-011-archive',
+        kind: 'archive',
+        label: '归档目标（IT 管辖）',
+        path: '\\\\ARCHIVE\\2026\\P-3D-011',
+      },
+    ],
+    gates: buildGates({
+      'final-package': {
+        at: '2026-07-22T11:05:00+08:00',
+        by: 'Evan',
+        note: '交付文件、源文件、贴图与 LOD 清单齐全',
+        evidence: [
+          {
+            id: 'EV-CO011-pkg',
+            kind: 'path',
+            label: '最终包路径',
+            locator: '\\\\NAS-ART\\Final\\P-3D-011\\v2',
+            receivedAt: '2026-07-22T11:05:00+08:00',
+            from: 'Evan',
+          },
+        ],
+      },
+      'client-final': {
+        at: '2026-07-23T15:20:00+08:00',
+        by: 'Brandon',
+        note: '客户邮件确认最终包，无未关闭反馈',
+        evidence: [
+          {
+            id: 'EV-CO011-client',
+            kind: 'email',
+            label: '客户最终确认邮件',
+            locator: 'RE: P-3D-011 Final Delivery — Approved',
+            receivedAt: '2026-07-23T15:20:00+08:00',
+            from: 'pm@aurora.example',
+          },
+        ],
+      },
+    }),
+  },
+  {
+    // 被第一道门禁挡住：项目还在制作，26 个阶段没走完
+    id: 'CO-024',
+    projectCode: 'P-3D-024',
+    client: 'Northstar Studio',
+    status: 'Precheck',
+    openedAt: '2026-07-27T09:00:00+08:00',
+    finalPackageOwner: 'Evan',
+    paths: [
+      {
+        id: 'PR-024-src',
+        kind: 'production',
+        label: '制作盘源路径',
+        path: '\\\\NAS-ART\\Production\\P-3D-024',
+      },
+    ],
+    gates: buildGates({}),
+  },
+  {
+    // 也停在第一道：还在等客户验收细化稿
+    id: 'CO-018',
+    projectCode: 'P-2D-018',
+    client: 'Halcyon Games',
+    status: 'Precheck',
+    openedAt: '2026-07-24T14:00:00+08:00',
+    finalPackageOwner: 'Yuki',
+    paths: [
+      {
+        id: 'PR-018-src',
+        kind: 'production',
+        label: '制作盘源路径',
+        path: '\\\\NAS-ART\\Production\\P-2D-018',
+      },
+    ],
+    gates: buildGates({}),
   },
 ]
 
@@ -1113,6 +1310,7 @@ export function createDemoState(): DemoState {
     people,
     quoteCases,
     quoteVersions,
+    closeoutCases,
     feedbackBatches,
     revisions,
     notificationDrafts,
