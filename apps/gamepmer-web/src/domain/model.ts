@@ -119,6 +119,87 @@ export interface EvidenceRef {
   from?: string
 }
 
+// ---------------------------------------------------------------- 候选收件箱
+
+/**
+ * 消息进入工作台的渠道。
+ *
+ * 前四种零审批、今天就能用；后两种要企业管理员批自建应用，普通员工申请不到，
+ * 所以设计上当它们不存在——接口到位只是多一个 Adapter，不改候选的任何逻辑。
+ */
+export type SourceChannel =
+  | 'paste' // 粘贴邮件正文或聊天记录
+  | 'screenshot' // 拖入截图，OCR 取文字
+  | 'path' // 贴一条网络盘路径
+  | 'manual' // 完全手工录入
+  | 'email' // 转发到共享邮箱 / 委托授权读本人邮箱
+  | 'chat-forward' // 转发给企微/飞书机器人
+
+/**
+ * 来源证据。**不可变**——识别错了就改候选字段，不许改原文。
+ * 正式记录建立后仍然要能追回到这里，否则「证据完整」就是空话。
+ */
+export interface SourceRecord {
+  id: string
+  channel: SourceChannel
+  receivedAt: string
+  from?: string
+  subject?: string
+  /** 原文、OCR 文本或路径字符串 */
+  body: string
+  /** 附件名或盘上路径；工作台只记索引，不搬文件 */
+  attachments: string[]
+  /** 正文规范化后的哈希，用于去重 */
+  contentHash: string
+}
+
+/** 候选的业务类型。确认后各自生成不同的正式记录。 */
+export type CandidateKind =
+  | 'client-feedback' // → 反馈批次
+  | 'stage-done' // → 阶段推进到「已交 PM」
+  | 'quote-request' // → 报价案件（切片 5）
+  | 'it-receipt' // → 结项证据（切片 6）
+
+export interface CandidateField {
+  key: string
+  label: string
+  /** 未识别出来时为 undefined，不许编造 */
+  value?: string
+  /** 0~1。PM 手工填写后置为 1，并标记 editedByPm */
+  confidence: number
+  /** 这个值是从原文哪一段推出来的，点字段能看到 */
+  sourceExcerpt?: string
+  editedByPm?: boolean
+  /** 缺它就不允许确认 */
+  required: boolean
+}
+
+/** `New → NeedsReview → Confirmed | Ignored | Duplicate`，确认前不得触发任何正式状态变化。 */
+export type CandidateStatus = 'New' | 'NeedsReview' | 'Confirmed' | 'Ignored' | 'Duplicate'
+
+export interface InboxCandidate {
+  id: string
+  sourceId: string
+  kind: CandidateKind
+  title: string
+  status: CandidateStatus
+  fields: CandidateField[]
+  /** AI 归纳的摘要与建议动作，界面上必须标「建议 · 未执行」 */
+  aiSummary: string
+  aiDraftPlan: string
+  createdAt: string
+
+  /** 确认后指向生成的正式记录，双向可追溯 */
+  confirmedRecordKind?: string
+  confirmedRecordId?: string
+  confirmedAt?: string
+  confirmedBy?: string
+
+  /** 判为重复时指向先到的那一条 */
+  duplicateOfId?: string
+  ignoredReason?: string
+}
+
 // ---------------------------------------------------------------- 反馈
 
 export type FeedbackScope = 'in-scope' | 'out-of-scope' | 'unclassified'
@@ -259,13 +340,15 @@ export interface ChangeRequest {
 
 // ---------------------------------------------------------------- 聚合状态
 
-export const DEMO_SCHEMA_VERSION = 2
+export const DEMO_SCHEMA_VERSION = 3
 
 export interface DemoState {
   schemaVersion: typeof DEMO_SCHEMA_VERSION
   calendars: WorkCalendar[]
   productionGroups: ProductionGroup[]
   projects: Project[]
+  sourceRecords: SourceRecord[]
+  candidates: InboxCandidate[]
   feedbackBatches: FeedbackBatch[]
   revisions: ScheduleRevision[]
   notificationDrafts: NotificationDraft[]

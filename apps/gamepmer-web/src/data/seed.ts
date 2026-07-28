@@ -2,6 +2,8 @@ import { DEMO_SCHEMA_VERSION } from '../domain/model'
 import type {
   Asset,
   AuditEvent,
+  CandidateField,
+  InboxCandidate,
   DemoState,
   FeedbackBatch,
   IsoDate,
@@ -11,6 +13,7 @@ import type {
   StageCode,
   StageFlag,
   StageMainStatus,
+  SourceRecord,
   StagePlan,
   WorkCalendar,
 } from '../domain/model'
@@ -344,6 +347,309 @@ const projects: Project[] = [
   },
 ]
 
+// ---------------------------------------------------------------- 候选收件箱
+
+/**
+ * 候选记录。
+ *
+ * 覆盖四种业务类型、三档置信度和五种状态，让第一次打开就能看出这一页在管什么：
+ * 两条可直接确认、两条被字段阻断、两条被「模块尚未交付」诚实阻断、
+ * 一条自动判重、一条已确认（能追回正式记录）、一条已忽略。
+ */
+const sourceRecords: SourceRecord[] = [
+  {
+    id: 'SRC-0001',
+    channel: 'email',
+    receivedAt: '2026-07-27T10:42:00+08:00',
+    from: 'client.review@northstar.example',
+    subject: 'Re: P-3D-024 / MECH-01 Highpoly Review',
+    body: '肩甲整体比例需要缩小一些，外侧结构请向身体收拢。修改后请重新提交高模评审，后续低模节点可相应顺延。',
+    attachments: ['review_03.jpg', 'review_04.jpg'],
+    contentHash: 'a1c3f907',
+  },
+  {
+    id: 'SRC-0002',
+    channel: 'email',
+    receivedAt: '2026-07-27T09:18:00+08:00',
+    from: 'rui@studio.example',
+    subject: 'MECH-02 高模已完成',
+    body: 'MECH-02 高模已完成，请查收。文件在 \\\\NAS-ART\\Production\\P-3D-024\\MECH-02\\MECH-02_高模_20260727_r01.max',
+    attachments: [],
+    contentHash: 'b7d21e44',
+  },
+  {
+    id: 'SRC-0003',
+    channel: 'chat-forward',
+    receivedAt: '2026-07-27T11:05:00+08:00',
+    from: 'Evan（转发）',
+    subject: undefined,
+    body: 'P-3D-024 客户又提了一条：高模的散热口位置要往下挪。具体哪个资产他没说清楚，我截图给你。',
+    attachments: ['wechat_20260727_1105.png'],
+    contentHash: 'c5e80a13',
+  },
+  {
+    id: 'SRC-0004',
+    channel: 'screenshot',
+    receivedAt: '2026-07-27T14:20:00+08:00',
+    from: undefined,
+    subject: undefined,
+    // OCR 出来的文字本来就残缺，识别置信度低是应该的
+    body: '贴图材质偏灰…金属部分再亮一点…P-3D-O31 PROP-02（截图 OCR，部分字符不可靠）',
+    attachments: ['ocr_20260727_1420.png'],
+    contentHash: 'd93f7c20',
+  },
+  {
+    id: 'SRC-0005',
+    channel: 'email',
+    receivedAt: '2026-07-26T16:30:00+08:00',
+    from: 'bd.liu@studio.example',
+    subject: '新角色 6 套时装需求',
+    body: '客户想加 6 套时装，麻烦出个报价和排期。P-3D-024 这个项目下走。',
+    attachments: ['需求说明_v2.docx'],
+    contentHash: 'e2081bb5',
+  },
+  {
+    id: 'SRC-0006',
+    channel: 'email',
+    receivedAt: '2026-07-25T17:12:00+08:00',
+    from: 'it.archive@studio.example',
+    subject: 'P-3D-011 已完成剪切备份',
+    body: 'P-3D-011 RELAY-01 已完成剪切备份，归档目标 \\\\ARCHIVE\\2026\\P-3D-011。请确认后通知 BD 出账。',
+    attachments: [],
+    contentHash: 'f4a9d331',
+  },
+  {
+    id: 'SRC-0007',
+    channel: 'paste',
+    receivedAt: '2026-07-27T13:02:00+08:00',
+    from: 'Mika（粘贴）',
+    subject: 'CHAR-09 草图完成',
+    body: 'P-2D-018 CHAR-09 草图已完成，请查收。',
+    attachments: [],
+    contentHash: '0b5c72ae',
+  },
+  {
+    id: 'SRC-0008',
+    channel: 'email',
+    receivedAt: '2026-07-27T10:47:00+08:00',
+    from: 'client.review@northstar.example',
+    subject: 'Fwd: Re: P-3D-024 / MECH-01 Highpoly Review',
+    // 同一封邮件被转发了一次，正文一致 → 自动判重
+    body: '肩甲整体比例需要缩小一些，外侧结构请向身体收拢。修改后请重新提交高模评审，后续低模节点可相应顺延。',
+    attachments: [],
+    contentHash: 'a1c3f907',
+  },
+  {
+    id: 'SRC-0009',
+    channel: 'email',
+    receivedAt: '2026-07-27T08:40:00+08:00',
+    from: 'lin@studio.example',
+    subject: 'PROP-01 中模进度',
+    body: 'P-3D-031 PROP-01 中模今天能收尾，明天交。',
+    attachments: [],
+    contentHash: '17ce4b92',
+  },
+  {
+    id: 'SRC-0010',
+    channel: 'path',
+    receivedAt: '2026-07-27T09:55:00+08:00',
+    from: 'Chen（贴路径）',
+    subject: undefined,
+    body: '\\\\NAS-ART\\Production\\P-3D-024\\临时\\机甲主角_最终版本_改过的_v3_ok.fbx',
+    attachments: [],
+    contentHash: '2a6b0f81',
+  },
+]
+
+const field = (
+  key: string,
+  label: string,
+  value: string | undefined,
+  confidence: number,
+  required: boolean,
+  sourceExcerpt?: string,
+): CandidateField => ({ key, label, value, confidence, required, sourceExcerpt })
+
+const candidates: InboxCandidate[] = [
+  {
+    // 主路径：高置信度，可直接确认 → 生成反馈批次
+    id: 'C-20260727-017',
+    sourceId: 'SRC-0001',
+    kind: 'client-feedback',
+    title: '高模肩甲比例需要调整',
+    status: 'NeedsReview',
+    fields: [
+      field('projectCode', '关联项目', 'P-3D-024', 0.97, true, 'Re: P-3D-024 / MECH-01 Highpoly…'),
+      field('assetId', '关联资产', 'MECH-01', 0.96, true, '…P-3D-024 / MECH-01 Highpoly Review'),
+      field('stageCode', '制作阶段', '3D_HIGH', 0.92, true, '…请重新提交高模评审…'),
+      field('reason', '反馈原因', '客户修改', 0.88, false, '…比例需要缩小一些…'),
+      field('dueDate', '期望回复时间', undefined, 0, false),
+    ],
+    aiSummary: '缩小肩甲比例并收拢外侧结构；需要重新提交高模评审。原文提到后续节点可顺延，但未给出明确天数。',
+    aiDraftPlan:
+      '建议确认为客户反馈批次，关联 P-3D-024 / MECH-01 / 高模；随后在反馈中心做范围分流，不直接改动后续节点。',
+    createdAt: '2026-07-27T10:43:00+08:00',
+  },
+  {
+    // 阶段完成：可直接确认 → 阶段推进到「已交 PM」
+    id: 'C-20260727-018',
+    sourceId: 'SRC-0002',
+    kind: 'stage-done',
+    title: 'MECH-02 高模已完成',
+    status: 'NeedsReview',
+    fields: [
+      field('projectCode', '关联项目', 'P-3D-024', 0.99, true, '…\\P-3D-024\\MECH-02\\…'),
+      field('assetId', '关联资产', 'MECH-02', 0.98, true, 'MECH-02 高模已完成…'),
+      field('stageCode', '制作阶段', '3D_HIGH', 0.97, true, '…MECH-02_高模_20260727_r01.max'),
+      field('drivePath', '盘上路径', '\\\\NAS-ART\\Production\\P-3D-024\\MECH-02', 0.95, false),
+      field('completedAt', '完成日期', '2026-07-27', 0.93, false, '…_高模_20260727_r01…'),
+    ],
+    aiSummary: '文件名符合「资产名_阶段名_日期_版本」规范，与 MECH-02 高模阶段匹配。',
+    aiDraftPlan:
+      '建议确认为阶段完成，把 MECH-02 高模推进到「已交 PM」并写入实际完成日；是否提交客户仍由 PM 决定。',
+    createdAt: '2026-07-27T09:19:00+08:00',
+  },
+  {
+    // 被字段阻断：说了项目和阶段，但没说是哪个资产
+    id: 'C-20260727-019',
+    sourceId: 'SRC-0003',
+    kind: 'client-feedback',
+    title: '高模散热口位置需要下移',
+    status: 'NeedsReview',
+    fields: [
+      field('projectCode', '关联项目', 'P-3D-024', 0.94, true, 'P-3D-024 客户又提了一条…'),
+      field('assetId', '关联资产', undefined, 0, true),
+      field('stageCode', '制作阶段', '3D_HIGH', 0.86, true, '…高模的散热口位置…'),
+      field('reason', '反馈原因', '客户修改', 0.8, false),
+    ],
+    aiSummary: '原文明确是 P-3D-024 的高模问题，但没有指名资产。该项目下有 MECH-01 与 MECH-02 两个资产。',
+    aiDraftPlan: '建议先补全关联资产，再确认为客户反馈。转发人可能知道具体是哪个资产，可以先问一句。',
+    createdAt: '2026-07-27T11:06:00+08:00',
+  },
+  {
+    // 被置信度阻断：OCR 把 0 认成 O，项目号对不上库里任何一个
+    id: 'C-20260727-021',
+    sourceId: 'SRC-0004',
+    kind: 'client-feedback',
+    title: '贴图材质偏灰（截图 OCR）',
+    status: 'NeedsReview',
+    fields: [
+      field('projectCode', '关联项目', 'P-3D-O31', 0.42, true, '…P-3D-O31 PROP-02…'),
+      field('assetId', '关联资产', 'PROP-02', 0.63, true, '…PROP-02（截图 OCR…'),
+      field('stageCode', '制作阶段', '3D_TEXTURE', 0.71, true, '贴图材质偏灰…'),
+      field('reason', '反馈原因', '客户修改', 0.55, false),
+    ],
+    aiSummary:
+      'OCR 结果含不可靠字符：识别出的 P-3D-O31 在库里不存在，字母 O 疑似应为数字 0（P-3D-031）。',
+    aiDraftPlan: '建议 PM 打开原图核对项目号后再确认。不要基于 OCR 结果直接写入正式反馈。',
+    createdAt: '2026-07-27T14:21:00+08:00',
+  },
+  {
+    // 诚实阻断：模块尚未交付
+    id: 'C-20260726-014',
+    sourceId: 'SRC-0005',
+    kind: 'quote-request',
+    title: '新角色 6 套时装需求',
+    status: 'NeedsReview',
+    fields: [
+      field('projectCode', '关联项目', 'P-3D-024', 0.9, true, '…P-3D-024 这个项目下走。'),
+      field('assetId', '关联资产', 'MECH-01', 0.5, true),
+      field('stageCode', '制作阶段', '3D_HIGH', 0.4, true),
+      field('dueDate', '期望交付时间', undefined, 0, false),
+    ],
+    aiSummary: 'BD 转来的新增需求，共 6 套时装，未给出期望交付时间。',
+    aiDraftPlan: '建议确认为报价需求，交 2D/3D 总监出人天与节点。',
+    createdAt: '2026-07-26T16:31:00+08:00',
+  },
+  {
+    id: 'C-20260725-009',
+    sourceId: 'SRC-0006',
+    kind: 'it-receipt',
+    title: 'P-3D-011 已完成剪切备份',
+    status: 'NeedsReview',
+    fields: [
+      field('projectCode', '关联项目', 'P-3D-011', 0.98, true, 'P-3D-011 RELAY-01 已完成…'),
+      field('assetId', '关联资产', 'RELAY-01', 0.96, true),
+      field('stageCode', '制作阶段', '3D_LOD', 0.7, true),
+      field('drivePath', '归档目标', '\\\\ARCHIVE\\2026\\P-3D-011', 0.94, false),
+    ],
+    aiSummary: 'IT 正式邮件回执，归档目标路径已给出，可作为结项门槛「IT 备份」的完成证据。',
+    aiDraftPlan: '建议确认为结项证据，随后解锁「通知 BD 出账」。',
+    createdAt: '2026-07-25T17:13:00+08:00',
+  },
+  {
+    // 零审批路径：粘贴文本，可直接确认
+    id: 'C-20260727-020',
+    sourceId: 'SRC-0007',
+    kind: 'stage-done',
+    title: 'CHAR-09 草图已完成',
+    status: 'NeedsReview',
+    fields: [
+      field('projectCode', '关联项目', 'P-2D-018', 0.95, true, 'P-2D-018 CHAR-09 草图…'),
+      field('assetId', '关联资产', 'CHAR-09', 0.95, true),
+      field('stageCode', '制作阶段', '2D_SKETCH', 0.93, true, '…CHAR-09 草图已完成…'),
+      field('completedAt', '完成日期', '2026-07-27', 0.85, false),
+    ],
+    aiSummary: '粘贴文本导入，字段齐全且与 P-2D-018 的 CHAR-09 草图阶段匹配。',
+    aiDraftPlan: '建议确认为阶段完成，把 CHAR-09 草图推进到「已交 PM」。',
+    createdAt: '2026-07-27T13:03:00+08:00',
+  },
+  {
+    // 自动判重：同一封邮件被转发了一次
+    id: 'C-20260727-022',
+    sourceId: 'SRC-0008',
+    kind: 'client-feedback',
+    title: 'Fwd: 高模肩甲比例需要调整',
+    status: 'Duplicate',
+    duplicateOfId: 'C-20260727-017',
+    fields: [
+      field('projectCode', '关联项目', 'P-3D-024', 0.97, true),
+      field('assetId', '关联资产', 'MECH-01', 0.96, true),
+      field('stageCode', '制作阶段', '3D_HIGH', 0.92, true),
+    ],
+    aiSummary: '与候选 C-20260727-017 正文哈希一致，已自动判为重复。',
+    aiDraftPlan: '不建议重复确认。如果确实是两件事，可手工解除重复标记。',
+    createdAt: '2026-07-27T10:48:00+08:00',
+  },
+  {
+    // 已确认：能从这里追回正式记录
+    id: 'C-20260727-016',
+    sourceId: 'SRC-0009',
+    kind: 'stage-done',
+    title: 'PROP-01 中模进度同步',
+    status: 'Confirmed',
+    fields: [
+      field('projectCode', '关联项目', 'P-3D-031', 0.96, true),
+      field('assetId', '关联资产', 'PROP-01', 0.95, true),
+      field('stageCode', '制作阶段', '3D_MID', 0.9, true),
+    ],
+    aiSummary: '进度同步邮件，与 PROP-01 中模阶段匹配。',
+    aiDraftPlan: '已确认为阶段进度更新。',
+    createdAt: '2026-07-27T08:41:00+08:00',
+    confirmedAt: '2026-07-27T08:52:00+08:00',
+    confirmedBy: 'Brandon',
+    confirmedRecordKind: 'StagePlan',
+    confirmedRecordId: 'PROP-01/3D_MID',
+  },
+  {
+    // 已忽略：命名不规范的临时文件，不该进正式流程
+    id: 'C-20260727-015',
+    sourceId: 'SRC-0010',
+    kind: 'stage-done',
+    title: '机甲主角_最终版本_改过的_v3_ok.fbx',
+    status: 'Ignored',
+    ignoredReason: '临时目录下的过程文件，已在「文件与归档」手工关联，不作为阶段完成证据',
+    fields: [
+      field('projectCode', '关联项目', 'P-3D-024', 0.75, true, '…\\P-3D-024\\临时\\…'),
+      field('assetId', '关联资产', undefined, 0, true),
+      field('stageCode', '制作阶段', undefined, 0, true),
+    ],
+    aiSummary: '文件名不符合命名规范，无法定位资产与阶段。原文件名已保留。',
+    aiDraftPlan: '建议先在「文件与归档」手工关联，不要作为阶段完成候选确认。',
+    createdAt: '2026-07-27T09:56:00+08:00',
+  },
+]
+
 // ---------------------------------------------------------------- 客户反馈 F-017
 
 const feedbackBatches: FeedbackBatch[] = [
@@ -513,6 +819,8 @@ export function createDemoState(): DemoState {
     calendars,
     productionGroups,
     projects,
+    sourceRecords,
+    candidates,
     feedbackBatches,
     revisions,
     notificationDrafts,

@@ -7,14 +7,14 @@ import { expect, test, type Page } from '@playwright/test'
  * 资产会很多、一次反馈会拆出十几项——这些情况下版面不能垮。
  */
 
-const STORAGE_KEY = 'gamepmer.web-demo.v2'
+const STORAGE_KEY = 'gamepmer.web-demo.v3'
 
 /** 往仓储里塞一份极端数据：超长名称、多资产、多反馈项。 */
 async function seedStressData(page: Page) {
   await page.addInitScript((key: string) => {
     const longName = '蒸汽守卫机甲主角资产包（含可拆卸武器组与四套涂装变体）第二批次'
     const base = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       calendars: [{ id: 'cal-company', name: '公司日历 2026', holidays: ['2026-08-05'], extraWorkdays: [] }],
       productionGroups: [
         { id: 'grp-3d-a', name: '3D 角色 A 组（含外包协作）', discipline: '3D', leadName: 'Leo', dailyCapacity: 1.5 },
@@ -59,6 +59,8 @@ async function seedStressData(page: Page) {
           })),
         },
       ],
+      sourceRecords: [],
+      candidates: [],
       feedbackBatches: [
         {
           id: 'F-017',
@@ -110,7 +112,7 @@ test.describe('压力数据下版面不垮', () => {
     test(`${width} 宽度下页面不出现横向溢出`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 })
 
-      for (const route of ['tasks', 'projects', 'schedule', 'feedback']) {
+      for (const route of ['tasks', 'projects', 'schedule', 'feedback', 'inbox']) {
         await page.goto(`/#/${route}`)
         await page.waitForTimeout(250)
 

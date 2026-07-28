@@ -36,9 +36,17 @@ describe('工作台外壳', () => {
 
   it('未实现的模块点得动，并说明在哪个检查点交付', async () => {
     const { user } = renderApp()
+    await user.click(screen.getByRole('button', { name: /报价与变更/ }))
+    expect(screen.getByRole('heading', { name: '报价与变更' })).toBeInTheDocument()
+    expect(screen.getByText(/尚未实现/)).toBeInTheDocument()
+  })
+
+  it('已实现的模块给出真实页面，而不是占位说明', async () => {
+    const { user } = renderApp()
     await user.click(screen.getByRole('button', { name: /候选收件箱/ }))
     expect(screen.getByRole('heading', { name: '候选收件箱' })).toBeInTheDocument()
-    expect(screen.getByText(/尚未实现/)).toBeInTheDocument()
+    expect(screen.queryByText(/尚未实现/)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('候选记录')).toBeInTheDocument()
   })
 })
 

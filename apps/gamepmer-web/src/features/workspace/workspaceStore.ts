@@ -2,7 +2,20 @@ import type { Clock } from '../../domain/clock'
 import { createDemoClock } from '../../domain/clock'
 import type { AxisScale } from '../../domain/gantt'
 import type { StageRow } from '../../domain/conflicts'
-import type { DemoState, RevisionReason, ScheduleRevisionDraft } from '../../domain/model'
+import type {
+  DemoState,
+  RevisionReason,
+  ScheduleRevisionDraft,
+  SourceChannel,
+} from '../../domain/model'
+import {
+  applyFieldEdit,
+  canConfirm,
+  confirmCandidate as confirmInboxCandidate,
+  ignoreCandidate as ignoreInboxCandidate,
+  ingestText,
+  restoreCandidate as restoreInboxCandidate,
+} from '../../domain/inbox'
 import { confirmScheduleEntry as confirmEntry } from '../../domain/scheduleEntry'
 import {
   classifyInScope,
@@ -34,8 +47,20 @@ export interface WorkspaceState {
   selectedStageId?: string
   axisScale: AxisScale
   selectedFeedbackItemId?: string
+  selectedCandidateId?: string
+  inboxTab: InboxTab
   /** 排期草案只活在界面状态里，永不落盘——草案不污染正式数据 */
   draft?: ScheduleRevisionDraft
+}
+
+export type InboxTab = 'review' | 'blocked' | 'done'
+
+export interface IngestRequest {
+  text: string
+  channel: SourceChannel
+  subject?: string
+  from?: string
+  attachments?: string[]
 }
 
 export interface WorkspaceStore {
@@ -62,6 +87,13 @@ export interface WorkspaceStore {
   moveDraft(stageId: string, deltaWorkdays: number): void
   cancelDraft(): void
   confirmDraft(note: string): void
+  selectCandidate(candidateId: string): void
+  setInboxTab(tab: InboxTab): void
+  editCandidateField(candidateId: string, key: string, value: string): void
+  confirmCandidate(candidateId: string): void
+  ignoreCandidate(candidateId: string, reason: string): void
+  restoreCandidate(candidateId: string): void
+  ingestCandidate(request: IngestRequest): void
   resetDemo(): void
 }
 
@@ -77,6 +109,8 @@ function initialState(demo: DemoState, today: string): WorkspaceState {
     selectedProjectCode: first?.projectCode ?? DEFAULT_PROJECT,
     selectedStageId: first?.stageId,
     axisScale: 'day',
+    selectedCandidateId: demo.candidates.find((entry) => entry.status === 'NeedsReview')?.id,
+    inboxTab: 'review',
   }
 }
 
@@ -204,6 +238,70 @@ export function createWorkspaceStore(
       })
       repository.save(demo)
       state = { ...state, demo, draft: undefined }
+      emit()
+    },
+    selectCandidate(candidateId) {
+      state = { ...state, selectedCandidateId: candidateId }
+      emit()
+    },
+    setInboxTab(tab) {
+      state = { ...state, inboxTab: tab }
+      emit()
+    },
+    editCandidateField(candidateId, key, value) {
+      const demo = applyFieldEdit(state.demo, candidateId, key, value)
+      repository.save(demo)
+      state = { ...state, demo }
+      emit()
+    },
+    confirmCandidate(candidateId) {
+      // 领域层在有阻断时抛错且不产生副作用；这里让它冒泡，界面绝不显示虚假的成功
+      const { state: demo } = confirmInboxCandidate(state.demo, candidateId, {
+        actor: 'Brandon',
+        now: clock.now(),
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedCandidateId: candidateId }
+      emit()
+    },
+    ignoreCandidate(candidateId, reason) {
+      const { state: demo } = ignoreInboxCandidate(state.demo, candidateId, {
+        actor: 'Brandon',
+        now: clock.now(),
+        reason,
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedCandidateId: candidateId }
+      emit()
+    },
+    restoreCandidate(candidateId) {
+      const { state: demo } = restoreInboxCandidate(state.demo, candidateId, {
+        actor: 'Brandon',
+        now: clock.now(),
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedCandidateId: candidateId }
+      emit()
+    },
+    ingestCandidate(request) {
+      const { state: demo, candidate } = ingestText(state.demo, {
+        text: request.text,
+        channel: request.channel,
+        subject: request.subject,
+        from: request.from,
+        attachments: request.attachments,
+        now: clock.now(),
+        actor: 'Brandon',
+      })
+      repository.save(demo)
+      state = {
+        ...state,
+        demo,
+        selectedCandidateId: candidate.id,
+        // 跳到新候选实际所在的页签，免得用户以为导入失败了
+        inboxTab:
+          candidate.status === 'Duplicate' ? 'done' : canConfirm(candidate) ? 'review' : 'blocked',
+      }
       emit()
     },
     resetDemo() {

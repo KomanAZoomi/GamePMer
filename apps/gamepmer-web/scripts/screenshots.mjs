@@ -144,7 +144,7 @@ for (const viewport of VIEWPORTS) {
     console.log(`✓ ${PREFIX}-feedback-selected-1440.png`)
 
     // 未实现模块：必须点得动并说明交付检查点
-    await page.getByRole('button', { name: /候选收件箱/ }).click()
+    await page.getByRole('button', { name: /报价与变更/ }).click()
     await page.waitForTimeout(200)
     await page.screenshot({ path: `${OUT}/${PREFIX}-placeholder-1440.png` })
     console.log(`✓ ${PREFIX}-placeholder-1440.png`)

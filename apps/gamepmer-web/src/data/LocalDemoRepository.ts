@@ -35,6 +35,8 @@ const REQUIRED_COLLECTIONS = [
   'calendars',
   'productionGroups',
   'projects',
+  'sourceRecords',
+  'candidates',
   'feedbackBatches',
   'revisions',
   'notificationDrafts',

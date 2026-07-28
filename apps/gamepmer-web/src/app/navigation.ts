@@ -49,9 +49,9 @@ export const NAV_ITEMS: NavItem[] = [
     key: 'inbox',
     label: '候选收件箱',
     summary: '邮件、企微/飞书转发、截图和文件路径先成为候选记录，未经 PM 确认不改变正式数据。',
-    checkpoint: '切片 3',
-    checkpointLabel: '本轮之后的切片 3',
-    ready: false,
+    checkpoint: 'C7',
+    checkpointLabel: '检查点 C7',
+    ready: true,
   },
   {
     key: 'schedule',

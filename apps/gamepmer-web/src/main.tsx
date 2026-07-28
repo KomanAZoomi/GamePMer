@@ -6,6 +6,7 @@ import './styles/home.css'
 import './styles/gantt.css'
 import './styles/schedule.css'
 import './styles/feedback.css'
+import './styles/inbox.css'
 import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
