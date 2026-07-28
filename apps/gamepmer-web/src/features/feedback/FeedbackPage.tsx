@@ -6,6 +6,7 @@ import { activeRevisionFor, revisionNotified, untouchedAssets } from '../../doma
 import { EMPTY_CALENDAR, countWorkdays, dateRange } from '../../domain/workCalendar'
 import type { WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { DraftPreview } from './DraftPreview'
+import { NotificationList } from './NotificationList'
 
 interface FeedbackPageProps {
   workspace: WorkspaceState
@@ -199,39 +200,11 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
           )}
 
           {notifications.length > 0 && (
-            <section className="gp-notifications" aria-label="通知草稿">
-              <h3>
-                通知 · {notifications.filter((n) => n.status === 'draft').length} 封待发送 /{' '}
-                {notifications.filter((n) => n.status === 'sent').length} 封已发送
-              </h3>
-              {notifications.map((item) => (
-                <article key={item.id} className="gp-notification">
-                  <header>
-                    <strong>{item.subject}</strong>
-                    <span className="gp-pill is-flag">{item.status === 'draft' ? '草稿' : '已发送'}</span>
-                  </header>
-                  <p className="gp-notification-to">
-                    收件人：{item.recipientName}（{item.recipientRole}）
-                  </p>
-                  <pre className="gp-notification-body">{item.body}</pre>
-                  <p className="gp-notification-note">
-                    生成草稿不等于发送。发送需要 PM 主动执行，系统不会自动发信。
-                    {item.status === 'draft' && '发出之后关联修订就不能再撤销了。'}
-                  </p>
-                  {item.status === 'draft' ? (
-                    <button
-                      type="button"
-                      className="gp-btn"
-                      onClick={() => store.sendNotification(item.id)}
-                    >
-                      发送这封通知
-                    </button>
-                  ) : (
-                    <p className="gp-notification-sent">已于 {item.sentAt?.slice(0, 16).replace('T', ' ')} 发送</p>
-                  )}
-                </article>
-              ))}
-            </section>
+            <NotificationList
+              notifications={notifications}
+              onMarkSent={store.markNotificationSent}
+              onUnmark={store.unmarkNotificationSent}
+            />
           )}
         </section>
 
@@ -406,7 +379,7 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
               <p>
                 已确认排期修订 <strong>v{activeRevision.version}</strong>。
                 {notified
-                  ? '通知已经发出，团队可能已按新排期安排——要调整请走一次新的修订，而不是撤销这一次。'
+                  ? '通知已被标记为发出，团队可能已按新排期安排——要调整请走一次新的修订，而不是撤销这一次。'
                   : '通知还没发出去，外面没人知道这次修订，可以整个撤销。'}
               </p>
               {!notified && (

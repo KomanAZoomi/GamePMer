@@ -210,6 +210,14 @@ export interface ScheduleRevision {
 
 // ---------------------------------------------------------------- 通知与审计
 
+/**
+ * 通知草稿。
+ *
+ * 工作台**不发信**：没有邮件通道，公司邮箱与企微/飞书的接口权限也还没到位。
+ * 它只负责起草，真实发送由 PM 在 Outlook 或企微里完成，回来把这里标记为已发出。
+ * `markedSent` 因此是一条**人工声明**，不是系统投递回执——
+ * 界面必须如实说清楚，绝不能让一个没发出去的邮件显示成「已发送」。
+ */
 export interface NotificationDraft {
   id: string
   recipientRole: '组长' | '艺术总监' | 'BD' | 'IT' | '客户'
@@ -218,9 +226,12 @@ export interface NotificationDraft {
   body: string
   sourceKind: 'schedule-revision' | 'reminder' | 'kickoff' | 'closeout'
   sourceId: string
-  /** 生成通知草稿不等于发送成功 */
-  status: 'draft' | 'sent' | 'failed'
-  sentAt?: string
+  status: 'draft' | 'markedSent'
+  /** PM 声明已在外部渠道发出的时间 */
+  markedSentAt?: string
+  markedSentBy?: string
+  /** PM 实际用了哪个渠道发的，作为人工确认证据 */
+  markedSentVia?: string
 }
 
 export interface AuditEvent {

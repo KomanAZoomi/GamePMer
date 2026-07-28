@@ -379,10 +379,13 @@ export class ReclassifyBlocked extends Error {
   }
 }
 
-/** 该修订关联的通知是否已经发出去过。发出去了，外部就已经按新排期安排了。 */
+/**
+ * 该修订关联的通知是否已经被 PM 标记为发出。
+ * 依据是人工声明而不是系统投递——工作台没有邮件通道，也不假装有。
+ */
 export function revisionNotified(state: DemoState, revisionId: string): boolean {
   return state.notificationDrafts.some(
-    (item) => item.sourceId === revisionId && item.status === 'sent',
+    (item) => item.sourceId === revisionId && item.status === 'markedSent',
   )
 }
 
@@ -473,8 +476,47 @@ export function revokeRevision(
   return next
 }
 
-/** 发送通知草稿。发送之后关联修订就不能再撤销了。 */
-export function sendNotification(
+/**
+ * 把通知标记为「PM 已在外部渠道发出」。
+ *
+ * 工作台不执行发送——这里记录的是 PM 的人工声明，和 IT 备份回执、
+ * 客户确认邮件是同一类证据。标记之后关联修订就不能再撤销：
+ * 团队已经收到新排期了，撤销也收不回来。
+ */
+export function markNotificationSent(
+  state: DemoState,
+  notificationId: string,
+  at: string,
+  actor: string,
+  via = '公司邮件系统',
+): DemoState {
+  const next = structuredClone(state)
+  const notification = next.notificationDrafts.find((item) => item.id === notificationId)
+  if (!notification) throw new Error(`找不到通知草稿：${notificationId}`)
+  if (notification.status === 'markedSent') return state
+
+  notification.status = 'markedSent'
+  notification.markedSentAt = at
+  notification.markedSentBy = actor
+  notification.markedSentVia = via
+
+  next.auditEvents.push({
+    id: `AE-marksent-${notificationId}-${at}`,
+    at,
+    actor,
+    action: '标记通知为已发出',
+    targetKind: 'NotificationDraft',
+    targetId: notificationId,
+    before: 'draft',
+    after: 'markedSent',
+    reason: `${actor} 声明已通过${via}发给 ${notification.recipientName}（${notification.recipientRole}）；工作台未执行发送`,
+  })
+
+  return next
+}
+
+/** 标记错了可以撤回，只要关联修订还没被别的通知锁住。 */
+export function unmarkNotificationSent(
   state: DemoState,
   notificationId: string,
   at: string,
@@ -483,20 +525,23 @@ export function sendNotification(
   const next = structuredClone(state)
   const notification = next.notificationDrafts.find((item) => item.id === notificationId)
   if (!notification) throw new Error(`找不到通知草稿：${notificationId}`)
+  if (notification.status !== 'markedSent') return state
 
-  notification.status = 'sent'
-  notification.sentAt = at
+  notification.status = 'draft'
+  notification.markedSentAt = undefined
+  notification.markedSentBy = undefined
+  notification.markedSentVia = undefined
 
   next.auditEvents.push({
-    id: `AE-send-${notificationId}-${at}`,
+    id: `AE-unmarksent-${notificationId}-${at}`,
     at,
     actor,
-    action: '发送通知',
+    action: '撤回已发出标记',
     targetKind: 'NotificationDraft',
     targetId: notificationId,
-    before: 'draft',
-    after: 'sent',
-    reason: `收件人 ${notification.recipientName}（${notification.recipientRole}）`,
+    before: 'markedSent',
+    after: 'draft',
+    reason: '标记有误',
   })
 
   return next

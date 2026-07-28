@@ -6,8 +6,9 @@ import {
   confirmReplan,
   generateReplanDraft,
   revisionNotified,
+  markNotificationSent,
   revokeRevision,
-  sendNotification,
+  unmarkNotificationSent,
 } from './replan'
 
 const AT = '2026-07-27T15:00:00+08:00'
@@ -108,32 +109,47 @@ describe('revokeRevision', () => {
   })
 })
 
-describe('通知发送是不可逆的分界点', () => {
-  it('发送前修订可撤销', () => {
+describe('人工标记发出是不可逆的分界点', () => {
+  it('标记前修订可撤销', () => {
     const { state, revision } = confirmed()
     expect(revisionNotified(state, revision.id)).toBe(false)
     expect(() => revokeRevision(state, revision.id, AT, 'Brandon')).not.toThrow()
   })
 
-  it('发送后就不允许撤销——外面已经按新排期安排了', () => {
+  it('标记为已发出后就不允许撤销——团队已经收到新排期了', () => {
     const { state, revision } = confirmed()
-    const notification = state.notificationDrafts.find((n) => n.sourceId === revision.id)!
-    const sent = sendNotification(state, notification.id, AT, 'Brandon')
+    const notification = state.notificationDrafts.find((entry) => entry.sourceId === revision.id)!
+    const marked = markNotificationSent(state, notification.id, AT, 'Brandon')
 
-    expect(revisionNotified(sent, revision.id)).toBe(true)
-    expect(() => revokeRevision(sent, revision.id, AT, 'Brandon')).toThrow(ReclassifyBlocked)
+    expect(revisionNotified(marked, revision.id)).toBe(true)
+    expect(() => revokeRevision(marked, revision.id, AT, 'Brandon')).toThrow(ReclassifyBlocked)
   })
 
-  it('发送写审计并记录收件人', () => {
+  it('标记记录的是人工声明，审计里写明工作台未执行发送', () => {
     const { state, revision } = confirmed()
-    const notification = state.notificationDrafts.find((n) => n.sourceId === revision.id)!
-    const sent = sendNotification(state, notification.id, AT, 'Brandon')
+    const notification = state.notificationDrafts.find((entry) => entry.sourceId === revision.id)!
+    const marked = markNotificationSent(state, notification.id, AT, 'Brandon', '企业微信')
 
-    const event = sent.auditEvents.at(-1)
-    expect(event?.action).toBe('发送通知')
-    expect(event?.before).toBe('draft')
-    expect(event?.after).toBe('sent')
-    expect(event?.reason).toContain(notification.recipientName)
-    expect(sent.notificationDrafts.find((n) => n.id === notification.id)?.sentAt).toBe(AT)
+    const event = marked.auditEvents.at(-1)
+    expect(event?.action).toBe('标记通知为已发出')
+    expect(event?.after).toBe('markedSent')
+    expect(event?.reason).toContain('工作台未执行发送')
+    expect(event?.reason).toContain('企业微信')
+
+    const saved = marked.notificationDrafts.find((entry) => entry.id === notification.id)
+    expect(saved?.markedSentAt).toBe(AT)
+    expect(saved?.markedSentBy).toBe('Brandon')
+    expect(saved?.markedSentVia).toBe('企业微信')
+  })
+
+  it('标记错了可以撤回，撤回后修订重新可撤销', () => {
+    const { state, revision } = confirmed()
+    const notification = state.notificationDrafts.find((entry) => entry.sourceId === revision.id)!
+    const marked = markNotificationSent(state, notification.id, AT, 'Brandon')
+    const unmarked = unmarkNotificationSent(marked, notification.id, AT, 'Brandon')
+
+    expect(revisionNotified(unmarked, revision.id)).toBe(false)
+    expect(() => revokeRevision(unmarked, revision.id, AT, 'Brandon')).not.toThrow()
+    expect(unmarked.auditEvents.at(-1)?.action).toBe('撤回已发出标记')
   })
 })

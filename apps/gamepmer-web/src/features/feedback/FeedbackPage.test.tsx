@@ -139,8 +139,10 @@ describe('范围内返修主路径', () => {
     expect(revision?.sourceFeedbackItemId).toBe('F-017/ITEM-01')
 
     const notifications = screen.getByLabelText('通知草稿')
-    expect(within(notifications).getAllByText('草稿')).toHaveLength(2)
-    expect(within(notifications).getAllByText(/生成草稿不等于发送/)).toHaveLength(2)
+    expect(within(notifications).getAllByText('待发出')).toHaveLength(2)
+    // 工作台不发信，措辞必须让人一眼看出这一点
+    expect(within(notifications).getByText(/工作台/)).toBeInTheDocument()
+    expect(within(notifications).getByText(/不发送邮件/)).toBeInTheDocument()
   })
 
   it('刷新后已确认的修订仍在（走仓储持久化）', async () => {
@@ -285,15 +287,35 @@ describe('范围判定可撤销', () => {
     expect(versions).toEqual([1, 2])
   })
 
-  it('通知一旦发出，就不能再撤销这次修订', async () => {
+  it('PM 标记通知已发出后，就不能再撤销这次修订', async () => {
+    const { user, store } = await renderFeedback()
+    await confirmReplanFlow(user)
+
+    const notifications = screen.getByLabelText('通知草稿')
+    await user.click(
+      within(notifications).getAllByRole('button', { name: '我已发出，标记为已发送' })[0],
+    )
+
+    expect(screen.queryByRole('button', { name: '撤销修订并退回待分流' })).toBeNull()
+    expect(screen.getByText(/通知已被标记为发出/)).toBeInTheDocument()
+
+    // 记录的是人工声明，不是系统投递
+    const marked = store.getState().demo.notificationDrafts.find((n) => n.status === 'markedSent')
+    expect(marked?.markedSentBy).toBe('Brandon')
+    expect(marked?.markedSentVia).toContain('Outlook')
+  })
+
+  it('标记错了可以撤回，撤回后修订重新可撤销', async () => {
     const { user } = await renderFeedback()
     await confirmReplanFlow(user)
 
     const notifications = screen.getByLabelText('通知草稿')
-    await user.click(within(notifications).getAllByRole('button', { name: '发送这封通知' })[0])
+    await user.click(
+      within(notifications).getAllByRole('button', { name: '我已发出，标记为已发送' })[0],
+    )
+    await user.click(within(notifications).getByRole('button', { name: '标错了，撤回标记' }))
 
-    expect(screen.queryByRole('button', { name: '撤销修订并退回待分流' })).toBeNull()
-    expect(screen.getByText(/通知已经发出/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '撤销修订并退回待分流' })).toBeInTheDocument()
   })
 })
 

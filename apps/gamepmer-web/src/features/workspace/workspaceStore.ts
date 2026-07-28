@@ -11,8 +11,9 @@ import {
   generateReplanDraft,
   moveDraftStage,
   reclassifyFeedback,
+  markNotificationSent,
   revokeRevision,
-  sendNotification,
+  unmarkNotificationSent,
 } from '../../domain/replan'
 import { EMPTY_CALENDAR } from '../../domain/workCalendar'
 import { projectWorkItems, summarizeMetrics, type HomeMetrics, type WorkItem } from '../../domain/workItems'
@@ -55,7 +56,8 @@ export interface WorkspaceStore {
   classifyFeedback(itemId: string, scope: 'in-scope' | 'out-of-scope'): void
   reclassifyFeedback(itemId: string): void
   revokeRevision(revisionId: string): void
-  sendNotification(notificationId: string): void
+  markNotificationSent(notificationId: string, via: string): void
+  unmarkNotificationSent(notificationId: string): void
   startReplan(itemId: string): void
   moveDraft(stageId: string, deltaWorkdays: number): void
   cancelDraft(): void
@@ -160,8 +162,14 @@ export function createWorkspaceStore(
       state = { ...state, demo, draft: undefined }
       emit()
     },
-    sendNotification(notificationId) {
-      const demo = sendNotification(state.demo, notificationId, clock.now(), 'Brandon')
+    markNotificationSent(notificationId, via) {
+      const demo = markNotificationSent(state.demo, notificationId, clock.now(), 'Brandon', via)
+      repository.save(demo)
+      state = { ...state, demo }
+      emit()
+    },
+    unmarkNotificationSent(notificationId) {
+      const demo = unmarkNotificationSent(state.demo, notificationId, clock.now(), 'Brandon')
       repository.save(demo)
       state = { ...state, demo }
       emit()
