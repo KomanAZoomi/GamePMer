@@ -306,9 +306,40 @@
   background: var(--amber-soft);
 }
 
+.gp-insight-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
 .gp-insight strong {
   color: var(--text-primary);
   font-size: var(--text-sm);
+}
+
+/* 卡点 / 结论：两类行为不同，颜色和文字都得让人一眼分得开 */
+.gp-insight-kind {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-heavy);
+}
+
+.gp-insight-kind.is-blocker {
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+}
+
+.gp-insight-kind.is-finding {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.gp-insight-kind-note {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
 }
 
 .gp-insight p {
@@ -331,6 +362,59 @@
   color: var(--accent-ink);
   font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
+}
+
+/* ---------------------------------------------------------------- 处置 */
+
+.gp-insight-dispose {
+  display: grid;
+  gap: 6px;
+  margin-top: 2px;
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--border-default);
+}
+
+.gp-insight-verdict {
+  display: grid;
+  gap: 2px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+}
+
+.gp-insight-verdict b {
+  color: var(--text-primary);
+  font-size: var(--text-2xs);
+}
+
+.gp-insight-verdict span {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+}
+
+.gp-insight-verdict em {
+  color: var(--text-muted);
+  font-style: normal;
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-insight-reason {
+  width: 100%;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.gp-insight-issue {
+  color: var(--danger-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-insight-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 /* 口径说明常驻——不说清口径，这些数字就会变成吵架的素材 */

@@ -47,6 +47,7 @@ const REQUIRED_COLLECTIONS = [
   'notificationDrafts',
   'auditEvents',
   'changeRequests',
+  'insightDispositions',
 ] as const
 
 export class LocalDemoRepository implements DemoRepository {

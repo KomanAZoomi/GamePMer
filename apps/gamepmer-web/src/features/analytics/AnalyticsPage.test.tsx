@@ -159,15 +159,108 @@ describe('四个页签都是真视图', () => {
 })
 
 describe('AI 洞察', () => {
-  it('每条都带依据并标注未执行', async () => {
+  it('每条都带依据，并标明工作台不会代做', async () => {
     const { user } = renderAnalytics()
     await goto(user)
 
     const side = screen.getByLabelText('AI 洞察')
     const cards = side.querySelectorAll('.gp-insight')
     expect(cards.length).toBeGreaterThan(0)
-    expect(within(side).getAllByText('建议 · 未执行')).toHaveLength(cards.length)
+    expect(within(side).getAllByText('仅建议 · 工作台不代做')).toHaveLength(cards.length)
     expect(within(side).getAllByText(/^依据：/)).toHaveLength(cards.length)
+  })
+
+  /**
+   * 验收时被问到「建议 · 未执行在什么情况下会变」。
+   * 答案是它不会变——那是承诺不是状态。会变的是下面的处置，两者必须在界面上分得开。
+   */
+  it('卡点型和结论型分得开，各自说清会不会自己消失', async () => {
+    const { user } = renderAnalytics()
+    await goto(user)
+
+    const side = screen.getByLabelText('AI 洞察')
+    expect(within(side).getAllByText('卡点').length).toBeGreaterThan(0)
+    expect(within(side).getAllByText('结论').length).toBeGreaterThan(0)
+    expect(within(side).getAllByText(/办完了这张卡自己就没了/).length).toBeGreaterThan(0)
+    expect(within(side).getAllByText(/不会自己消失/).length).toBeGreaterThan(0)
+  })
+
+  it('卡点型不给处置按钮——点一下不等于把事办了', async () => {
+    const { user } = renderAnalytics()
+    await goto(user)
+
+    const side = screen.getByLabelText('AI 洞察')
+    const blocker = within(side).getAllByText('卡点')[0].closest('.gp-insight')!
+    expect(within(blocker as HTMLElement).queryByRole('button')).toBeNull()
+  })
+
+  it('采纳留痕，并且不动任何正式数据', async () => {
+    const { user } = renderAnalytics()
+    await goto(user)
+
+    const before = store.getState().demo
+    const side = screen.getByLabelText('AI 洞察')
+    const finding = within(side).getAllByText('结论')[0].closest('.gp-insight')! as HTMLElement
+    await user.click(within(finding).getByRole('button', { name: '采纳' }))
+
+    expect(within(finding).getByText('已采纳')).toBeInTheDocument()
+    // 时钟给的是完整 ISO 时间戳，界面上不该漏出 `T09:00:00.000Z` 这种东西
+    expect(within(finding).getByText(/^2026-07-27 · Brandon$/)).toBeInTheDocument()
+    const after = store.getState().demo
+    expect(after.insightDispositions).toHaveLength(1)
+    expect(after.projects).toEqual(before.projects)
+    expect(after.quoteCases).toEqual(before.quoteCases)
+  })
+
+  it('暂不采纳要写理由，不写就按不下去，并说明为什么要写', async () => {
+    const { user } = renderAnalytics()
+    await goto(user)
+
+    const side = screen.getByLabelText('AI 洞察')
+    const finding = within(side).getAllByText('结论')[0].closest('.gp-insight')! as HTMLElement
+    await user.click(within(finding).getByRole('button', { name: '暂不采纳' }))
+
+    const submit = within(finding).getByRole('button', { name: '记下不采纳' })
+    expect(submit).toBeDisabled()
+    expect(within(finding).getByText(/没人知道为什么否过/)).toBeInTheDocument()
+
+    await user.type(within(finding).getByLabelText('暂不采纳的理由'), '本季度报价已经报出去了')
+    expect(submit).toBeEnabled()
+    await user.click(submit)
+
+    expect(within(finding).getByText('暂不采纳')).toBeInTheDocument()
+    expect(within(finding).getByText(/本季度报价已经报出去了/)).toBeInTheDocument()
+    expect(store.getState().demo.insightDispositions[0].reason).toBe('本季度报价已经报出去了')
+  })
+
+  it('改主意留全历史，界面显示最新一次', async () => {
+    const { user } = renderAnalytics()
+    await goto(user)
+
+    const side = screen.getByLabelText('AI 洞察')
+    const finding = within(side).getAllByText('结论')[0].closest('.gp-insight')! as HTMLElement
+    await user.click(within(finding).getByRole('button', { name: '采纳' }))
+    await user.click(within(finding).getByRole('button', { name: '改为暂不采纳' }))
+    await user.type(within(finding).getByLabelText('暂不采纳的理由'), '先放一放')
+    await user.click(within(finding).getByRole('button', { name: '记下不采纳' }))
+
+    expect(store.getState().demo.insightDispositions).toHaveLength(2)
+    expect(within(finding).getByText('暂不采纳')).toBeInTheDocument()
+    expect(within(finding).queryByText('已采纳')).toBeNull()
+  })
+
+  it('处置写进审计', async () => {
+    const { user } = renderAnalytics()
+    await goto(user)
+
+    const before = store.getState().demo.auditEvents.length
+    const side = screen.getByLabelText('AI 洞察')
+    const finding = within(side).getAllByText('结论')[0].closest('.gp-insight')! as HTMLElement
+    await user.click(within(finding).getByRole('button', { name: '采纳' }))
+
+    const events = store.getState().demo.auditEvents
+    expect(events).toHaveLength(before + 1)
+    expect(events.at(-1)?.targetKind).toBe('Insight')
   })
 })
 

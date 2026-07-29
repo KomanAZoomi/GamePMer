@@ -511,7 +511,27 @@ export interface CloseoutCase {
 
 // ---------------------------------------------------------------- 聚合状态
 
-export const DEMO_SCHEMA_VERSION = 7
+/**
+ * 洞察处置。
+ *
+ * 只对结论型洞察开放——卡点型办完了自己就消失，不需要人来关掉它。
+ * `verdict` 记的是 PM 的态度，不是执行结果：采纳不代表工作台替你改了报价模板。
+ */
+export type InsightVerdict = 'adopted' | 'deferred'
+
+export interface InsightDisposition {
+  id: string
+  insightId: string
+  verdict: InsightVerdict
+  at: string
+  actor: string
+  /** 「暂不采纳」必填——半年后同一条结论再冒出来，得知道上次为什么否了 */
+  reason?: string
+  /** 结论的措辞会随数据变，留一份当时的原话 */
+  titleAtTime: string
+}
+
+export const DEMO_SCHEMA_VERSION = 8
 
 export interface DemoState {
   schemaVersion: typeof DEMO_SCHEMA_VERSION
@@ -530,4 +550,5 @@ export interface DemoState {
   notificationDrafts: NotificationDraft[]
   auditEvents: AuditEvent[]
   changeRequests: ChangeRequest[]
+  insightDispositions: InsightDisposition[]
 }

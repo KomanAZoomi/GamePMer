@@ -1389,5 +1389,7 @@ export function createDemoState(): DemoState {
     notificationDrafts,
     auditEvents,
     changeRequests,
+    // 首次打开没有任何处置记录：洞察该不该采纳是 PM 的判断，不预设立场
+    insightDispositions: [],
   } satisfies DemoState)
 }

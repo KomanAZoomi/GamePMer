@@ -20,6 +20,7 @@ import {
   restoreCandidate as restoreInboxCandidate,
 } from '../../domain/inbox'
 import { saveApiKey as persistApiKey } from '../../domain/settings'
+import { disposeInsight, type DisposeInsightInput } from '../../domain/insightDisposition'
 import {
   removePath as removeProjectPath,
   savePath as saveProjectPath,
@@ -141,6 +142,7 @@ export interface WorkspaceStore {
   saveProjectPath(input: Omit<SavePathInput, 'actor' | 'now'>): void
   removeProjectPath(entryId: string): void
   saveApiKey(providerId: string, key: string): void
+  disposeInsight(input: Omit<DisposeInsightInput, 'actor' | 'now'>): void
   resetDemo(): void
 }
 
@@ -444,6 +446,17 @@ export function createWorkspaceStore(
     },
     removeProjectPath(entryId) {
       const demo = removeProjectPath(state.demo, entryId, { actor: 'Brandon', now: clock.now() })
+      repository.save(demo)
+      state = { ...state, demo }
+      emit()
+    },
+    disposeInsight(input) {
+      // 领域层在阻断时抛错且无副作用，让它冒泡——静默吞掉会显示虚假的成功
+      const demo = disposeInsight(state.demo, {
+        ...input,
+        actor: 'Brandon',
+        now: clock.now(),
+      })
       repository.save(demo)
       state = { ...state, demo }
       emit()

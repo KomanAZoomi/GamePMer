@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import type { RouteKey } from '../../app/navigation'
 import {
   DELAY_CAUSE_LABEL,
+  INSIGHT_KIND_LABEL,
+  INSIGHT_KIND_NOTE,
   METRIC_DEFINITION,
   delayAttribution,
   deliveryMetrics,
@@ -10,11 +12,137 @@ import {
   projectHealth,
   stageOutcomes,
   type DelayCause,
+  type Insight,
 } from '../../domain/analytics'
+import { VERDICT_LABEL, dispositionIssues } from '../../domain/insightDisposition'
+import type { DemoState } from '../../domain/model'
 import { capacityMatrix, weekStartsFrom } from '../../domain/capacity'
 import { QUOTE_KIND_LABEL, QUOTE_STATUS_LABEL, activeVersion, quoteTotals } from '../../domain/quotation'
 import { EMPTY_CALENDAR, monthDayLabel } from '../../domain/workCalendar'
 import type { WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
+
+/**
+ * 一张洞察卡。
+ *
+ * 卡点型和结论型长得不一样，是刻意的：
+ * 卡点型不给处置按钮——给了会让人以为「点一下就算办了」，而它其实要去对应模块把事做掉。
+ */
+function InsightCard({
+  hint,
+  demo,
+  today,
+  onDispose,
+}: {
+  hint: Insight
+  demo: DemoState
+  today: string
+  onDispose: WorkspaceStore['disposeInsight']
+}) {
+  const [deferring, setDeferring] = useState(false)
+  const [reason, setReason] = useState('')
+
+  // 校验用的是领域层同一个函数，界面不另写一份「理由不能为空」的判断
+  const issues = deferring
+    ? dispositionIssues(demo, {
+        insightId: hint.id,
+        verdict: 'deferred',
+        reason,
+        actor: 'Brandon',
+        now: today,
+      })
+    : []
+
+  function dispose(verdict: 'adopted' | 'deferred') {
+    onDispose({ insightId: hint.id, verdict, reason: verdict === 'deferred' ? reason : undefined })
+    setDeferring(false)
+    setReason('')
+  }
+
+  return (
+    <article className={`gp-insight is-${hint.severity}`}>
+      <div className="gp-insight-head">
+        <span className={`gp-insight-kind is-${hint.kind}`}>{INSIGHT_KIND_LABEL[hint.kind]}</span>
+        <strong>{hint.title}</strong>
+      </div>
+      <p>{hint.body}</p>
+      <span className="gp-insight-evidence">依据：{hint.evidence}</span>
+      <span className="gp-insight-kind-note">{INSIGHT_KIND_NOTE[hint.kind]}</span>
+
+      {/*
+        这个标签**不是一个会翻转的状态**，是「工作台不会替你做」的承诺——
+        即使你照着建议做完了它也不变。PM 的态度记在下面的处置里，两件事别混。
+      */}
+      <span className="gp-insight-tag">仅建议 · 工作台不代做</span>
+
+      {hint.kind === 'finding' && (
+        <div className="gp-insight-dispose">
+          {hint.disposition && (
+            <p className="gp-insight-verdict">
+              <b>{VERDICT_LABEL[hint.disposition.verdict]}</b>
+              <span>
+                {/* 时钟给的是完整 ISO 时间戳，界面只要日期——与其他页面一致 */}
+                {hint.disposition.at.slice(0, 10)} · {hint.disposition.actor}
+              </span>
+              {hint.disposition.reason && <em>理由：{hint.disposition.reason}</em>}
+            </p>
+          )}
+
+          {deferring ? (
+            <>
+              <label className="gp-visually-hidden" htmlFor={`reason-${hint.id}`}>
+                暂不采纳的理由
+              </label>
+              <textarea
+                id={`reason-${hint.id}`}
+                className="gp-input gp-insight-reason"
+                rows={2}
+                placeholder="为什么这次不改？下次这条结论还会原样冒出来，写一句省得重新讨论"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              />
+              {issues.length > 0 && <p className="gp-insight-issue">{issues[0]}</p>}
+              <div className="gp-insight-actions">
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-sm gp-btn-primary"
+                  disabled={issues.length > 0}
+                  title={issues[0]}
+                  onClick={() => dispose('deferred')}
+                >
+                  记下不采纳
+                </button>
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-sm"
+                  onClick={() => {
+                    setDeferring(false)
+                    setReason('')
+                  }}
+                >
+                  取消
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="gp-insight-actions">
+              <button
+                type="button"
+                className="gp-btn gp-btn-sm"
+                onClick={() => dispose('adopted')}
+                title="只记录你认这个结论、会去做；工作台不会替你改报价模板或排期"
+              >
+                {hint.disposition ? '改为采纳' : '采纳'}
+              </button>
+              <button type="button" className="gp-btn gp-btn-sm" onClick={() => setDeferring(true)}>
+                {hint.disposition ? '改为暂不采纳' : '暂不采纳'}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </article>
+  )
+}
 
 interface AnalyticsPageProps {
   workspace: WorkspaceState
@@ -36,7 +164,7 @@ const CAUSE_ORDER: DelayCause[] = ['client-wait', 'rework', 'team-delay', 'depen
 const pct = (value: number) => `${Math.round(value * 100)}%`
 const money = (value: number) => `¥ ${value.toLocaleString('zh-CN')}`
 
-export function AnalyticsPage({ workspace, onNavigate }: AnalyticsPageProps) {
+export function AnalyticsPage({ workspace, store, onNavigate }: AnalyticsPageProps) {
   const { demo, today } = workspace
   const [tab, setTab] = useState<Tab>('delivery')
 
@@ -444,19 +572,20 @@ export function AnalyticsPage({ workspace, onNavigate }: AnalyticsPageProps) {
           <header className="gp-card-head">
             <h2>
               AI 洞察
-              <small>全部为建议，不改任何数据</small>
+              <small>全部为建议，工作台不会代做</small>
             </h2>
             <span className="gp-count">{hints.length}</span>
           </header>
           <div className="gp-insights">
             {hints.length === 0 && <p className="gp-empty">当前没有足够事实支撑任何结论。</p>}
             {hints.map((hint) => (
-              <article key={hint.id} className={`gp-insight is-${hint.severity}`}>
-                <strong>{hint.title}</strong>
-                <p>{hint.body}</p>
-                <span className="gp-insight-evidence">依据：{hint.evidence}</span>
-                <span className="gp-insight-tag">建议 · 未执行</span>
-              </article>
+              <InsightCard
+                key={hint.id}
+                hint={hint}
+                demo={demo}
+                today={today}
+                onDispose={store.disposeInsight}
+              />
             ))}
           </div>
 

@@ -1,6 +1,13 @@
 import { projectQuoteSummary } from './quotation'
 import { EMPTY_CALENDAR, countWorkdays } from './workCalendar'
-import type { DemoState, IsoDate, StageCode, StagePlan, WorkCalendar } from './model'
+import type {
+  DemoState,
+  InsightDisposition,
+  IsoDate,
+  StageCode,
+  StagePlan,
+  WorkCalendar,
+} from './model'
 
 /**
  * 智能分析。
@@ -307,16 +314,44 @@ export function projectHealth(state: DemoState, today: IsoDate): HealthRow[] {
 
 // ---------------------------------------------------------------- AI 洞察
 
+/**
+ * 洞察分两类，行为完全不同——验收时被问到「建议会不会随流转消失」，
+ * 答案取决于这个字段，所以它必须是显式的，不能靠人记哪条是哪条。
+ */
+export type InsightKind = 'blocker' | 'finding'
+
+export const INSIGHT_KIND_LABEL: Record<InsightKind, string> = {
+  blocker: '卡点',
+  finding: '结论',
+}
+
+export const INSIGHT_KIND_NOTE: Record<InsightKind, string> = {
+  blocker: '盯的是当下还卡着的事实。办完了这张卡自己就没了，不需要手工关掉。',
+  finding: '是决策建议，不会自己消失。采纳与否请留个态度，否则下次它还会原样冒出来。',
+}
+
 export interface Insight {
   id: string
+  kind: InsightKind
   title: string
   body: string
   /** 这条结论是从哪些事实推出来的 */
   evidence: string
   evidenceCount: number
   severity: 'warn' | 'info'
-  /** 永远是 false：AI 只建议，不执行 */
+  /**
+   * **永远是 false，而且是字面量类型——代码上写不出 true。**
+   * 这不是一个会翻转的状态，是「工作台不会替你做」的承诺：
+   * 即使你照着建议做完了，这一栏也不变。PM 的态度记在 `disposition` 里。
+   */
   executed: false
+  /** 最近一次处置（只有结论型会有） */
+  disposition?: InsightDisposition
+}
+
+/** 界面读最新一条；历史全留着，改主意本身也是有价值的记录。 */
+export function dispositionOf(state: DemoState, insightId: string): InsightDisposition | undefined {
+  return state.insightDispositions.filter((entry) => entry.insightId === insightId).at(-1)
 }
 
 /**
@@ -335,6 +370,7 @@ export function insights(state: DemoState, today: IsoDate): Insight[] {
   if (clientWait.workdays > 0) {
     rows.push({
       id: 'client-wait',
+      kind: 'finding',
       title: `客户等待占掉 ${clientWait.workdays} 个工作日`,
       body: `占全部延期的 ${Math.round(clientWait.share * 100)}%。这部分已单独归因，没有计入任何制作组的按期率。可考虑在报价时把等待窗口写进交付条款。`,
       evidence: `${outcomes.filter((row) => row.clientWaitWorkdays > 0).length} 个阶段的提交与确认时间`,
@@ -348,6 +384,7 @@ export function insights(state: DemoState, today: IsoDate): Insight[] {
   if (worst) {
     rows.push({
       id: 'estimate',
+      kind: 'finding',
       title: `${worst.stageName}阶段实际比预估多 ${Math.round(worst.deltaPct * 100)}%`,
       body: `${worst.samples} 个已完成阶段的中位实际 ${worst.actual} 工作日，预估 ${worst.estimated} 人天。建议在报价模板里调整该阶段的默认人天——这会影响对客户的报价，需要总监与 BD 同意。`,
       evidence: `${worst.samples} 个已完成阶段的实际 vs 预估`,
@@ -361,6 +398,7 @@ export function insights(state: DemoState, today: IsoDate): Insight[] {
   if (pendingReview.length > 0) {
     rows.push({
       id: 'quote-review',
+      kind: 'blocker',
       title: `${pendingReview.length} 件报价卡在复核`,
       body: `复核不通过，受影响资产就一直冻着。其中 ${pendingReview.filter((entry) => entry.kind === 'change').length} 件是追加报价，冻结的阶段无法开工。`,
       evidence: `${pendingReview.length} 张报价案件的状态与提交时间`,
@@ -374,6 +412,7 @@ export function insights(state: DemoState, today: IsoDate): Insight[] {
   if (blockedCloseout.length > 0) {
     rows.push({
       id: 'closeout-it',
+      kind: 'blocker',
       title: `${blockedCloseout.length} 个项目等 IT 备份回执`,
       body: '最终包与客户确认都齐了，只差 IT 的正式回执就能通知 BD 出账。回执没到，钱就一直挂着。',
       evidence: `${blockedCloseout.length} 个结项案件的门禁状态`,
@@ -389,6 +428,7 @@ export function insights(state: DemoState, today: IsoDate): Insight[] {
   if (unclassified > 0) {
     rows.push({
       id: 'feedback-triage',
+      kind: 'blocker',
       title: `${unclassified} 条客户反馈还没分流`,
       body: `${today} 未分流的反馈既不会进返修排期，也不会进追加报价——两边都不动，客户那边却在等。`,
       evidence: `${unclassified} 条资产级反馈项的状态`,
@@ -398,5 +438,9 @@ export function insights(state: DemoState, today: IsoDate): Insight[] {
     })
   }
 
-  return rows
+  // 处置在最后统一挂上：生成结论的逻辑不该关心 PM 上次是什么态度
+  return rows.map((row) => {
+    const disposition = row.kind === 'finding' ? dispositionOf(state, row.id) : undefined
+    return disposition ? { ...row, disposition } : row
+  })
 }
