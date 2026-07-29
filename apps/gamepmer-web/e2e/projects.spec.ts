@@ -91,3 +91,63 @@ test('把项目的阶段全部推到验收后，结项第一道门禁自己就�
   await page.getByLabel('结项项目').getByText(/HLC_B_2D_B18/).click()
   await expect(page.getByLabel('结项门禁').getByText(/还差 \d+ 个阶段/)).toHaveCount(0)
 })
+
+/**
+ * 等客户之后的两条路。
+ *
+ * 验收指出：已提交客户之后，下一步应该是「客户已验收」**或**「返修」。
+ * 原来只做了验收那一条，客户回话说要改就没地方走了。
+ */
+test('等客户时同时给验收和返修两个出口', async ({ page }) => {
+  await page.goto('/#/projects')
+  await page.getByRole('button', { name: /NST_C_3D_B31/ }).click()
+
+  const gantt = page.getByLabel('项目排期甘特')
+  const inspector = page.getByLabel('阶段详情')
+  await gantt.getByRole('button', { name: /中模/ }).nth(1).click()
+  for (const label of ['标记开工', '已交 PM', '已提交客户']) {
+    await inspector.getByRole('button', { name: label, exact: true }).click()
+  }
+
+  await expect(inspector.getByRole('button', { name: '客户已验收', exact: true })).toBeVisible()
+  await expect(inspector.getByRole('button', { name: '客户要返修', exact: true })).toBeVisible()
+})
+
+test('客户要返修 → 回到制作中，甘特上标出返修', async ({ page }) => {
+  await page.goto('/#/projects')
+  await page.getByRole('button', { name: /NST_C_3D_B31/ }).click()
+
+  const gantt = page.getByLabel('项目排期甘特')
+  const inspector = page.getByLabel('阶段详情')
+  await gantt.getByRole('button', { name: /中模/ }).nth(1).click()
+  for (const label of ['标记开工', '已交 PM', '已提交客户', '客户要返修']) {
+    await inspector.getByRole('button', { name: label, exact: true }).click()
+  }
+
+  await expect(inspector.getByText('制作中').first()).toBeVisible()
+  // 甘特行上同时看得到「制作中」和「返修」
+  await expect(gantt.getByText('返修').first()).toBeVisible()
+})
+
+test('返修完能再交回客户，验收后返修标记消失', async ({ page }) => {
+  await page.goto('/#/projects')
+  await page.getByRole('button', { name: /NST_C_3D_B31/ }).click()
+
+  const gantt = page.getByLabel('项目排期甘特')
+  const inspector = page.getByLabel('阶段详情')
+  await gantt.getByRole('button', { name: /中模/ }).nth(1).click()
+  for (const label of [
+    '标记开工',
+    '已交 PM',
+    '已提交客户',
+    '客户要返修',
+    '已交 PM',
+    '已提交客户',
+    '客户已验收',
+  ]) {
+    await inspector.getByRole('button', { name: label, exact: true }).click()
+  }
+
+  await expect(inspector.getByText('已验收').first()).toBeVisible()
+  await expect(inspector.getByText('推进这个阶段')).toHaveCount(0)
+})

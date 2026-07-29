@@ -26,13 +26,19 @@ export class StageFlowBlocked extends Error {
   }
 }
 
-export type StageAction = 'start' | 'hand-to-pm' | 'submit-to-client' | 'client-approve'
+export type StageAction =
+  | 'start'
+  | 'hand-to-pm'
+  | 'submit-to-client'
+  | 'client-approve'
+  | 'client-rework'
 
 export const STAGE_ACTION_LABEL: Record<StageAction, string> = {
   start: '标记开工',
   'hand-to-pm': '已交 PM',
   'submit-to-client': '已提交客户',
   'client-approve': '客户已验收',
+  'client-rework': '客户要返修',
 }
 
 /** 每个动作把阶段推到哪个状态。改这张表等于改状态机，别在别处再写一遍 */
@@ -41,6 +47,8 @@ const TARGET: Record<StageAction, StageMainStatus> = {
   'hand-to-pm': 'HandedToPm',
   'submit-to-client': 'AwaitingClient',
   'client-approve': 'Approved',
+  // 客户要改 → 东西回到制作。范围内外由反馈中心分流决定，这里先不预判
+  'client-rework': 'InProduction',
 }
 
 /** 每个动作要求的前置状态 */
@@ -50,6 +58,8 @@ const REQUIRED_FROM: Record<StageAction, StageMainStatus[]> = {
   // 「已交 PM」和「已提交客户」是两件事，但 PM 取件后可能当场就转交客户
   'submit-to-client': ['HandedToPm', 'SubmittedToClient'],
   'client-approve': ['AwaitingClient', 'SubmittedToClient'],
+  // 等客户只有两个出口：验收，或者客户要改
+  'client-rework': ['AwaitingClient', 'SubmittedToClient'],
 }
 
 export function findStageById(state: DemoState, stageId: string): StagePlan | undefined {
@@ -86,11 +96,16 @@ export function stageBlockingIssues(
     )
   }
 
+  // 冻结就是冻结：既不能开工，也不能把它做完交上去，
+  // 否则「只冻受影响资产」形同虚设
+  if (
+    (action === 'start' || action === 'hand-to-pm') &&
+    stage.flags.includes('WaitingChangeQuote')
+  ) {
+    issues.push('这个阶段在等待变更报价，追加报价开工前不能动工')
+  }
+
   if (action === 'start') {
-    // 冻结就是冻结。推进不能绕过追加报价这道门，否则「只冻受影响资产」形同虚设
-    if (stage.flags.includes('WaitingChangeQuote')) {
-      issues.push('这个阶段在等待变更报价，报价开工前不能动工')
-    }
     const previous = previousStage(state, stage)
     if (previous && previous.status !== 'Approved') {
       issues.push(
@@ -143,6 +158,7 @@ export function naturalAction(stage: StagePlan): StageAction | undefined {
       return 'submit-to-client'
     case 'SubmittedToClient':
     case 'AwaitingClient':
+      // 等客户有两个出口，验收是「顺利那条」，用它来解释为什么动不了
       return 'client-approve'
     default:
       return undefined
@@ -175,6 +191,11 @@ export function advanceStage(
   const next = TARGET[action]
 
   const patch: Partial<StagePlan> = { status: next }
+  if (action === 'client-rework') {
+    // 返修标记让它在甘特上一眼可辨；客户确认日要清掉——客户并没有确认
+    patch.clientApprovedAt = undefined
+    patch.flags = stage.flags.includes('Rework') ? stage.flags : [...stage.flags, 'Rework']
+  }
   if (action === 'start') patch.actualStart = stage.actualStart ?? today
   if (action === 'hand-to-pm') patch.actualFinish = stage.actualFinish ?? today
   if (action === 'submit-to-client') patch.submittedToClientAt = stage.submittedToClientAt ?? today

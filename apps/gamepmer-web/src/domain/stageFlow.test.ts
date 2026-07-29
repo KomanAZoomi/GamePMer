@@ -258,3 +258,85 @@ function withStage(state: DemoState, stageId: string, patch: Partial<StagePlan>)
     })),
   }
 }
+
+/**
+ * 等客户的两个出口。
+ *
+ * 验收指出：已提交客户之后，下一步应该是「客户已验收」**或**「返修」。
+ * 原来只做了验收那一条，客户回话说要改就没地方走了。
+ */
+describe('等客户之后有两条路', () => {
+  const MID = 'PROP-02/3D_MID'
+
+  function toAwaitingClient(state: DemoState): DemoState {
+    let next = state
+    for (const action of ['start', 'hand-to-pm', 'submit-to-client'] as const) {
+      next = advanceStage(next, MID, action, { actor: ACTOR, now: NOW })
+    }
+    return next
+  }
+
+  it('等客户时同时给得出验收和返修两个动作', () => {
+    const state = toAwaitingClient(createDemoState())
+    const actions = availableStageActions(state, MID)
+    expect(actions).toContain('client-approve')
+    expect(actions).toContain('client-rework')
+  })
+
+  it('客户要返修 → 回到制作中并打上返修标记', () => {
+    const state = toAwaitingClient(createDemoState())
+    const next = advanceStage(state, MID, 'client-rework', { actor: ACTOR, now: NOW })
+
+    expect(stage(next, MID).status).toBe('InProduction')
+    expect(stage(next, MID).flags).toContain('Rework')
+  })
+
+  /** 客户并没有确认，那个日期不能留着——留着分析里就成了「已验收」 */
+  it('返修会清掉客户确认日，但保留提交客户的时间', () => {
+    let state = toAwaitingClient(createDemoState())
+    state = advanceStage(state, MID, 'client-approve', { actor: ACTOR, now: NOW })
+    expect(stage(state, MID).clientApprovedAt).toBeTruthy()
+
+    // 验收之后又反悔的情况走反馈中心，这里只验状态机本身
+    const reset = advanceStage(
+      { ...state, projects: withStage(state, MID, { status: 'AwaitingClient' }).projects },
+      MID,
+      'client-rework',
+      { actor: ACTOR, now: NOW },
+    )
+    expect(reset.projects.flatMap((p) => p.assets).flatMap((a) => a.stages).find((s) => s.id === MID)!
+      .clientApprovedAt).toBeUndefined()
+    expect(stage(reset, MID).submittedToClientAt).toBeTruthy()
+  })
+
+  it('返修后可以重新走完一轮，交回客户再验收', () => {
+    let state = toAwaitingClient(createDemoState())
+    state = advanceStage(state, MID, 'client-rework', { actor: ACTOR, now: NOW })
+
+    for (const action of ['hand-to-pm', 'submit-to-client', 'client-approve'] as const) {
+      state = advanceStage(state, MID, action, { actor: ACTOR, now: NOW })
+    }
+    expect(stage(state, MID).status).toBe('Approved')
+    // 验收时返修标记清掉
+    expect(stage(state, MID).flags).not.toContain('Rework')
+  })
+
+  it('没提交客户时不能说客户要返修', () => {
+    const state = createDemoState()
+    expect(() => advanceStage(state, MID, 'client-rework', { actor: ACTOR, now: NOW })).toThrow(
+      StageFlowBlocked,
+    )
+  })
+
+  /** 冻结既不能开工，也不能把它做完交上去——否则「只冻受影响资产」形同虚设 */
+  it('等待变更报价的阶段也不能交给 PM', () => {
+    const base = createDemoState()
+    const frozen = base.projects
+      .flatMap((p) => p.assets)
+      .flatMap((a) => a.stages)
+      .find((s) => s.flags.includes('WaitingChangeQuote'))!
+    const state = withStage(base, frozen.id, { status: 'InProduction' })
+
+    expect(stageBlockingIssues(state, frozen.id, 'hand-to-pm').join()).toContain('变更报价')
+  })
+})
