@@ -9,6 +9,7 @@ import {
   completeGate as completeCloseoutGate,
   gateBlockingIssues,
 } from './closeout'
+import { QuoteBlocked, createQuoteCase, createQuoteCaseIssues } from './quotation'
 import type {
   AuditEvent,
   CandidateField,
@@ -123,15 +124,18 @@ export function blockingIssues(state: DemoState, candidate: InboxCandidate): str
 /** 确认要落到哪条正式记录上——落不下去就在这里说清楚，不留到点击时才炸。 */
 function targetIssues(state: DemoState, candidate: InboxCandidate): string[] {
   if (candidate.kind === 'quote-request') {
-    const code = fieldValue(candidate, 'batchCode')
-    // 新需求的批次编号本来就还不存在，只校验格式，不查库
-    if (code && !parseBatchCode(code).valid) {
-      return [`批次编号「${code}」不符合规范 ${BATCH_CODE_RULE}，例如 ${BATCH_CODE_EXAMPLE}`]
-    }
-    if (code && state.projects.some((project) => project.code === code)) {
-      return [`${code} 已经是正式项目了，追加需求请走反馈中心的范围外分流，不要新开首次报价`]
-    }
-    return []
+    // 与真正立案时用同一份校验，连需求原文都取真的那一份——
+    // 这里放个占位串就等于没校验到「需求描述不能为空」这条
+    const source = state.sourceRecords.find((entry) => entry.id === candidate.sourceId)
+    return createQuoteCaseIssues(state, {
+      kind: 'initial',
+      projectCode: fieldValue(candidate, 'batchCode') ?? '',
+      client: fieldValue(candidate, 'clientName'),
+      title: candidate.title,
+      requirement: source?.body ?? '',
+      actor: '',
+      now: '',
+    })
   }
 
   if (candidate.kind === 'it-receipt') {
@@ -588,44 +592,31 @@ function confirmAsQuoteRequest(
   options: ConfirmOptions,
   auditId: string,
 ): ConfirmResult {
-  const caseId = nextSequentialId(state.quoteCases.map((entry) => entry.id), 'Q-', 3)
-
-  // 复核人按角色取，不写死某个人。取不到就诚实阻断——
-  // 建一个没人复核的案件，等于把「开工前必须复核」这道门悄悄拆了
-  const reviewer =
-    state.people.find((person) => person.roles.includes('组长')) ??
-    state.people.find((person) => person.roles.includes('BD'))
-  if (!reviewer) {
-    throw new CandidateBlocked(['成员里没有组长或 BD，报价案件没有复核人，无法创建'])
+  // 立案逻辑只有一份，收件箱和手工录入走同一个函数——
+  // 两边各拼各的 QuoteCase，迟早出现「收件箱建的能复核、手工建的不能」
+  let next: DemoState
+  try {
+    next = createQuoteCase(state, {
+      // 从收件箱进来的都是新需求；对既有资产的追加走反馈中心的范围外分流
+      kind: 'initial',
+      projectCode: fieldValue(candidate, 'batchCode')!,
+      client: fieldValue(candidate, 'clientName')!,
+      title: candidate.title,
+      // 需求原文即证据，不重新措辞
+      requirement: source.body,
+      dueDate: fieldValue(candidate, 'dueDate'),
+      evidence: [evidenceFrom(source)],
+      sourceLabel: `来源 ${candidate.sourceId} · 候选 ${candidate.id}`,
+      actor: options.actor,
+      now: options.now,
+    })
+  } catch (error) {
+    // 报价层已经把原因逐条说清了，原样透传，不翻译成一句笼统的「无法确认」
+    if (error instanceof QuoteBlocked) throw new CandidateBlocked(error.issues)
+    throw error
   }
 
-  const batchCode = fieldValue(candidate, 'batchCode')!
-  const discipline = parseBatchCode(batchCode).discipline === '2D' ? '2D' : '3D'
-  // 总监按 2D / 3D 分工。这里按批次编号里的类型段取，取不到才退回第一位艺术总监
-  const director =
-    state.people.find((person) => person.roles.includes('艺术总监')) ?? state.people[0]
-
-  const quoteCase: QuoteCase = {
-    id: caseId,
-    // 从收件箱进来的都是新需求；对既有资产的追加走反馈中心的范围外分流，不走这里
-    kind: 'initial',
-    // 这时它还只是个**提议的**批次编号，正式项目要等客户确认、发出开工通知才建
-    projectCode: batchCode,
-    client: fieldValue(candidate, 'clientName')!,
-    title: candidate.title,
-    // 需求原文即证据，不重新措辞
-    requirement: source.body,
-    status: 'DirectorQuoting',
-    // 资产还没拆，总监报价时才知道有哪些
-    affectedAssetIds: [],
-    directorName: director?.name ?? '待指派',
-    reviewerPersonId: reviewer.id,
-    createdAt: options.now,
-    dueDate: fieldValue(candidate, 'dueDate'),
-    discipline,
-    evidence: [evidenceFrom(source)],
-  }
-
+  const caseId = next.quoteCases.at(-1)!.id
   const audit: AuditEvent = {
     id: auditId,
     at: options.now,
@@ -638,10 +629,9 @@ function confirmAsQuoteRequest(
 
   return {
     state: {
-      ...state,
-      quoteCases: [...state.quoteCases, quoteCase],
-      candidates: markConfirmed(state.candidates, candidate.id, 'QuoteCase', caseId, options),
-      auditEvents: [...state.auditEvents, audit],
+      ...next,
+      candidates: markConfirmed(next.candidates, candidate.id, 'QuoteCase', caseId, options),
+      auditEvents: [...next.auditEvents, audit],
     },
     recordKind: 'QuoteCase',
     recordId: caseId,

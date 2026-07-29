@@ -1,14 +1,16 @@
-import { BATCH_CODE_RULE, parseBatchCode } from './batchCode'
+import { BATCH_CODE_EXAMPLE, BATCH_CODE_RULE, parseBatchCode } from './batchCode'
 import { STAGE_LABEL } from './model'
 import type {
   Asset,
   AuditEvent,
+  EvidenceRef,
   DemoState,
   NotificationDraft,
   Person,
   PersonRole,
   Project,
   QuoteCase,
+  QuoteKind,
   QuoteVersion,
   ScheduleRevision,
   StageDateChange,
@@ -378,6 +380,130 @@ export function reviewQuote(state: DemoState, caseId: string, input: ReviewInput
             status: input.decision === 'approve' ? ('Approved' as const) : ('DirectorQuoting' as const),
           },
     ),
+    auditEvents: [...state.auditEvents, audit],
+  }
+}
+
+// ---------------------------------------------------------------- 立案
+
+export interface CreateQuoteCaseInput {
+  kind: QuoteKind
+  /** 首次报价是**提议的**批次编号；追加报价是已存在项目的编号 */
+  projectCode: string
+  title: string
+  requirement: string
+  /** 首次报价必填；追加报价从项目上取 */
+  client?: string
+  dueDate?: string
+  /** 追加报价必填 */
+  affectedAssetIds?: string[]
+  /** 从收件箱确认过来时带上原始证据 */
+  evidence?: EvidenceRef[]
+  sourceLabel?: string
+  actor: string
+  now: string
+}
+
+export function createQuoteCaseIssues(state: DemoState, input: CreateQuoteCaseInput): string[] {
+  const issues: string[] = []
+  const code = input.projectCode.trim()
+
+  if (!input.title.trim()) issues.push('需求标题不能为空')
+  if (!input.requirement.trim()) issues.push('需求描述不能为空——总监拿着空白没法报价')
+
+  const project = state.projects.find((entry) => entry.code === code)
+
+  if (input.kind === 'initial') {
+    if (!code) {
+      issues.push('批次编号不能为空')
+    } else if (!parseBatchCode(code).valid) {
+      issues.push(`批次编号「${code}」不符合规范 ${BATCH_CODE_RULE}，例如 ${BATCH_CODE_EXAMPLE}`)
+    } else if (project) {
+      issues.push(`${code} 已经是正式项目了，追加需求请录成追加报价，不要新开首次报价`)
+    } else if (state.quoteCases.some((entry) => entry.projectCode === code && entry.kind === 'initial')) {
+      issues.push(`${code} 已经有一张首次报价案件了，不要重复立案`)
+    }
+    if (!input.client?.trim()) issues.push('客户不能为空')
+  } else {
+    if (!project) {
+      issues.push(`${code || '（空）'} 不是正式项目，追加报价必须挂在已开工的项目上`)
+    } else {
+      const assets = input.affectedAssetIds ?? []
+      if (assets.length === 0) issues.push('追加报价必须指明受影响资产，否则不知道该冻结什么')
+      for (const assetId of assets) {
+        if (!project.assets.some((asset) => asset.id === assetId)) {
+          issues.push(`资产 ${assetId} 不属于 ${code}`)
+        }
+      }
+    }
+  }
+
+  // 复核人按角色取，不写死某个人。取不到就诚实阻断——
+  // 建一个没人复核的案件，等于把「开工前必须复核」这道门悄悄拆了
+  if (!findReviewer(state)) issues.push('成员里没有组长或 BD，报价案件没有复核人，无法创建')
+
+  return issues
+}
+
+function findReviewer(state: DemoState): Person | undefined {
+  return (
+    state.people.find((person) => person.roles.includes('组长')) ??
+    state.people.find((person) => person.roles.includes('BD'))
+  )
+}
+
+/**
+ * 立一张报价案件。
+ *
+ * 需求可以从收件箱确认进来，也可以由 PM 当面听完直接录——两条路进的是同一个函数，
+ * 不允许各拼各的 `QuoteCase`，否则迟早出现「收件箱建的能复核、手工建的不能」。
+ *
+ * 建出来的案件停在「总监报价中」且**没有任何报价版本**：
+ * 立案只是承认「这是一条真需求」，人天和金额得总监自己填。
+ */
+export function createQuoteCase(state: DemoState, input: CreateQuoteCaseInput): DemoState {
+  const issues = createQuoteCaseIssues(state, input)
+  if (issues.length > 0) throw new QuoteBlocked(issues)
+
+  const code = input.projectCode.trim()
+  const project = state.projects.find((entry) => entry.code === code)
+  const caseId = nextId(state.quoteCases.map((entry) => entry.id), input.kind === 'change' ? 'CQ-' : 'Q-', 3)
+  const discipline = project?.discipline ?? (parseBatchCode(code).discipline === '2D' ? '2D' : '3D')
+
+  const quoteCase: QuoteCase = {
+    id: caseId,
+    kind: input.kind,
+    projectCode: code,
+    client: (project?.client ?? input.client ?? '').trim(),
+    title: input.title.trim(),
+    requirement: input.requirement.trim(),
+    status: 'DirectorQuoting',
+    affectedAssetIds: input.kind === 'change' ? (input.affectedAssetIds ?? []) : [],
+    directorName:
+      project?.artDirectorName ??
+      state.people.find((person) => person.roles.includes('艺术总监'))?.name ??
+      '待指派',
+    reviewerPersonId: findReviewer(state)!.id,
+    createdAt: input.now,
+    dueDate: input.dueDate,
+    discipline,
+    evidence: input.evidence ?? [],
+  }
+
+  const audit: AuditEvent = {
+    id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
+    at: input.now,
+    actor: input.actor,
+    action: `录入${QUOTE_KIND_LABEL[input.kind]}需求`,
+    targetKind: 'QuoteCase',
+    targetId: caseId,
+    after: quoteCase.title,
+    reason: input.sourceLabel ?? '由 PM 在报价与变更直接录入',
+  }
+
+  return {
+    ...state,
+    quoteCases: [...state.quoteCases, quoteCase],
     auditEvents: [...state.auditEvents, audit],
   }
 }

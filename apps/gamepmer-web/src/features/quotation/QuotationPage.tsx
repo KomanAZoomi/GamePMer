@@ -17,6 +17,7 @@ import { dateRange } from '../../domain/workCalendar'
 import type { QuoteTab, WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { NotificationList } from '../feedback/NotificationList'
 import { ApprovalTrack } from './ApprovalTrack'
+import { NewCaseDrawer } from './NewCaseDrawer'
 import { QuoteEntryDrawer } from './QuoteEntryDrawer'
 
 interface QuotationPageProps {
@@ -38,6 +39,8 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   const [note, setNote] = useState('')
   const [via, setVia] = useState('Outlook')
   const [entryOpen, setEntryOpen] = useState(false)
+  // 从顶栏「新增需求」跳过来时直接把录入面板打开——跳过来还要再找一次按钮就没意义了
+  const [newCaseOpen, setNewCaseOpen] = useState(() => window.location.hash.includes('new'))
 
   const buckets = useMemo(() => {
     const byNewest = [...demo.quoteCases].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -104,6 +107,13 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
           </p>
         </div>
         <div className="gp-chip-row">
+          <button
+            type="button"
+            className="gp-btn gp-btn-primary gp-btn-sm"
+            onClick={() => setNewCaseOpen((open) => !open)}
+          >
+            {newCaseOpen ? '收起录入' : '录入新需求'}
+          </button>
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -146,6 +156,20 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
           <small>开工邮件已发出</small>
         </div>
       </div>
+
+      {newCaseOpen && (
+        <div className="gp-card gp-quote-entry-card">
+          <NewCaseDrawer
+            demo={demo}
+            today={today}
+            onCancel={() => setNewCaseOpen(false)}
+            onSubmit={(input) => {
+              store.createQuoteCase(input)
+              setNewCaseOpen(false)
+            }}
+          />
+        </div>
+      )}
 
       {entryOpen && canQuote && (
         <div className="gp-card gp-quote-entry-card">

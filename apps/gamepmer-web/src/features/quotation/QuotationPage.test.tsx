@@ -478,3 +478,88 @@ describe('审批链与真实流转一一对应', () => {
     expect(track.querySelectorAll('li.is-done')).toHaveLength(4)
   })
 })
+
+/**
+ * 录入新需求。
+ *
+ * 验收时指出：顶栏「手工录入」看不出在录什么，而报价与变更里根本没有新建入口——
+ * 只有案件内部的「录入总监报价」。需求本来就该能直接录。
+ */
+describe('直接录入新需求', () => {
+  it('模块里有顶层入口，录完立刻选中刚建的案件', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+
+    const before = store.getState().demo.quoteCases.length
+    await user.click(screen.getByRole('button', { name: '录入新需求' }))
+
+    const form = screen.getByLabelText('录入新需求')
+    await user.type(within(form).getByLabelText('客户'), 'Northstar Studio')
+    await user.type(within(form).getByLabelText('批次编号'), 'NST_E_3D_B40')
+    await user.type(within(form).getByLabelText('需求标题'), '守卫兵种 3 套')
+    await user.type(within(form).getByLabelText('需求描述'), 'BD 当面确认：3 套守卫兵种。')
+    await user.click(within(form).getByRole('button', { name: '立案并交给总监报价' }))
+
+    const cases = store.getState().demo.quoteCases
+    expect(cases).toHaveLength(before + 1)
+    const created = cases.at(-1)!
+    expect(created.status).toBe('DirectorQuoting')
+    // 选中刚录的那条，免得人还要去列表里翻
+    expect(store.getState().selectedQuoteCaseId).toBe(created.id)
+  })
+
+  it('立案不建项目、不动排期', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+    const projectsBefore = store.getState().demo.projects.length
+
+    await user.click(screen.getByRole('button', { name: '录入新需求' }))
+    const form = screen.getByLabelText('录入新需求')
+    await user.type(within(form).getByLabelText('客户'), 'Northstar Studio')
+    await user.type(within(form).getByLabelText('批次编号'), 'NST_E_3D_B40')
+    await user.type(within(form).getByLabelText('需求标题'), '守卫兵种 3 套')
+    await user.type(within(form).getByLabelText('需求描述'), '3 套守卫兵种')
+    await user.click(within(form).getByRole('button', { name: '立案并交给总监报价' }))
+
+    expect(store.getState().demo.projects).toHaveLength(projectsBefore)
+    expect(store.getState().demo.projects.some((p) => p.code === 'NST_E_3D_B40')).toBe(false)
+  })
+
+  it('编号不合规范时按钮就是灰的，并写清规范', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+    await user.click(screen.getByRole('button', { name: '录入新需求' }))
+
+    const form = screen.getByLabelText('录入新需求')
+    await user.type(within(form).getByLabelText('客户'), 'Northstar Studio')
+    await user.type(within(form).getByLabelText('批次编号'), 'LYS_X')
+    await user.type(within(form).getByLabelText('需求标题'), '随手写的')
+    await user.type(within(form).getByLabelText('需求描述'), '随手写的')
+
+    expect(within(form).getByRole('button', { name: '立案（被阻断）' })).toBeDisabled()
+    expect(within(form).getByText(/不符合规范/)).toBeInTheDocument()
+  })
+
+  /** 追加报价问的是完全不同的东西：挂哪个项目、冻哪些资产 */
+  it('切到追加报价时改问项目与受影响资产', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+    await user.click(screen.getByRole('button', { name: '录入新需求' }))
+
+    const form = screen.getByLabelText('录入新需求')
+    await user.click(within(form).getByRole('button', { name: /追加报价/ }))
+
+    expect(within(form).queryByLabelText('批次编号')).toBeNull()
+    await user.selectOptions(within(form).getByLabelText('挂到哪个项目'), 'NST_A_3D_B24')
+    await user.click(within(form).getByRole('button', { name: /MECH-02/ }))
+    await user.type(within(form).getByLabelText('需求标题'), '载具加一套涂装')
+    await user.type(within(form).getByLabelText('需求描述'), '客户想给 MECH-02 加一套涂装。')
+    await user.click(within(form).getByRole('button', { name: '立案并交给总监报价' }))
+
+    const created = store.getState().demo.quoteCases.at(-1)!
+    expect(created.kind).toBe('change')
+    expect(created.affectedAssetIds).toEqual(['MECH-02'])
+    // 客户从项目上取，不用人再填一遍
+    expect(created.client).toBe('Northstar Studio')
+  })
+})

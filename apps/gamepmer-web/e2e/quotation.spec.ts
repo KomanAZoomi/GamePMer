@@ -217,3 +217,70 @@ test('退回总监不是死胡同：能以上一版为底稿重新提交', async
   await expect(page.getByLabel('报价详情').getByText('CQ-004 / v2')).toBeVisible()
   await expect(page.getByText('已被新版本取代')).toBeVisible()
 })
+
+/**
+ * 录入新需求。
+ *
+ * 顶栏那个动作按钮必须指向业务的真实起点：整条链路是从**需求**开始的。
+ * 原来它叫「手工录入」并跳去候选收件箱——收件箱是「外部消息进来」的入口，
+ * 不是「新活来了」的入口。
+ */
+test('顶栏「新增需求」去报价与变更，不是去收件箱', async ({ page }) => {
+  await page.goto('/#/tasks')
+  await page.getByRole('button', { name: '新增需求' }).click()
+  await expect(page).toHaveURL(/#\/quotation/)
+  await expect(page.getByRole('button', { name: '录入新需求' })).toBeVisible()
+})
+
+test('直接录一条首次需求 → 停在总监报价中，且没有建项目', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: '录入新需求' }).click()
+
+  const form = page.getByLabel('录入新需求')
+  await form.getByLabel('客户').fill('Northstar Studio')
+  await form.getByLabel('批次编号').fill('NST_E_3D_B40')
+  await form.getByLabel('需求标题').fill('守卫兵种 3 套')
+  await form.getByLabel('需求描述').fill('BD 当面确认：3 套守卫兵种，含中模到 LOD。')
+  await page.getByRole('button', { name: '立案并交给总监报价' }).click()
+
+  const detail = page.getByLabel('报价详情')
+  await expect(detail.getByText('守卫兵种 3 套')).toBeVisible()
+  await expect(page.getByLabel('报价详情').getByText(/总监报价中/).first()).toBeVisible()
+
+  // 立案不建项目
+  await page.goto('/#/projects')
+  await expect(page.getByText('NST_E_3D_B40')).toHaveCount(0)
+})
+
+test('编号不合规范时立案键是灰的，并写清规范', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: '录入新需求' }).click()
+
+  const form = page.getByLabel('录入新需求')
+  await form.getByLabel('客户').fill('Northstar Studio')
+  await form.getByLabel('批次编号').fill('LYS_X')
+  await form.getByLabel('需求标题').fill('随手写的')
+  await form.getByLabel('需求描述').fill('随手写的')
+
+  await expect(page.getByRole('button', { name: '立案（被阻断）' })).toBeDisabled()
+  await expect(form.getByText(/不符合规范/)).toBeVisible()
+})
+
+test('追加报价改问项目与受影响资产，客户从项目上取', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: '录入新需求' }).click()
+
+  const form = page.getByLabel('录入新需求')
+  await form.getByRole('button', { name: /追加报价/ }).click()
+  await expect(form.getByLabel('批次编号')).toHaveCount(0)
+
+  await form.getByLabel('挂到哪个项目').selectOption('NST_A_3D_B24')
+  await form.getByLabel('受影响资产').getByRole('button', { name: /MECH-02/ }).click()
+  await form.getByLabel('需求标题').fill('载具加一套涂装')
+  await form.getByLabel('需求描述').fill('客户想给 MECH-02 加一套涂装。')
+  await page.getByRole('button', { name: '立案并交给总监报价' }).click()
+
+  const detail = page.getByLabel('报价详情')
+  await expect(detail.getByText('载具加一套涂装')).toBeVisible()
+  await expect(detail.getByText('Northstar Studio').first()).toBeVisible()
+})

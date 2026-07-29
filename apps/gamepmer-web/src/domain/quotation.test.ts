@@ -7,6 +7,7 @@ import {
   TERMINAL_QUOTE_STATUSES,
   activeVersion,
   availableActions,
+  createQuoteCase,
   kickoffBlockingIssues,
   quoteTotals,
   reviewBlockingIssues,
@@ -635,5 +636,184 @@ describe('客户确认后才正式建项', () => {
       QuoteBlocked,
     )
     expect(state.projects.some((p) => p.code === 'AUR_B_3D_B34')).toBe(false)
+  })
+})
+
+/**
+ * 直接录入需求。
+ *
+ * 需求不是只能从收件箱进来——BD 当面说一句、电话里谈定的，PM 就该能直接录。
+ * 验收时指出：报价与变更模块里没有任何新建入口，只有案件内部的「录入总监报价」。
+ */
+describe('直接录入报价需求', () => {
+  const BASE = { actor: ACTOR, now: NOW }
+
+  it('录首次需求：建出停在总监报价中的案件，且不带任何报价版本', () => {
+    const state = createDemoState()
+    const before = state.quoteCases.length
+
+    const next = createQuoteCase(state, {
+      ...BASE,
+      kind: 'initial',
+      client: 'Northstar Studio',
+      projectCode: 'NST_E_3D_B40',
+      title: '守卫兵种 3 套',
+      requirement: 'BD 当面确认：3 套守卫兵种，含中模到 LOD。',
+    })
+
+    expect(next.quoteCases).toHaveLength(before + 1)
+    const created = next.quoteCases.at(-1)!
+    expect(created.status).toBe('DirectorQuoting')
+    expect(created.kind).toBe('initial')
+    expect(created.activeVersionId).toBeUndefined()
+    // 录需求 ≠ 建项目：批次编号此刻只是个提议
+    expect(next.projects.some((p) => p.code === 'NST_E_3D_B40')).toBe(false)
+  })
+
+  it('批次编号不合规范时说清规范，不含糊地拒绝', () => {
+    const state = createDemoState()
+    expect(() =>
+      createQuoteCase(state, {
+        ...BASE,
+        kind: 'initial',
+        client: 'Northstar Studio',
+        projectCode: 'LYS_X',
+        title: '随手写的',
+        requirement: '随手写的',
+      }),
+    ).toThrow(/不符合规范/)
+  })
+
+  it('同一个批次编号不能开两张首次报价', () => {
+    const state = createDemoState()
+    expect(() =>
+      createQuoteCase(state, {
+        ...BASE,
+        kind: 'initial',
+        client: 'Northstar Studio',
+        // 种子里已经有一张 Q-030 占着这个编号
+        projectCode: 'HLC_C_2D_B20',
+        title: '重复立案',
+        requirement: '重复立案',
+      }),
+    ).toThrow(QuoteBlocked)
+  })
+
+  it('已经是正式项目的编号不能再走首次报价', () => {
+    const state = createDemoState()
+    expect(() =>
+      createQuoteCase(state, {
+        ...BASE,
+        kind: 'initial',
+        client: 'Northstar Studio',
+        projectCode: 'NST_A_3D_B24',
+        title: '追加需求走错门',
+        requirement: '追加需求走错门',
+      }),
+    ).toThrow(/已经是正式项目/)
+  })
+
+  it('客户与需求描述都不能空——空着的案件总监没法报价', () => {
+    const state = createDemoState()
+    for (const patch of [{ client: '  ' }, { requirement: '  ' }, { title: ' ' }]) {
+      expect(() =>
+        createQuoteCase(state, {
+          ...BASE,
+          kind: 'initial',
+          client: 'Northstar Studio',
+          projectCode: 'NST_E_3D_B40',
+          title: '守卫兵种 3 套',
+          requirement: '3 套守卫兵种',
+          ...patch,
+        }),
+      ).toThrow(QuoteBlocked)
+    }
+  })
+
+  it('录追加报价：必须挂在已存在的项目上，并指明受影响资产', () => {
+    const state = createDemoState()
+
+    expect(() =>
+      createQuoteCase(state, {
+        ...BASE,
+        kind: 'change',
+        projectCode: 'NST_E_3D_B40',
+        title: '挂在不存在的项目上',
+        requirement: '挂在不存在的项目上',
+        affectedAssetIds: ['MECH-01'],
+      }),
+    ).toThrow(/不是正式项目/)
+
+    expect(() =>
+      createQuoteCase(state, {
+        ...BASE,
+        kind: 'change',
+        projectCode: 'NST_A_3D_B24',
+        title: '没说改哪个资产',
+        requirement: '没说改哪个资产',
+        affectedAssetIds: [],
+      }),
+    ).toThrow(QuoteBlocked)
+
+    const next = createQuoteCase(state, {
+      ...BASE,
+      kind: 'change',
+      projectCode: 'NST_A_3D_B24',
+      title: '载具加一套涂装',
+      requirement: '客户想给 MECH-02 加一套涂装。',
+      affectedAssetIds: ['MECH-02'],
+    })
+    const created = next.quoteCases.at(-1)!
+    expect(created.kind).toBe('change')
+    // 客户从项目上取，不用人再填一遍
+    expect(created.client).toBe('Northstar Studio')
+    expect(created.affectedAssetIds).toEqual(['MECH-02'])
+  })
+
+  it('受影响资产必须真的属于那个项目', () => {
+    const state = createDemoState()
+    expect(() =>
+      createQuoteCase(state, {
+        ...BASE,
+        kind: 'change',
+        projectCode: 'NST_A_3D_B24',
+        title: '资产写串了',
+        requirement: '资产写串了',
+        affectedAssetIds: ['RELAY-01'],
+      }),
+    ).toThrow(/不属于/)
+  })
+
+  it('录入写审计，且不动任何正式排期', () => {
+    const state = createDemoState()
+    const fingerprint = scheduleFingerprint(state)
+    const next = createQuoteCase(state, {
+      ...BASE,
+      kind: 'initial',
+      client: 'Northstar Studio',
+      projectCode: 'NST_E_3D_B40',
+      title: '守卫兵种 3 套',
+      requirement: '3 套守卫兵种',
+    })
+
+    expect(scheduleFingerprint(next)).toBe(fingerprint)
+    const audit = next.auditEvents.at(-1)!
+    expect(audit.targetKind).toBe('QuoteCase')
+    expect(audit.action).toContain('录入')
+  })
+
+  /** 新案件停在「总监报价中」，availableActions 必须给得出下一步 */
+  it('新建的案件不是死胡同', () => {
+    const state = createDemoState()
+    const next = createQuoteCase(state, {
+      ...BASE,
+      kind: 'initial',
+      client: 'Northstar Studio',
+      projectCode: 'NST_E_3D_B40',
+      title: '守卫兵种 3 套',
+      requirement: '3 套守卫兵种',
+    })
+    const created = next.quoteCases.at(-1)!
+    expect(availableActions(next, created.id)).toContain('quote')
   })
 })

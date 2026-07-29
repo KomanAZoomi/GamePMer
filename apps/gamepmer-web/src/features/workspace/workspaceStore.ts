@@ -32,6 +32,8 @@ import {
   reopenGate as reopenCloseoutGate,
 } from '../../domain/closeout'
 import {
+  createQuoteCase as createNewQuoteCase,
+  type CreateQuoteCaseInput,
   recordClientReply as recordQuoteClientReply,
   reviewQuote as reviewQuoteCase,
   sendKickoff as sendQuoteKickoff,
@@ -129,6 +131,7 @@ export interface WorkspaceStore {
   setQuoteTab(tab: QuoteTab): void
   submitQuote(caseId: string, lines: QuoteLine[], scheduleImpactWorkdays: number): void
   reviewQuote(caseId: string, decision: 'approve' | 'reject', note: string): void
+  createQuoteCase(input: Omit<CreateQuoteCaseInput, 'actor' | 'now'>): void
   sendToClient(caseId: string, via: string): void
   recordClientReply(caseId: string, decision: 'accept' | 'decline', via: string, note: string): void
   sendKickoff(caseId: string, via: string): void
@@ -393,6 +396,14 @@ export function createWorkspaceStore(
       })
       repository.save(demo)
       state = { ...state, demo, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    createQuoteCase(input) {
+      const demo = createNewQuoteCase(state.demo, { ...input, actor: 'Brandon', now: clock.now() })
+      const created = demo.quoteCases.at(-1)!
+      repository.save(demo)
+      // 立完案直接选中它，免得人还要去列表里翻自己刚录的那条
+      state = { ...state, demo, selectedQuoteCaseId: created.id, quoteTab: 'active' }
       emit()
     },
     sendToClient(caseId, via) {

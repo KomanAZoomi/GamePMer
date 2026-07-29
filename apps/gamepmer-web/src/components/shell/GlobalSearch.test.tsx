@@ -155,10 +155,16 @@ describe('键盘可达', () => {
 })
 
 describe('顶栏其余控件', () => {
-  /** 原来这里写着「计划在切片 3 一并交付」，但切片 3 早就交付了 */
-  it('「手工录入」真的能去候选收件箱，不再是个禁用按钮', async () => {
+  /**
+   * 这个位置只放一个动作，它必须指向业务的真实起点。
+   *
+   * 一开始是禁用的「新建任务」，改成了跳收件箱的「手工录入」——验收时指出
+   * 「手工录入」看不出在录什么，而收件箱是「外部消息进来」的入口，
+   * 不是「新活来了」的入口。整条链路是从需求开始的。
+   */
+  it('「新增需求」去报价与变更立案，而不是去收件箱', async () => {
     const { user } = renderApp()
-    await user.click(screen.getByRole('button', { name: '手工录入' }))
-    expect(window.location.hash).toBe('#/inbox')
+    await user.click(screen.getByRole('button', { name: '新增需求' }))
+    expect(window.location.hash).toBe('#/quotation')
   })
 })

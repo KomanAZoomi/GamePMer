@@ -82,8 +82,8 @@ test('键盘全程可用：↓ 选、Enter 开、Esc 关', async ({ page }) => {
   await expect(page).toHaveURL(/#\/(projects|schedule)/)
 })
 
-test('顶栏「手工录入」去候选收件箱——不再是禁用的死按钮', async ({ page }) => {
-  await page.goto('/')
-  await page.getByRole('button', { name: '手工录入' }).click()
-  await expect(page).toHaveURL(/#\/inbox/)
+test('顶栏「新增需求」去报价与变更立案', async ({ page }) => {
+  await page.goto('/#/tasks')
+  await page.getByRole('button', { name: '新增需求' }).click()
+  await expect(page).toHaveURL(/#\/quotation/)
 })
