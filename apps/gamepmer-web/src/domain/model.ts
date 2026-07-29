@@ -348,7 +348,14 @@ export interface ChangeRequest {
   assetId: string
   sourceFeedbackItemId: string
   title: string
-  status: 'ClassifiedExtra' | 'Quoting' | 'AwaitingReview' | 'Approved' | 'ChangeKickoffSent'
+  status:
+    | 'ClassifiedExtra'
+    | 'Quoting'
+    | 'AwaitingReview'
+    | 'Approved'
+    | 'ChangeKickoffSent'
+    /** 客户不接受这笔追加，PM 决定不做了 */
+    | 'Abandoned'
   /** 走到报价环节后指向对应的报价案件 */
   quoteCaseId?: string
 }
@@ -377,8 +384,13 @@ export type QuoteKind = 'initial' | 'change'
  * ```
  * Received → Assigned → DirectorQuoting → AwaitingReview → Approved
  *          → SentToClient → ClientAccepted → KickoffSent
- *                        ↘ Rejected（客户不接受）
+ *                        ↘ Rejected（客户不接受）→ DirectorQuoting（重新报价）
+ *                                              ↘ Abandoned（放弃变更 → 解冻）
  * ```
+ *
+ * **`Rejected` 不是终点。** 客户嫌贵不等于这件事结束了：要么降价重报，要么放弃。
+ * 曾经把它当终态，结果追加报价被客户否掉之后，受影响阶段永远冻着没人能解开——
+ * 清除冻结标记的地方只有「发出变更开工邮件」一处。
  *
  * 三条容易被合并、但合并了就再也拆不回来的分界：
  *
@@ -398,7 +410,10 @@ export type QuoteCaseStatus =
   | 'SentToClient'
   | 'ClientAccepted'
   | 'KickoffSent'
+  /** 客户未接受，**待 PM 决定**重新报价还是放弃——不是终态 */
   | 'Rejected'
+  /** 放弃这个变更。受影响阶段在这一刻解冻，恢复原计划 */
+  | 'Abandoned'
 
 export interface QuoteLine {
   id: string

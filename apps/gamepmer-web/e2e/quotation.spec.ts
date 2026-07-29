@@ -246,7 +246,7 @@ test('直接录一条首次需求 → 停在总监报价中，且没有建项目
 
   const detail = page.getByLabel('报价详情')
   await expect(detail.getByText('守卫兵种 3 套')).toBeVisible()
-  await expect(page.getByLabel('报价详情').getByText(/总监报价中/).first()).toBeVisible()
+  await expect(page.getByLabel('报价详情').getByText('总监报价中').first()).toBeVisible()
 
   // 立案不建项目
   await page.goto('/#/projects')
@@ -378,4 +378,56 @@ test('走完追加报价，冻结跟着消失', async ({ page }) => {
 
   // 解冻发生在发出开工邮件那一刻
   await expect(page.getByLabel('冻结与解冻')).toHaveCount(0)
+})
+
+/**
+ * 客户否掉追加报价之后。
+ *
+ * 验收场景：MECH-01 烘焙的追加报价报给客户，客户嫌贵不接受。
+ * 原来 Rejected 是终态、没有任何动作，而解冻只发生在「发出变更开工邮件」——
+ * 于是那个阶段永远冻着，解冻面板还指着一张已终止的单子。
+ */
+async function declineCq004(page: import('@playwright/test').Page) {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: /全部进行中/ }).click()
+  await page.getByLabel('报价案件').getByText(/CQ-004/).click()
+  await page.getByRole('button', { name: /以组长兼BD身份复核通过/ }).click()
+  await page.getByRole('button', { name: 'BD 已把报价报给客户' }).click()
+  await page.getByLabel(/客户怎么说的/).fill('价格高了')
+  await page.getByRole('button', { name: '客户未接受 · 终止案件' }).click()
+}
+
+test('客户不接受之后不是死胡同，两条路都摆出来', async ({ page }) => {
+  await declineCq004(page)
+
+  const detail = page.getByLabel('报价详情')
+  await expect(detail.getByRole('heading', { name: '客户未接受' })).toBeVisible()
+  await expect(detail.getByText(/还冻着/)).toBeVisible()
+  await expect(detail.getByRole('button', { name: /降价重报/ })).toBeEnabled()
+  // 放弃要写原因
+  await expect(detail.getByRole('button', { name: /放弃变更/ })).toBeDisabled()
+})
+
+test('降价重报回到总监手里，阶段继续冻着', async ({ page }) => {
+  await declineCq004(page)
+  await page.getByLabel('报价详情').getByRole('button', { name: /降价重报/ }).click()
+
+  await expect(page.getByLabel('报价详情').getByText('总监报价中').first()).toBeVisible()
+  // 还在谈，不该现在动工
+  await expect(page.getByLabel('冻结与解冻')).toBeVisible()
+})
+
+test('放弃变更 → 阶段当场解冻，解冻面板整块消失', async ({ page }) => {
+  await declineCq004(page)
+  await expect(page.getByLabel('冻结与解冻')).toBeVisible()
+
+  await page.getByLabel('报价详情').getByLabel(/决定与原因/).fill('客户预算只有一半，这一版不做背部模块')
+  await page.getByLabel('报价详情').getByRole('button', { name: /放弃变更/ }).click()
+
+  await expect(page.getByLabel('报价详情').getByText('已放弃这个变更')).toBeVisible()
+  await expect(page.getByLabel('冻结与解冻')).toHaveCount(0)
+
+  // 甘特上那个阶段不再是「等待变更报价」
+  await page.goto('/#/projects')
+  await expect(page.getByLabel('项目排期甘特').getByText('等待变更报价')).toHaveCount(0)
 })

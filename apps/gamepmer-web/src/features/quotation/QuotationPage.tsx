@@ -41,6 +41,18 @@ const money = (value: number) => `¥ ${value.toLocaleString('zh-CN')}`
 export function QuotationPage({ workspace, store, onNavigate }: QuotationPageProps) {
   const { demo, today, quoteTab, selectedQuoteCaseId } = workspace
   const [note, setNote] = useState('')
+
+  /**
+   * 理由输入框是这一页共用的。**每个动作用完必须清掉**——
+   * 不清的话上一步的措辞会被下一步原样带走并写进审计：
+   * 「价格高了」（客户答复）会变成「放弃变更」的原因。
+   */
+  function withNoteReset<T extends unknown[]>(fn: (...args: T) => void) {
+    return (...args: T) => {
+      fn(...args)
+      setNote('')
+    }
+  }
   const [via, setVia] = useState('Outlook')
   const [entryOpen, setEntryOpen] = useState(false)
   // 从顶栏「新增需求」跳过来时直接把录入面板打开——跳过来还要再找一次按钮就没意义了
@@ -536,7 +548,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                   type="button"
                   className="gp-btn"
                   onClick={() => {
-                    store.reviewQuote(selected.id, 'reject', note || '退回总监重新评估')
+                    withNoteReset(() => store.reviewQuote(selected.id, 'reject', note || '退回总监重新评估'))()
                     setNote('')
                   }}
                 >
@@ -548,7 +560,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                   disabled={!canReview}
                   title={canReview ? undefined : reviewIssues.join('；')}
                   onClick={() => {
-                    store.reviewQuote(selected.id, 'approve', note || '同意本次报价')
+                    withNoteReset(() => store.reviewQuote(selected.id, 'approve', note || '同意本次报价'))()
                     setNote('')
                   }}
                 >
@@ -635,7 +647,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                 <button
                   type="button"
                   className="gp-btn gp-btn-primary"
-                  onClick={() => store.recordClientReply(selected.id, 'accept', via, note)}
+                  onClick={withNoteReset(() => store.recordClientReply(selected.id, 'accept', via, note))}
                 >
                   客户已确认接受
                 </button>
@@ -644,7 +656,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                   className="gp-btn"
                   disabled={!note.trim()}
                   title={note.trim() ? undefined : '客户不接受时必须写清原因'}
-                  onClick={() => store.recordClientReply(selected.id, 'decline', via, note)}
+                  onClick={withNoteReset(() => store.recordClientReply(selected.id, 'decline', via, note))}
                 >
                   客户未接受 · 终止案件
                 </button>
@@ -710,6 +722,63 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                 或企微完成，回来点这个按钮。点下之后受影响资产解冻、排期按报价单更新。
               </p>
             </>
+          )}
+
+          {/*
+            客户嫌贵不等于这件事结束了。原来 Rejected 是终态、没有任何动作，
+            而解冻只发生在「发出变更开工邮件」——于是受影响阶段永远冻着。
+          */}
+          {selected.status === 'Rejected' && (
+            <>
+              <div className="gp-block-box">
+                <h3>客户未接受</h3>
+                <p>
+                  {selected.clientRepliedAt?.slice(5, 16).replace('T', ' ')} 收到答复
+                  {selected.clientReplyNote && <>：{selected.clientReplyNote}</>}
+                  <br />
+                  受影响阶段<strong>还冻着</strong>。降价重报就继续谈；确定不做了就放弃，
+                  放弃的那一刻阶段解冻、恢复原计划。
+                </p>
+              </div>
+              <label className="gp-note-field">
+                <span>决定与原因（放弃时必填）</span>
+                <textarea
+                  className="gp-input"
+                  rows={2}
+                  placeholder="例如：客户预算只有一半，这一版不做背部模块"
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                />
+              </label>
+              <div className="gp-detail-actions gp-quote-actions">
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-primary"
+                  onClick={withNoteReset(() => store.requoteCase(selected.id, note))}
+                >
+                  降价重报 · 退回总监
+                </button>
+                <button
+                  type="button"
+                  className="gp-btn"
+                  disabled={!note.trim()}
+                  title={note.trim() ? undefined : '放弃变更要写明原因'}
+                  onClick={withNoteReset(() => store.abandonCase(selected.id, note))}
+                >
+                  放弃变更 · 解冻阶段
+                </button>
+              </div>
+            </>
+          )}
+
+          {selected.status === 'Abandoned' && (
+            <div className="gp-block-box is-ok">
+              <h3>已放弃这个变更</h3>
+              <p>
+                受影响阶段已解冻，排期恢复原计划——客户不做这个变更，原计划本来就还在。
+                对应的变更单与反馈项已一并收尾。
+              </p>
+            </div>
           )}
 
           {selected.status === 'KickoffSent' && (

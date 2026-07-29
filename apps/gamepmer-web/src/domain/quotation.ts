@@ -174,7 +174,14 @@ export function kickoffBlockingIssues(state: DemoState, caseId: string): string[
  * 结果 Q-030 卡死、「退回总监修改」也成了死胡同。有了这个投影，
  * 任何一个非终态却没有可用动作的状态都会被测试当场抓住。
  */
-export type QuoteAction = 'quote' | 'review' | 'send-to-client' | 'client-reply' | 'kickoff'
+export type QuoteAction =
+  | 'quote'
+  | 'review'
+  | 'send-to-client'
+  | 'client-reply'
+  | 'kickoff'
+  | 'requote'
+  | 'abandon'
 
 export function availableActions(state: DemoState, caseId: string): QuoteAction[] {
   const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
@@ -183,16 +190,21 @@ export function availableActions(state: DemoState, caseId: string): QuoteAction[
   const actions: QuoteAction[] = []
   // 只要还没开工、也没被终止，总监就能提交（新）报价。
   // 客户已经看过的报价改了就得重新走复核和送客户，这由 submitQuoteVersion 退回状态保证
-  if (quoteCase.status !== 'KickoffSent' && quoteCase.status !== 'Rejected') actions.push('quote')
+  if (!TERMINAL_QUOTE_STATUSES.includes(quoteCase.status) && quoteCase.status !== 'Rejected') {
+    actions.push('quote')
+  }
   if (quoteCase.status === 'AwaitingReview') actions.push('review')
   if (quoteCase.status === 'Approved') actions.push('send-to-client')
   if (quoteCase.status === 'SentToClient') actions.push('client-reply')
   if (quoteCase.status === 'ClientAccepted') actions.push('kickoff')
+  // 客户嫌贵不等于这件事结束了：要么降价重报，要么放弃
+  if (quoteCase.status === 'Rejected') actions.push('requote', 'abandon')
   return actions
 }
 
 /** 终态：没有后续动作是对的，不算断点。 */
-export const TERMINAL_QUOTE_STATUSES: QuoteCase['status'][] = ['KickoffSent', 'Rejected']
+/** 真正走到头的两个。`Rejected` 不在其中——它还等着 PM 决定重报还是放弃 */
+export const TERMINAL_QUOTE_STATUSES: QuoteCase['status'][] = ['KickoffSent', 'Abandoned']
 
 // ---------------------------------------------------------------- 待办投影
 
@@ -455,8 +467,14 @@ const WAITING_BY_STATUS: Record<QuoteCase['status'], WaitingOn | undefined> = {
   Approved: { actor: 'me', label: '等报客户', next: 'BD 把报价报给客户', mine: true },
   SentToClient: { actor: 'client', label: '等客户', next: '等客户回话，可催一次', mine: false },
   ClientAccepted: { actor: 'me', label: '等我', next: '发出开工通知（首次报价会同时建项）', mine: true },
+  Rejected: {
+    actor: 'me',
+    label: '等我',
+    next: '客户嫌贵：降价重报，或者放弃这个变更（放弃即解冻受影响阶段）',
+    mine: true,
+  },
   KickoffSent: undefined,
-  Rejected: undefined,
+  Abandoned: undefined,
 }
 
 /**
@@ -900,6 +918,115 @@ function createProjectFromQuote(
   }
 }
 
+// ---------------------------------------------------------------- 客户否掉之后
+
+/**
+ * 降价重报。
+ *
+ * 案件回到「总监报价中」，受影响阶段**继续冻着**——还在谈，不该现在动工。
+ * 原报价版本不删不改，新版本另起一版。
+ */
+export function requoteCase(state: DemoState, caseId: string, input: ClientStepInput): DemoState {
+  const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
+  if (!quoteCase) throw new QuoteBlocked([`找不到报价案件 ${caseId}`])
+  if (quoteCase.status !== 'Rejected') {
+    throw new QuoteBlocked([`${QUOTE_STATUS_LABEL[quoteCase.status]}：只有客户未接受的案件需要重报`])
+  }
+
+  const audit: AuditEvent = {
+    id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
+    at: input.now,
+    actor: input.actor,
+    action: '客户否掉后重新报价',
+    targetKind: 'QuoteCase',
+    targetId: caseId,
+    before: 'Rejected',
+    after: 'DirectorQuoting',
+    reason: input.note?.trim() || `客户未接受${quoteCase.clientReplyNote ? `：${quoteCase.clientReplyNote}` : ''}，退回总监重报`,
+  }
+
+  return {
+    ...state,
+    quoteCases: state.quoteCases.map((entry) =>
+      entry.id !== caseId
+        ? entry
+        : { ...entry, status: 'DirectorQuoting' as const, clientRepliedAt: undefined },
+    ),
+    auditEvents: [...state.auditEvents, audit],
+  }
+}
+
+/**
+ * 放弃这个变更。
+ *
+ * **受影响阶段在这一刻解冻。** 这条路径以前不存在：`Rejected` 是终态、没有任何动作，
+ * 而清除冻结标记的地方只有「发出变更开工邮件」一处——于是客户一否掉，
+ * 那些阶段就永远冻在那里，解冻面板还指着一张已经终止的单子。
+ *
+ * 排期不动：客户不做这个变更，原计划本来就还在。
+ */
+export function abandonCase(state: DemoState, caseId: string, input: ClientStepInput): DemoState {
+  const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
+  if (!quoteCase) throw new QuoteBlocked([`找不到报价案件 ${caseId}`])
+  if (quoteCase.status !== 'Rejected') {
+    throw new QuoteBlocked([
+      `${QUOTE_STATUS_LABEL[quoteCase.status]}：只有客户未接受的案件才谈得上放弃`,
+    ])
+  }
+  if (!input.note?.trim()) {
+    throw new QuoteBlocked(['放弃变更要写明原因——这条会进审计，也是下次报价的依据'])
+  }
+
+  const audit: AuditEvent = {
+    id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
+    at: input.now,
+    actor: input.actor,
+    action: '放弃变更并解冻受影响阶段',
+    targetKind: 'QuoteCase',
+    targetId: caseId,
+    before: 'Rejected',
+    after: 'Abandoned',
+    reason: input.note.trim(),
+  }
+
+  return {
+    ...state,
+    quoteCases: state.quoteCases.map((entry) =>
+      entry.id !== caseId ? entry : { ...entry, status: 'Abandoned' as const },
+    ),
+    // 解冻：只摘标记，日期一个都不动——客户不做这个变更，原计划本来就还在
+    projects: state.projects.map((project) =>
+      project.code !== quoteCase.projectCode
+        ? project
+        : {
+            ...project,
+            assets: project.assets.map((asset) => ({
+              ...asset,
+              stages: asset.stages.map((stage) =>
+                stage.flags.includes('WaitingChangeQuote') &&
+                quoteCase.affectedAssetIds.includes(asset.id)
+                  ? { ...stage, flags: stage.flags.filter((flag) => flag !== 'WaitingChangeQuote') }
+                  : stage,
+              ),
+            })),
+          },
+    ),
+    changeRequests: state.changeRequests.map((entry) =>
+      entry.id !== quoteCase.changeRequestId && entry.quoteCaseId !== caseId
+        ? entry
+        : { ...entry, status: 'Abandoned' as const },
+    ),
+    // 对应的反馈项一并关闭：客户自己放弃了，它不再是待办
+    feedbackBatches: state.feedbackBatches.map((batch) => ({
+      ...batch,
+      items: batch.items.map((item) =>
+        item.id === quoteCase.sourceFeedbackItemId ? { ...item, status: 'Closed' as const } : item,
+      ),
+    })),
+    auditEvents: [...state.auditEvents, audit],
+  }
+}
+
 export interface KickoffInput {
   actor: string
   now: string
@@ -1089,7 +1216,8 @@ export const QUOTE_STATUS_LABEL: Record<QuoteCase['status'], string> = {
   SentToClient: '已报客户 · 等客户确认',
   ClientAccepted: '客户已确认 · 待开工建项',
   KickoffSent: '已开工',
-  Rejected: '客户未接受 · 已终止',
+  Rejected: '客户未接受 · 待决定',
+  Abandoned: '已放弃变更',
 }
 
 export const QUOTE_KIND_LABEL: Record<QuoteCase['kind'], string> = {

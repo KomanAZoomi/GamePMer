@@ -7,6 +7,7 @@ import {
   TERMINAL_QUOTE_STATUSES,
   activeVersion,
   availableActions,
+  abandonCase,
   createQuoteCase,
   frozenSummary,
   pendingChangeRequests,
@@ -16,6 +17,7 @@ import {
   quoteTotals,
   reviewBlockingIssues,
   recordClientReply,
+  requoteCase,
   reviewQuote,
   reviewTodos,
   sendKickoff,
@@ -955,5 +957,149 @@ describe('每条待办都说清等谁', () => {
       expect(row.caseId || row.changeRequestId).toBeTruthy()
       expect(row.next).toBeTruthy()
     }
+  })
+})
+
+/**
+ * 客户否掉追加报价之后。
+ *
+ * 验收场景：MECH-01 烘焙的追加报价报给客户，客户嫌贵不接受。
+ * 原实现把 `Rejected` 当终态且没有任何动作，而清除冻结标记的地方只有
+ * 「发出变更开工邮件」一处——于是那个阶段**永远冻着**，
+ * 解冻面板还指着一张已经终止的单子。
+ */
+describe('客户不接受之后还有路可走', () => {
+  const CASE = 'CQ-004'
+
+  function declined(state: DemoState): DemoState {
+    const accepted = reviewQuote(state, CASE, {
+      decision: 'approve',
+      actor: 'Leo',
+      now: NOW,
+      note: '同意',
+    })
+    const sent = sendToClient(accepted, CASE, { actor: 'Leo（BD）', now: NOW, via: 'Outlook' })
+    return recordClientReply(sent, CASE, 'decline', {
+      actor: 'Leo（BD）',
+      now: NOW,
+      via: 'Outlook',
+      note: '价格高了',
+    })
+  }
+
+  it('客户未接受不是终点，仍然给得出下一步', () => {
+    const state = declined(createDemoState())
+    expect(TERMINAL_QUOTE_STATUSES).not.toContain('Rejected')
+    expect(availableActions(state, CASE)).toEqual(['requote', 'abandon'])
+    expect(quoteWaitingOn(state, CASE)?.mine).toBe(true)
+  })
+
+  it('降价重报：回到总监报价中，阶段继续冻着——还在谈，不该动工', () => {
+    const state = declined(createDemoState())
+    const next = requoteCase(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook' })
+
+    expect(findCase(next, CASE).status).toBe('DirectorQuoting')
+    expect(frozenSummary(next).stages).toBe(frozenSummary(state).stages)
+    // 原报价版本不删不改
+    expect(next.quoteVersions).toEqual(state.quoteVersions)
+  })
+
+  it('放弃变更：受影响阶段在这一刻解冻', () => {
+    const state = declined(createDemoState())
+    expect(frozenSummary(state).stages).toBeGreaterThan(0)
+
+    const next = abandonCase(state, CASE, {
+      actor: ACTOR,
+      now: NOW,
+      via: 'Outlook',
+      note: '客户决定这一版不做背部模块',
+    })
+
+    expect(findCase(next, CASE).status).toBe('Abandoned')
+    expect(frozenSummary(next).stages).toBe(0)
+  })
+
+  /** 客户不做这个变更，原计划本来就还在——排期一个字节都不该动 */
+  it('放弃只摘冻结标记，不动任何日期', () => {
+    const state = declined(createDemoState())
+    const before = scheduleFingerprint(state)
+
+    const next = abandonCase(state, CASE, {
+      actor: ACTOR,
+      now: NOW,
+      via: 'Outlook',
+      note: '不做了',
+    })
+    expect(scheduleFingerprint(next)).toBe(before)
+  })
+
+  it('放弃要写原因，不写直接阻断且不留副作用', () => {
+    const state = declined(createDemoState())
+    expect(() => abandonCase(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook' })).toThrow(
+      QuoteBlocked,
+    )
+    expect(frozenSummary(state).stages).toBeGreaterThan(0)
+  })
+
+  it('放弃会把对应的变更单与反馈项一并收尾', () => {
+    const state = declined(createDemoState())
+    const next = abandonCase(state, CASE, {
+      actor: ACTOR,
+      now: NOW,
+      via: 'Outlook',
+      note: '客户不做了',
+    })
+
+    const source = findCase(next, CASE).sourceFeedbackItemId
+    const item = next.feedbackBatches.flatMap((batch) => batch.items).find((row) => row.id === source)
+    expect(item?.status).toBe('Closed')
+  })
+
+  it('没被客户否掉的案件不能重报也不能放弃', () => {
+    const state = createDemoState()
+    for (const fn of [requoteCase, abandonCase]) {
+      expect(() => fn(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook', note: 'x' })).toThrow(
+        QuoteBlocked,
+      )
+    }
+  })
+
+  /** 这条是「不留死胡同」的总闸：任何非终态都必须给得出动作 */
+  it('走一遍全部状态，没有一个非终态是死胡同', () => {
+    let state = createDemoState()
+    const seen = new Set<string>()
+
+    const record = () => {
+      const quoteCase = findCase(state, CASE)
+      seen.add(quoteCase.status)
+      if (TERMINAL_QUOTE_STATUSES.includes(quoteCase.status)) return
+      expect(
+        availableActions(state, CASE).length,
+        `${quoteCase.status} 没有任何可用动作`,
+      ).toBeGreaterThan(0)
+    }
+
+    record()
+    state = declined(state)
+    record()
+
+    // 重报之后总监必须提交**新版本**：已复核的那一版不会被静默覆盖
+    state = requoteCase(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook' })
+    record()
+    state = submitQuoteVersion(state, CASE, {
+      lines: NEW_LINES,
+      scheduleImpactWorkdays: 2,
+      submittedBy: 'Evan',
+      actor: 'Evan',
+      now: NOW,
+    })
+    record()
+
+    state = declined(state)
+    state = abandonCase(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook', note: '不做了' })
+    record()
+
+    expect(seen.has('Rejected')).toBe(true)
+    expect(seen.has('Abandoned')).toBe(true)
   })
 })

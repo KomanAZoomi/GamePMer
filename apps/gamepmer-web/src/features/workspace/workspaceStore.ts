@@ -33,7 +33,9 @@ import {
   reopenGate as reopenCloseoutGate,
 } from '../../domain/closeout'
 import {
+  abandonCase as abandonQuoteCase,
   createQuoteCase as createNewQuoteCase,
+  requoteCase as requoteQuoteCase,
   type CreateQuoteCaseInput,
   recordClientReply as recordQuoteClientReply,
   reviewQuote as reviewQuoteCase,
@@ -140,6 +142,8 @@ export interface WorkspaceStore {
   createQuoteCase(input: Omit<CreateQuoteCaseInput, 'actor' | 'now'>): void
   sendToClient(caseId: string, via: string): void
   recordClientReply(caseId: string, decision: 'accept' | 'decline', via: string, note: string): void
+  requoteCase(caseId: string, note: string): void
+  abandonCase(caseId: string, note: string): void
   sendKickoff(caseId: string, via: string): void
   selectCloseoutCase(caseId: string): void
   setCloseoutTab(tab: CloseoutTab): void
@@ -430,6 +434,28 @@ export function createWorkspaceStore(
         actor: 'Leo（BD）',
         now: clock.now(),
         via,
+        note,
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    requoteCase(caseId, note) {
+      const demo = requoteQuoteCase(state.demo, caseId, {
+        actor: 'Brandon',
+        now: clock.now(),
+        via: '内部决定',
+        note,
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    abandonCase(caseId, note) {
+      const demo = abandonQuoteCase(state.demo, caseId, {
+        actor: 'Brandon',
+        now: clock.now(),
+        via: '内部决定',
         note,
       })
       repository.save(demo)
