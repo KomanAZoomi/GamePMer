@@ -54,14 +54,60 @@ test('OCR 低置信度即使有值也阻断，并说出具体数字', async ({ p
   await expect(page.getByLabel('候选详情').getByText(/置信度仅 42%/)).toBeVisible()
 })
 
-test('尚未交付的模块诚实阻断，不给一个点了没反应的确认键', async ({ page }) => {
+/**
+ * 原来这条断言的是「报价需求要到切片 5 才有记录可写」。切片 5 早已交付，
+ * 那条阻断从「诚实」变成了「过期的谎」——验收时被指出来。
+ * 现在挡住它的是真门禁：必填字段置信度不够，得 PM 亲自过目。
+ */
+test('低置信度照旧阻断，理由不再引用切片进度', async ({ page }) => {
   await page.goto('/#/inbox')
   await page.getByRole('button', { name: /需补全/ }).click()
   await page.getByLabel('候选记录').getByText('新角色 6 套时装需求').click()
 
   const detail = page.getByLabel('候选详情')
-  await expect(detail.getByText(/切片 5 交付/)).toBeVisible()
+  await expect(detail.getByText(/置信度仅 50%/)).toBeVisible()
+  await expect(detail.getByText(/切片/)).toHaveCount(0)
   await expect(detail.getByRole('button', { name: /确认（被阻断）/ })).toBeDisabled()
+})
+
+test('报价需求核验后确认成案件，并能接着去派给总监', async ({ page }) => {
+  await page.goto('/#/inbox')
+  await page.getByRole('button', { name: /需补全/ }).click()
+  await page.getByLabel('候选记录').getByText('新角色 6 套时装需求').click()
+
+  for (const [label, value] of [
+    ['关联资产', 'MECH-01'],
+    ['制作阶段', '3D_HIGH'],
+  ]) {
+    const field = page.getByLabel('AI 识别结果').locator('.gp-field', { hasText: label })
+    await field.getByRole('button').first().click()
+    await page.getByLabel(label, { exact: true }).selectOption(value)
+    await page.getByRole('button', { name: '保存' }).click()
+  }
+
+  const detail = page.getByLabel('候选详情')
+  await detail.getByRole('button', { name: /确认并创建报价案件/ }).click()
+  // 界面上给 PM 看的是中文名，不是内部类型名
+  await expect(detail.getByText(/报价案件 · Q-/)).toBeVisible()
+  await expect(detail.getByText(/QuoteCase/)).toHaveCount(0)
+
+  await page.getByRole('button', { name: '去报价与变更派给总监' }).click()
+  await expect(page).toHaveURL(/#\/quotation/)
+  // 建案件不等于报了价：它停在总监报价中，等着录入
+  await expect(page.getByText('新角色 6 套时装需求').first()).toBeVisible()
+})
+
+test('IT 回执确认后结项门禁解锁通知 BD 出账', async ({ page }) => {
+  await page.goto('/#/inbox')
+  await page.getByLabel('候选记录').getByText(/已完成剪切备份/).click()
+  await page
+    .getByLabel('候选详情')
+    .getByRole('button', { name: /确认并登记 IT 备份回执/ })
+    .click()
+
+  await page.getByRole('button', { name: '去结项中心通知 BD 出账' }).click()
+  await expect(page).toHaveURL(/#\/closeout/)
+  await expect(page.getByText('AUR_A_3D_B11').first()).toBeVisible()
 })
 
 test('PM 补全字段后解除阻断，字段标记为人工填写', async ({ page }) => {

@@ -309,7 +309,7 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                 <strong>{changeRequest.id}</strong> · {changeRequest.title}
               </p>
               <p className="gp-assistant-note">
-                受影响资产冻结在「等待变更报价」，其余资产继续制作。追加报价、复核与变更开工在报价与变更模块（本轮之后的切片 5）。
+                受影响资产冻结在「等待变更报价」，其余资产继续制作。追加报价、复核与变更开工去<strong>报价与变更</strong>办。
               </p>
             </div>
           )}

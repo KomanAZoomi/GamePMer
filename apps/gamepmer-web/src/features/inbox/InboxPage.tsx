@@ -10,9 +10,38 @@ import {
   inboxMetrics,
   overallConfidence,
 } from '../../domain/inbox'
-import type { CandidateField, InboxCandidate, StageCode } from '../../domain/model'
+import type { CandidateField, CandidateKind, InboxCandidate, StageCode } from '../../domain/model'
 import type { InboxTab, WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { ImportPanel } from './ImportPanel'
+
+/**
+ * 正式记录的中文名。
+ * 界面上不该出现 `QuoteCase`、`FeedbackBatch` 这种内部类型名——
+ * 那是给写代码的人看的，不是给 PM 看的。
+ */
+const RECORD_LABEL: Record<string, string> = {
+  FeedbackBatch: '反馈批次',
+  StagePlan: '阶段',
+  QuoteCase: '报价案件',
+  CloseoutCase: '结项案件',
+}
+
+const recordLabel = (kind?: string) => (kind ? (RECORD_LABEL[kind] ?? kind) : '')
+
+/** 按候选类型穷举。新增一种类型时，这里不补全就编译不过。 */
+const CONFIRM_LABEL: Record<CandidateKind, string> = {
+  'client-feedback': '确认并创建反馈批次',
+  'stage-done': '确认并推进阶段',
+  'quote-request': '确认并创建报价案件',
+  'it-receipt': '确认并登记 IT 备份回执',
+}
+
+const FOLLOW_UP: Record<CandidateKind, { route: RouteKey; label: string }> = {
+  'client-feedback': { route: 'feedback', label: '去反馈中心分流' },
+  'stage-done': { route: 'projects', label: '在甘特上查看' },
+  'quote-request': { route: 'quotation', label: '去报价与变更派给总监' },
+  'it-receipt': { route: 'closeout', label: '去结项中心通知 BD 出账' },
+}
 
 interface InboxPageProps {
   workspace: WorkspaceState
@@ -318,7 +347,7 @@ export function InboxPage({ workspace, store, onNavigate }: InboxPageProps) {
                 <strong>04 正式入库</strong>
                 <span>
                   {selected.status === 'Confirmed'
-                    ? `已生成 ${selected.confirmedRecordKind} ${selected.confirmedRecordId}`
+                    ? `已生成${recordLabel(selected.confirmedRecordKind)} ${selected.confirmedRecordId}`
                     : '尚未创建任何正式记录'}
                 </span>
               </li>
@@ -387,7 +416,8 @@ export function InboxPage({ workspace, store, onNavigate }: InboxPageProps) {
             <div className="gp-block-box is-ok">
               <h3>已生成正式记录</h3>
               <p>
-                {selected.confirmedRecordKind} · <strong>{selected.confirmedRecordId}</strong>
+                {recordLabel(selected.confirmedRecordKind)} ·{' '}
+                <strong>{selected.confirmedRecordId}</strong>
                 <br />
                 {selected.confirmedAt?.slice(0, 16).replace('T', ' ')} 由 {selected.confirmedBy} 确认
               </p>
@@ -422,22 +452,16 @@ export function InboxPage({ workspace, store, onNavigate }: InboxPageProps) {
                   title={ready ? undefined : issues.join('；')}
                   onClick={() => store.confirmCandidate(selected.id)}
                 >
-                  {ready
-                    ? selected.kind === 'client-feedback'
-                      ? '确认并创建反馈批次'
-                      : '确认并推进阶段'
-                    : '确认（被阻断）'}
+                  {ready ? CONFIRM_LABEL[selected.kind] : '确认（被阻断）'}
                 </button>
               </>
             ) : selected.status === 'Confirmed' ? (
               <button
                 type="button"
                 className="gp-btn gp-btn-primary"
-                onClick={() =>
-                  onNavigate(selected.confirmedRecordKind === 'FeedbackBatch' ? 'feedback' : 'projects')
-                }
+                onClick={() => onNavigate(FOLLOW_UP[selected.kind].route)}
               >
-                {selected.confirmedRecordKind === 'FeedbackBatch' ? '去反馈中心分流' : '在甘特上查看'}
+                {FOLLOW_UP[selected.kind].label}
               </button>
             ) : (
               <button

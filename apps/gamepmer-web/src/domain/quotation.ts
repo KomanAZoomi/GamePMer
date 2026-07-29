@@ -133,7 +133,7 @@ export function kickoffBlockingIssues(state: DemoState, caseId: string): string[
   // 那时候「开工」无处可写，与其假装成功，不如说清楚缺什么。
   const project = state.projects.find((entry) => entry.code === quoteCase.projectCode)
   if (!project) {
-    issues.push(`${quoteCase.projectCode} 还不是正式项目，需要先建项目与资产（本切片未实现建项）`)
+    issues.push(`${quoteCase.projectCode} 还不是正式项目，需要先建项目与资产（建项流程尚未实现）`)
   } else {
     for (const line of version.lines) {
       if (!findStage(state, quoteCase.projectCode, line.assetId, line.stageCode)) {

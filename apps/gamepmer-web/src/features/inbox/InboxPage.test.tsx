@@ -107,7 +107,13 @@ describe('阻断要说清楚为什么', () => {
     expect(within(detail).getByText(/置信度仅 42%/)).toBeInTheDocument()
   })
 
-  it('尚未交付的模块诚实阻断，不给一个点了没反应的确认键', async () => {
+  /**
+   * 原来这条断言的是「报价需求要到切片 5 才有记录可写」。切片 5 早已交付，
+   * 阻断理由从「诚实」变成了「过期的谎」——验收时被指出来。
+   *
+   * 现在挡住它的是真门禁：两个必填字段置信度低于 70%，得 PM 亲自过目。
+   */
+  it('低置信度照旧阻断，且理由不再引用切片进度', async () => {
     const { user } = renderInbox()
     await gotoInbox(user)
 
@@ -116,7 +122,8 @@ describe('阻断要说清楚为什么', () => {
     await user.click(within(list).getByText('新角色 6 套时装需求'))
 
     const detail = screen.getByLabelText('候选详情')
-    expect(within(detail).getByText(/切片 5 交付/)).toBeInTheDocument()
+    expect(within(detail).getByText(/置信度仅 50%/)).toBeInTheDocument()
+    expect(within(detail).queryByText(/切片/)).toBeNull()
     expect(within(detail).getByRole('button', { name: /确认（被阻断）/ })).toBeDisabled()
   })
 })
@@ -265,5 +272,67 @@ describe('零审批导入', () => {
     const connectors = screen.getByLabelText('接入来源状态')
     expect(within(connectors).getByText(/自建应用必须企业管理员创建授权/)).toBeInTheDocument()
     expect(within(connectors).getAllByText('可用').length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * 报价需求与 IT 回执。
+ *
+ * 这两类原来被一条「在切片 5 / 切片 6 交付」挡着，而两个切片都早已交付。
+ * 这组用例守的是它们真的走得通，并且走到底还能接着办下一步。
+ */
+describe('报价需求与 IT 回执确认后有正式去处', () => {
+  it('核验低置信度字段后，报价需求确认成报价案件并能去派单', async () => {
+    const { user } = renderInbox()
+    await gotoInbox(user)
+
+    await user.click(screen.getByRole('button', { name: /需补全/ }))
+    await user.click(within(screen.getByLabelText('候选记录')).getByText('新角色 6 套时装需求'))
+
+    // 两个低置信度字段各自过目一遍：点开分数就是进编辑
+    for (const [label, value] of [
+      ['关联资产', 'MECH-01'],
+      ['制作阶段', '3D_HIGH'],
+    ]) {
+      const extract = screen.getByLabelText('AI 识别结果')
+      const field = within(extract).getByText(label).closest('.gp-field')!
+      await user.click(within(field as HTMLElement).getByRole('button'))
+      await user.selectOptions(screen.getByLabelText(label), value)
+      await user.click(screen.getByRole('button', { name: '保存' }))
+    }
+
+    const confirm = within(screen.getByLabelText('候选详情')).getByRole('button', {
+      name: /确认并创建报价案件/,
+    })
+    expect(confirm).toBeEnabled()
+    await user.click(confirm)
+
+    const created = store.getState().demo.quoteCases.at(-1)!
+    expect(created.status).toBe('DirectorQuoting')
+    expect(created.title).toBe('新角色 6 套时装需求')
+
+    await user.click(screen.getByRole('button', { name: '去报价与变更派给总监' }))
+    expect(window.location.hash).toBe('#/quotation')
+  })
+
+  it('IT 回执确认后写进结项门禁，并能去通知 BD 出账', async () => {
+    const { user } = renderInbox()
+    await gotoInbox(user)
+
+    await user.click(within(screen.getByLabelText('候选记录')).getByText(/已完成剪切备份/))
+    await user.click(
+      within(screen.getByLabelText('候选详情')).getByRole('button', {
+        name: /确认并登记 IT 备份回执/,
+      }),
+    )
+
+    const closeout = store.getState().demo.closeoutCases.find((c) => c.projectCode === 'AUR_A_3D_B11')!
+    const gate = closeout.gates.find((entry) => entry.code === 'it-backup')!
+    expect(gate.completedAt).toBeTruthy()
+    // 证据必须是正式邮件，聊天截图不算——这条规矩不因为证据来自收件箱就松
+    expect(gate.evidence.some((entry) => entry.kind === 'email')).toBe(true)
+
+    await user.click(screen.getByRole('button', { name: '去结项中心通知 BD 出账' }))
+    expect(window.location.hash).toBe('#/closeout')
   })
 })

@@ -157,8 +157,8 @@ export interface SourceRecord {
 export type CandidateKind =
   | 'client-feedback' // → 反馈批次
   | 'stage-done' // → 阶段推进到「已交 PM」
-  | 'quote-request' // → 报价案件（切片 5）
-  | 'it-receipt' // → 结项证据（切片 6）
+  | 'quote-request' // → 报价案件
+  | 'it-receipt' // → 结项的「IT 备份」门禁
 
 export interface CandidateField {
   key: string

@@ -8,6 +8,7 @@ import {
   canConfirm,
   confirmCandidate,
   contentHash,
+  fieldValue,
   ignoreCandidate,
   ingestText,
   markDuplicate,
@@ -174,14 +175,19 @@ describe('确认事务', () => {
     expect(first.state.feedbackBatches.length).toBe(batches)
   })
 
-  it('尚未交付的模块给出诚实阻断，而不是假装确认成功', () => {
+  /**
+   * 这条原来断言的是「报价需求要到切片 5 才有记录可写」。切片 5 早已交付，
+   * 那条阻断就从「诚实」变成了「过期的谎」——验收时被指出来。
+   *
+   * 换成守这一类问题本身：阻断理由里不许再出现「某某切片交付」。
+   * 十个模块都做完了，还拿没交付当借口，就是没跟上自己的实现。
+   */
+  it('阻断理由不再拿「某某切片未交付」当借口', () => {
     const state = createDemoState()
-    // 报价需求要到切片 5 才有正式记录可写
-    const issues = blockingIssues(pick(state, 'C-20260726-014'))
-    expect(issues.some((issue) => issue.includes('切片 5'))).toBe(true)
-    expect(() => confirmCandidate(state, 'C-20260726-014', { actor: ACTOR, now: NOW })).toThrow(
-      CandidateBlocked,
-    )
+    for (const candidate of state.candidates) {
+      const issues = blockingIssues(candidate).join('；')
+      expect(issues, `候选 ${candidate.id} 的阻断理由仍在引用切片进度`).not.toMatch(/切片/)
+    }
   })
 
   it('确认只生成一条待办投影，不因来源有两个角色而重复', () => {
@@ -266,5 +272,131 @@ describe('零审批导入', () => {
       actor: ACTOR,
     })
     expect(formalFingerprint(next)).toBe(fingerprint)
+  })
+})
+
+/**
+ * 报价需求与 IT 回执的确认。
+ *
+ * 这两类原来被一条「在切片 5 / 切片 6 交付」的说明挡着。两个切片都早已交付，
+ * 那条说明就从「诚实阻断」变成了「过期的谎」——验收时被指出来。
+ */
+describe('报价需求确认后真的建出报价案件', () => {
+  const CANDIDATE = 'C-20260726-014'
+
+  /** 低置信度字段仍然要 PM 核验，这是真门禁，不能跟着一起放开 */
+  function verified(state: DemoState): DemoState {
+    let next = state
+    for (const key of ['assetId', 'stageCode']) {
+      next = {
+        ...next,
+        candidates: next.candidates.map((entry) =>
+          entry.id !== CANDIDATE ? entry : updateCandidateField(entry, key, fieldValue(entry, key)!),
+        ),
+      }
+    }
+    return next
+  }
+
+  it('不再拿「切片 5 未交付」当阻断理由', () => {
+    const state = createDemoState()
+    const candidate = state.candidates.find((entry) => entry.id === CANDIDATE)!
+    expect(blockingIssues(candidate).join()).not.toMatch(/切片/)
+  })
+
+  it('低置信度字段照旧阻断——PM 核验这道门没被顺手放开', () => {
+    const state = createDemoState()
+    const candidate = state.candidates.find((entry) => entry.id === CANDIDATE)!
+    expect(blockingIssues(candidate).some((issue) => issue.includes('置信度'))).toBe(true)
+  })
+
+  it('核验后确认 → 建出待总监报价的案件，并指回候选', () => {
+    const state = verified(createDemoState())
+    const result = confirmCandidate(state, CANDIDATE, { actor: 'Brandon', now: NOW })
+
+    expect(result.recordKind).toBe('QuoteCase')
+    const created = result.state.quoteCases.find((entry) => entry.id === result.recordId)!
+    expect(created.status).toBe('DirectorQuoting')
+    expect(created.kind).toBe('initial')
+    expect(created.projectCode).toBe('NST_A_3D_B24')
+    // 需求原文即证据，不重新措辞
+    expect(created.requirement).toContain('时装')
+    expect(created.evidence.length).toBeGreaterThan(0)
+
+    const confirmed = result.state.candidates.find((entry) => entry.id === CANDIDATE)!
+    expect(confirmed.status).toBe('Confirmed')
+    expect(confirmed.confirmedRecordId).toBe(created.id)
+  })
+
+  it('新建的案件还没有报价版本——建案件不等于报了价', () => {
+    const state = verified(createDemoState())
+    const result = confirmCandidate(state, CANDIDATE, { actor: 'Brandon', now: NOW })
+
+    const created = result.state.quoteCases.find((entry) => entry.id === result.recordId)!
+    expect(created.activeVersionId).toBeUndefined()
+    expect(result.state.quoteVersions.filter((v) => v.caseId === created.id)).toHaveLength(0)
+  })
+
+  it('确认报价需求不动排期，一个阶段都不改', () => {
+    const state = verified(createDemoState())
+    const result = confirmCandidate(state, CANDIDATE, { actor: 'Brandon', now: NOW })
+    expect(result.state.projects).toEqual(state.projects)
+  })
+})
+
+describe('IT 回执确认后写进结项证据', () => {
+  const CANDIDATE = 'C-20260725-009'
+
+  it('不再拿「切片 6 未交付」当阻断理由', () => {
+    const state = createDemoState()
+    const candidate = state.candidates.find((entry) => entry.id === CANDIDATE)!
+    expect(blockingIssues(candidate).join()).not.toMatch(/切片/)
+  })
+
+  it('确认 → 完成 AUR_A_3D_B11 的「IT 备份」门禁，并带上邮件证据', () => {
+    const state = createDemoState()
+    const result = confirmCandidate(state, CANDIDATE, { actor: 'Brandon', now: NOW })
+
+    expect(result.recordKind).toBe('CloseoutCase')
+    const item = result.state.closeoutCases.find((entry) => entry.id === result.recordId)!
+    const gate = item.gates.find((entry) => entry.code === 'it-backup')!
+    expect(gate.completedAt).toBe(NOW)
+    expect(gate.evidence.some((entry) => entry.kind === 'email')).toBe(true)
+  })
+
+  /** 门禁串行这条规矩不因为「证据是从收件箱来的」就松掉 */
+  it('前置门禁没走完时照样阻断，且不留任何副作用', () => {
+    const base = createDemoState()
+    const state: DemoState = {
+      ...base,
+      closeoutCases: base.closeoutCases.map((item) =>
+        item.projectCode !== 'AUR_A_3D_B11'
+          ? item
+          : {
+              ...item,
+              gates: item.gates.map((gate) =>
+                gate.code === 'client-final' ? { ...gate, completedAt: undefined, evidence: [] } : gate,
+              ),
+            },
+      ),
+    }
+
+    expect(() => confirmCandidate(state, CANDIDATE, { actor: 'Brandon', now: NOW })).toThrow(
+      CandidateBlocked,
+    )
+    const untouched = state.candidates.find((entry) => entry.id === CANDIDATE)!
+    expect(untouched.status).toBe('NeedsReview')
+  })
+
+  it('项目根本没有结项案件时，说清楚是这个原因', () => {
+    const base = createDemoState()
+    const state: DemoState = {
+      ...base,
+      closeoutCases: base.closeoutCases.filter((item) => item.projectCode !== 'AUR_A_3D_B11'),
+    }
+
+    expect(() => confirmCandidate(state, CANDIDATE, { actor: 'Brandon', now: NOW })).toThrow(
+      /还没有结项案件/,
+    )
   })
 })

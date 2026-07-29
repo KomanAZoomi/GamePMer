@@ -295,7 +295,7 @@ export function FilesPage({ workspace, store, onNavigate }: FilesPageProps) {
             这是浏览器的规矩，不是没做完。所以这里给的是<strong>一键复制</strong>： 点「复制路径」
             后到资源管理器地址栏粘贴即可。 如果要做成真正点一下就打开，需要 IT
             在每台机器上注册一个自定义协议（例如 <code>gamepmer://open?path=…</code>
-            ），这属于切片 7 的运维范围。 删除登记删的也只是这条索引，
+            ），这要等内网部署时由 IT 统一分发，工作台这边装不了。 删除登记删的也只是这条索引，
             <strong>盘上的文件不受任何影响</strong>。
           </p>
         </section>

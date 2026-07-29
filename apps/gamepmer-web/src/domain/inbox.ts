@@ -1,4 +1,5 @@
 import { findBatchCode } from './batchCode'
+import { CloseoutBlocked, completeGate as completeCloseoutGate } from './closeout'
 import type {
   AuditEvent,
   CandidateField,
@@ -9,6 +10,7 @@ import type {
   FeedbackItem,
   InboxCandidate,
   Project,
+  QuoteCase,
   SourceChannel,
   SourceRecord,
   StageCode,
@@ -64,12 +66,6 @@ const KIND_LABEL: Record<CandidateKind, string> = {
   'it-receipt': 'IT 回执',
 }
 
-/** 尚未交付的模块。诚实阻断，不假装确认成功。 */
-const PENDING_SLICE: Partial<Record<CandidateKind, string>> = {
-  'quote-request': '确认将创建报价案件，「报价与变更」在切片 5 交付',
-  'it-receipt': '确认将写入结项证据，「结项中心」在切片 6 交付',
-}
-
 export function requiredFields(candidate: InboxCandidate): CandidateField[] {
   return candidate.fields.filter((field) => field.required)
 }
@@ -97,9 +93,6 @@ export function blockingIssues(candidate: InboxCandidate): string[] {
       issues.push(`字段「${field.label}」置信度仅 ${Math.round(field.confidence * 100)}%，需要 PM 核对`)
     }
   }
-
-  const pending = PENDING_SLICE[candidate.kind]
-  if (pending) issues.push(pending)
 
   return issues
 }
@@ -476,10 +469,136 @@ export function confirmCandidate(
 
   const auditId = nextSequentialId(state.auditEvents.map((event) => event.id), 'AE-', 3)
 
-  if (candidate.kind === 'client-feedback') {
-    return confirmAsFeedback(state, candidate, source, located, options, auditId)
+  switch (candidate.kind) {
+    case 'client-feedback':
+      return confirmAsFeedback(state, candidate, source, located, options, auditId)
+    case 'quote-request':
+      return confirmAsQuoteRequest(state, candidate, source, located, options, auditId)
+    case 'it-receipt':
+      return confirmAsItReceipt(state, candidate, source, located, options, auditId)
+    default:
+      return confirmAsStageDone(state, candidate, source, located, options, auditId)
   }
-  return confirmAsStageDone(state, candidate, source, located, options, auditId)
+}
+
+/**
+ * 报价需求 → 报价案件。
+ *
+ * 建出来的案件停在「总监报价中」，**没有任何报价版本**——
+ * 确认候选只是承认「这是一条真需求」，人天和金额得总监自己填。
+ */
+function confirmAsQuoteRequest(
+  state: DemoState,
+  candidate: InboxCandidate,
+  source: SourceRecord,
+  located: StageLocation,
+  options: ConfirmOptions,
+  auditId: string,
+): ConfirmResult {
+  const caseId = nextSequentialId(state.quoteCases.map((entry) => entry.id), 'Q-', 3)
+
+  // 复核人按角色取，不写死某个人。取不到就诚实阻断——
+  // 建一个没人复核的案件，等于把「开工前必须复核」这道门悄悄拆了
+  const reviewer =
+    state.people.find((person) => person.roles.includes('组长')) ??
+    state.people.find((person) => person.roles.includes('BD'))
+  if (!reviewer) {
+    throw new CandidateBlocked(['成员里没有组长或 BD，报价案件没有复核人，无法创建'])
+  }
+
+  const quoteCase: QuoteCase = {
+    id: caseId,
+    // 从收件箱进来的都是新需求；对既有资产的追加走反馈中心的范围外分流，不走这里
+    kind: 'initial',
+    projectCode: located.project.code,
+    client: located.project.client,
+    title: candidate.title,
+    // 需求原文即证据，不重新措辞
+    requirement: source.body,
+    status: 'DirectorQuoting',
+    affectedAssetIds: [located.assetId],
+    directorName: located.project.artDirectorName,
+    reviewerPersonId: reviewer.id,
+    createdAt: options.now,
+    evidence: [evidenceFrom(source)],
+  }
+
+  const audit: AuditEvent = {
+    id: auditId,
+    at: options.now,
+    actor: options.actor,
+    action: '确认候选并创建报价案件',
+    targetKind: 'QuoteCase',
+    targetId: caseId,
+    reason: `来源 ${candidate.sourceId} · 候选 ${candidate.id}`,
+  }
+
+  return {
+    state: {
+      ...state,
+      quoteCases: [...state.quoteCases, quoteCase],
+      candidates: markConfirmed(state.candidates, candidate.id, 'QuoteCase', caseId, options),
+      auditEvents: [...state.auditEvents, audit],
+    },
+    recordKind: 'QuoteCase',
+    recordId: caseId,
+  }
+}
+
+/**
+ * IT 回执 → 结项的「IT 备份」门禁。
+ *
+ * 这里**不绕过结项的串行门禁**：证据来自收件箱不代表可以跳步。
+ * 前置没走完就照常阻断，理由用结项层给的原话，不另编一套说法。
+ */
+function confirmAsItReceipt(
+  state: DemoState,
+  candidate: InboxCandidate,
+  source: SourceRecord,
+  located: StageLocation,
+  options: ConfirmOptions,
+  auditId: string,
+): ConfirmResult {
+  const item = state.closeoutCases.find((entry) => entry.projectCode === located.project.code)
+  if (!item) {
+    throw new CandidateBlocked([
+      `${located.project.code} 还没有结项案件，IT 回执无处可挂——请先在结项中心开启结项`,
+    ])
+  }
+
+  let next: DemoState
+  try {
+    next = completeCloseoutGate(state, item.id, 'it-backup', {
+      evidence: [evidenceFrom(source)],
+      note: `来自候选 ${candidate.id}`,
+      actor: options.actor,
+      now: options.now,
+    })
+  } catch (error) {
+    // 结项层已经把原因逐条说清了，这里原样透传，不翻译成一句笼统的「无法确认」
+    if (error instanceof CloseoutBlocked) throw new CandidateBlocked(error.issues)
+    throw error
+  }
+
+  const audit: AuditEvent = {
+    id: auditId,
+    at: options.now,
+    actor: options.actor,
+    action: '确认候选并登记 IT 备份回执',
+    targetKind: 'CloseoutCase',
+    targetId: item.id,
+    reason: `来源 ${candidate.sourceId} · 候选 ${candidate.id}`,
+  }
+
+  return {
+    state: {
+      ...next,
+      candidates: markConfirmed(next.candidates, candidate.id, 'CloseoutCase', item.id, options),
+      auditEvents: [...next.auditEvents, audit],
+    },
+    recordKind: 'CloseoutCase',
+    recordId: item.id,
+  }
 }
 
 function confirmAsFeedback(
