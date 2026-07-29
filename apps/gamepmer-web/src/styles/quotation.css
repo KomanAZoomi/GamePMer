@@ -818,3 +818,66 @@
   border: 1px solid var(--amber-border);
   color: var(--amber-ink);
 }
+
+
+/* 等谁：PM 打开这一页真正想知道的就是这个 */
+.gp-wait-tag {
+  margin-left: auto;
+  padding: 1px 7px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
+
+.gp-wait-tag.is-mine {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.gp-case-next {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.55;
+}
+
+
+/* 冻结怎么解：说不出解法的告警只会被学会无视 */
+.gp-unfreeze-list {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-4);
+  margin: 0;
+  list-style: none;
+}
+
+.gp-unfreeze-list li {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  padding: 9px 11px;
+  border: 1px solid var(--amber-border);
+  border-radius: var(--radius-md);
+  background: var(--amber-soft);
+}
+
+.gp-unfreeze-list strong {
+  color: var(--text-primary);
+  font-size: var(--text-2xs);
+}
+
+.gp-unfreeze-list span {
+  color: var(--amber-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-unfreeze .gp-reclassify-note {
+  padding: 0 var(--space-4) var(--space-4);
+}

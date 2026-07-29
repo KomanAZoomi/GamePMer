@@ -42,6 +42,11 @@ async function goto(user: ReturnType<typeof userEvent.setup>) {
  * 中间隔着 BD 报客户、客户回话两步——验收时用户指出真实流程是
  * 组长复核后给客户、BD 回传客户确认，才算正式接项目。
  */
+/** 默认页签是「待我处理」，等别人的案件要切到「全部进行中」才看得到 */
+async function showAll(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /全部进行中/ }))
+}
+
 async function throughClient(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
   await user.click(screen.getByRole('button', { name: 'BD 已把报价报给客户' }))
@@ -265,6 +270,7 @@ describe('驳回与阻断', () => {
     await goto(user)
 
     const list = screen.getByLabelText('报价案件')
+    await showAll(user)
     await user.click(within(list).getByText(/Q-030/))
 
     const detail = screen.getByLabelText('报价详情')
@@ -281,7 +287,7 @@ describe('驳回与阻断', () => {
     const { user } = renderQuotation()
     await goto(user)
 
-    await user.click(screen.getByRole('button', { name: /客户环节/ }))
+    await showAll(user)
     const list = screen.getByLabelText('报价案件')
     await user.click(within(list).getByText(/Q-029/))
 
@@ -302,6 +308,7 @@ describe('总监录入报价——每个状态都要能往下走', () => {
   it('「总监报价中」的案件有录入入口，不是一句「等待总监返回」就没了', async () => {
     const { user } = renderQuotation()
     await goto(user)
+    await showAll(user)
     await user.click(within(screen.getByLabelText('报价案件')).getByText(/Q-030/))
 
     expect(screen.getByRole('button', { name: '录入总监报价' })).toBeEnabled()
@@ -310,6 +317,7 @@ describe('总监录入报价——每个状态都要能往下走', () => {
   it('录入人天与节点后提交，案件进入待复核', async () => {
     const { user } = renderQuotation()
     await goto(user)
+    await showAll(user)
     await user.click(within(screen.getByLabelText('报价案件')).getByText(/Q-030/))
     await user.click(screen.getByRole('button', { name: '录入总监报价' }))
 
@@ -339,6 +347,7 @@ describe('总监录入报价——每个状态都要能往下走', () => {
   it('缺人天或缺节点时提交被阻断，并说明缺哪一行', async () => {
     const { user } = renderQuotation()
     await goto(user)
+    await showAll(user)
     await user.click(within(screen.getByLabelText('报价案件')).getByText(/Q-030/))
     await user.click(screen.getByRole('button', { name: '录入总监报价' }))
 
@@ -379,6 +388,7 @@ describe('总监录入报价——每个状态都要能往下走', () => {
   it('项目还没创建时，资产与阶段可以自由填写并说明原因', async () => {
     const { user } = renderQuotation()
     await goto(user)
+    await showAll(user)
     await user.click(within(screen.getByLabelText('报价案件')).getByText(/Q-030/))
     await user.click(screen.getByRole('button', { name: '录入总监报价' }))
 

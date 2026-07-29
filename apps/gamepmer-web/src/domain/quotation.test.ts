@@ -10,6 +10,8 @@ import {
   createQuoteCase,
   frozenSummary,
   pendingChangeRequests,
+  quoteTodoList,
+  quoteWaitingOn,
   kickoffBlockingIssues,
   quoteTotals,
   reviewBlockingIssues,
@@ -880,5 +882,78 @@ describe('待立案的变更单要能看见', () => {
     expect(summary.stages).toBe(stages.length)
     expect(summary.assets).toBe(new Set(stages.map((s) => s.assetId)).size)
     expect(summary.assets).toBeLessThanOrEqual(summary.stages)
+  })
+})
+
+/**
+ * 「等谁」。
+ *
+ * 验收指出：把案件推过复核之后「处理中」就空了，而真正等 PM 动手的
+ * （报给客户、发开工通知）跑到了「客户环节」——那个名字读不出「该我做」。
+ * 按状态区间分桶天然会漏，改成按**责任在谁**分。
+ */
+describe('每条待办都说清等谁', () => {
+  it('每个未终结的案件都给得出等谁和下一步', () => {
+    const state = createDemoState()
+    for (const quoteCase of state.quoteCases) {
+      if (TERMINAL_QUOTE_STATUSES.includes(quoteCase.status)) continue
+      const waiting = quoteWaitingOn(state, quoteCase.id)!
+      expect(waiting.label, `${quoteCase.id} 没说等谁`).toBeTruthy()
+      expect(waiting.next, `${quoteCase.id} 没说下一步`).toBeTruthy()
+    }
+  })
+
+  it('终态不再等任何人', () => {
+    const base = createDemoState()
+    const started = base.quoteCases.find((entry) => entry.status === 'KickoffSent')!
+    expect(quoteWaitingOn(base, started.id)).toBeUndefined()
+  })
+
+  it('责任在 PM 的几步都标成等我', () => {
+    const state = createDemoState()
+    const accepted = state.quoteCases.find((entry) => entry.status === 'ClientAccepted')!
+    expect(quoteWaitingOn(state, accepted.id)?.mine).toBe(true)
+  })
+
+  it('等总监、等复核、等客户都不算等我', () => {
+    const state = createDemoState()
+    for (const status of ['DirectorQuoting', 'AwaitingReview', 'SentToClient'] as const) {
+      const found = state.quoteCases.find((entry) => entry.status === status)
+      if (!found) continue
+      expect(quoteWaitingOn(state, found.id)?.mine, `${status} 不该算等我`).toBe(false)
+    }
+  })
+
+  /** 待办清单必须**跨全部状态**收集，按状态区间分桶就是上次漏掉的原因 */
+  it('待我处理汇总了全部责任在我的事，含待立案的变更单', () => {
+    const state = createDemoState()
+    const item = state.feedbackBatches
+      .flatMap((batch) => batch.items)
+      .find((entry) => entry.status === 'NeedsClassification')!
+    const next = classifyOutOfScope(state, item.id, NOW, ACTOR)
+
+    const mine = quoteTodoList(next).filter((row) => row.mine)
+    expect(mine.some((row) => row.kind === 'change-request')).toBe(true)
+    expect(mine.every((row) => row.next)).toBe(true)
+  })
+
+  it('待办清单不含已终结的案件', () => {
+    const rows = quoteTodoList(createDemoState())
+    for (const row of rows) {
+      if (row.kind !== 'quote-case') continue
+      expect(TERMINAL_QUOTE_STATUSES).not.toContain(row.quoteCase!.status)
+    }
+  })
+
+  /** 冻结的解法要说得出来，否则「资产冻结中 1」就是个没人知道怎么消的告警 */
+  it('冻结的阶段能指回让它解冻的那条待办', () => {
+    const state = createDemoState()
+    const summary = frozenSummary(state)
+    expect(summary.stages).toBeGreaterThan(0)
+    expect(summary.unfreezeVia.length).toBeGreaterThan(0)
+    for (const row of summary.unfreezeVia) {
+      expect(row.caseId || row.changeRequestId).toBeTruthy()
+      expect(row.next).toBeTruthy()
+    }
   })
 })

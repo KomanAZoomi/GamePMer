@@ -102,7 +102,7 @@ test('客户确认后发开工通知，项目在这一刻才建出来', async ({
   await expect(page.getByText('AUR_B_3D_B34')).toHaveCount(0)
 
   await page.goto('/#/quotation')
-  await page.getByRole('button', { name: /客户环节/ }).click()
+  await page.getByRole('button', { name: /全部进行中/ }).click()
   await page.getByLabel('报价案件').getByText(/Q-029/).click()
 
   const detail = page.getByLabel('报价详情')
@@ -175,6 +175,7 @@ test('恢复示例数据把报价状态一并复位', async ({ page }) => {
 
 test('总监报价中的案件能录入报价并往下流转', async ({ page }) => {
   await page.goto('/#/quotation')
+  await page.getByRole('button', { name: /全部进行中/ }).click()
   await page.getByLabel('报价案件').getByText(/Q-030/).click()
   await page.getByRole('button', { name: '录入总监报价' }).click()
 
@@ -326,4 +327,55 @@ test('资产冻结中数的是资产，阶段数另写', async ({ page }) => {
   await page.goto('/#/quotation')
   const card = page.locator('.gp-metric', { hasText: '资产冻结中' })
   await expect(card.getByText(/共 \d+ 个阶段/)).toBeVisible()
+})
+
+/**
+ * 「待我处理」与解冻指引。
+ *
+ * 验收原话：处理中是空的，希望报价阶段所有该我推进的待办都汇总在这；
+ * 以及「资产冻结中不知道怎么操作才能消除」。
+ */
+test('默认停在「待我处理」，每行写清等谁和下一步', async ({ page }) => {
+  await page.goto('/#/quotation')
+  const list = page.getByLabel('报价案件')
+
+  await expect(page.getByRole('button', { name: /待我处理/ })).toBeVisible()
+  await expect(list.getByText('等我').first()).toBeVisible()
+  await expect(list.getByText(/下一步：/).first()).toBeVisible()
+})
+
+test('「全部进行中」把等别人的也列出来，并标明等谁', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: /全部进行中/ }).click()
+
+  const list = page.getByLabel('报价案件')
+  await expect(list.getByText('等总监').first()).toBeVisible()
+  await expect(list.getByText('等复核').first()).toBeVisible()
+  // 等我的排在前面
+  const first = list.locator('.gp-case').first()
+  await expect(first.getByText('等我')).toBeVisible()
+})
+
+test('冻结的阶段直接告诉你怎么解冻，并能跳过去', async ({ page }) => {
+  await page.goto('/#/quotation')
+  const panel = page.getByLabel('冻结与解冻')
+
+  await expect(panel).toBeVisible()
+  await expect(panel.getByText(/发出变更开工邮件/)).toBeVisible()
+  // 每个冻结阶段都给得出下一步
+  await expect(panel.locator('li').first()).toContainText('CQ-')
+})
+
+test('走完追加报价，冻结跟着消失', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: /全部进行中/ }).click()
+  await page.getByLabel('报价案件').getByText(/CQ-004/).click()
+
+  await page.getByRole('button', { name: /以组长兼BD身份复核通过/ }).click()
+  await page.getByRole('button', { name: 'BD 已把报价报给客户' }).click()
+  await page.getByRole('button', { name: '客户已确认接受' }).click()
+  await page.getByRole('button', { name: /我已发出变更开工邮件/ }).click()
+
+  // 解冻发生在发出开工邮件那一刻
+  await expect(page.getByLabel('冻结与解冻')).toHaveCount(0)
 })

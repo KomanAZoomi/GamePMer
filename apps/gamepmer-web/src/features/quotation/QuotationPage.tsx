@@ -9,7 +9,9 @@ import {
   kickoffBlockingIssues,
   personOf,
   projectQuoteSummary,
+  quoteTodoList,
   quoteTotals,
+  type QuoteTodo,
   reviewBlockingIssues,
   reviewTodos,
   versionsOf,
@@ -29,8 +31,8 @@ interface QuotationPageProps {
 }
 
 const TABS: Array<{ key: QuoteTab; label: string }> = [
-  { key: 'active', label: '处理中' },
-  { key: 'ready', label: '客户环节' },
+  { key: 'mine', label: '待我处理' },
+  { key: 'active', label: '全部进行中' },
   { key: 'done', label: '已完成' },
 ]
 
@@ -51,24 +53,34 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
     setNewCaseOpen(true)
   }
 
+  const workQueue = useMemo(() => quoteTodoList(demo), [demo])
   const buckets = useMemo(() => {
     const byNewest = [...demo.quoteCases].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     return {
-      active: byNewest.filter((entry) =>
-        ['Received', 'Assigned', 'DirectorQuoting', 'AwaitingReview'].includes(entry.status),
-      ),
-      // 复核之后到开工之前，全都在等客户或等 PM 动手——这三个状态是一组
-      ready: byNewest.filter((entry) =>
-        ['Approved', 'SentToClient', 'ClientAccepted'].includes(entry.status),
-      ),
-      done: byNewest.filter((entry) => entry.status === 'KickoffSent' || entry.status === 'Rejected'),
+      // 按**责任在谁**分，不按状态区间——后者会在案件推过某一段之后整桶变空
+      mine: workQueue.filter((row) => row.mine),
+      active: workQueue,
+      done: byNewest
+        .filter((entry) => entry.status === 'KickoffSent' || entry.status === 'Rejected')
+        .map<QuoteTodo>((quoteCase) => ({
+          id: quoteCase.id,
+          kind: 'quote-case',
+          title: quoteCase.title,
+          projectCode: quoteCase.projectCode,
+          waiting: { actor: 'me', label: '已完结', next: '', mine: false },
+          mine: false,
+          next: '',
+          quoteCase,
+        })),
     }
-  }, [demo.quoteCases])
+  }, [demo, workQueue])
 
   const todos = useMemo(() => reviewTodos(demo), [demo])
   const listed = buckets[quoteTab]
   const selected: QuoteCase | undefined =
-    demo.quoteCases.find((entry) => entry.id === selectedQuoteCaseId) ?? listed[0] ?? demo.quoteCases[0]
+    demo.quoteCases.find((entry) => entry.id === selectedQuoteCaseId) ??
+    listed.find((row) => row.quoteCase)?.quoteCase ??
+    demo.quoteCases[0]
 
   if (!selected) {
     return (
@@ -113,8 +125,8 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
         <div>
           <h1>报价与变更</h1>
           <p>
-            BD 需求 · 总监报价 · 组长复核 · 报给客户 · 客户确认 · 开工建项 · {today} · 待复核{' '}
-            {todos.length} 件 · 客户环节 {buckets.ready.length} 件
+            BD 需求 · 总监报价 · 组长复核 · 报给客户 · 客户确认 · 开工建项 · {today} ·{' '}
+            待我处理 {buckets.mine.length} 件 · 进行中 {buckets.active.length} 件
           </p>
         </div>
         <div className="gp-chip-row">
@@ -132,7 +144,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
               className={`gp-chip${tab.key === quoteTab ? ' is-active' : ''}`}
               onClick={() => store.setQuoteTab(tab.key)}
             >
-              {tab.label} {buckets[tab.key].length + (tab.key === 'active' ? pending.length : 0)}
+              {tab.label} {buckets[tab.key].length}
             </button>
           ))}
         </div>
@@ -152,22 +164,25 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
         {/* 等客户单独一格：这段时间是客户占用的，混进「待开工」会看不出卡在谁那边 */}
         <div className="gp-metric">
           <span>等客户确认</span>
-          <b>{buckets.ready.filter((c) => c.status === 'SentToClient').length}</b>
+          <b>{workQueue.filter((row) => row.waiting.actor === 'client').length}</b>
           <small>已报客户，等回话</small>
         </div>
         {/* 冻结数归零时不再标黄——没有东西被卡住就不该继续报警 */}
         {/* 资产数与阶段数是两个数：同一资产冻两个阶段时，写「资产」却填阶段数就对不上 */}
+        {/*
+          一个说不出怎么消的告警，挂在那里只会让人学会无视它。
+          验收原话：「不知道怎么操作才能消除这个异常」。
+        */}
         <div className={`gp-metric${frozen.assets > 0 ? ' is-warn' : ''}`}>
           <span>资产冻结中</span>
           <b>{frozen.assets}</b>
           <small>
-            共 {frozen.stages} 个阶段
-            {pending.length > 0 && ` · ${pending.length} 条待立案`}
+            {frozen.stages > 0 ? `共 ${frozen.stages} 个阶段` : '没有阶段被卡住'}
           </small>
         </div>
         <div className="gp-metric">
           <span>已开工</span>
-          <b>{buckets.done.filter((c) => c.status === 'KickoffSent').length}</b>
+          <b>{demo.quoteCases.filter((c) => c.status === 'KickoffSent').length}</b>
           <small>开工邮件已发出</small>
         </div>
       </div>
@@ -207,66 +222,111 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
         </div>
       )}
 
+      {frozen.unfreezeVia.length > 0 && (
+        <div className="gp-card gp-unfreeze" aria-label="冻结与解冻">
+          <header className="gp-card-head">
+            <h2>
+              冻结的阶段怎么解冻
+              <small>冻结只由「反馈判为范围外」产生，走完那条追加报价它自己就解开</small>
+            </h2>
+            <span className="gp-count is-warn">{frozen.stages}</span>
+          </header>
+          <ul className="gp-unfreeze-list">
+            {frozen.unfreezeVia.map((row) => (
+              <li key={row.stageId}>
+                <strong>
+                  {row.assetId} · {row.stageName}
+                </strong>
+                <span>{row.next}</span>
+                {row.caseId && (
+                  <button
+                    type="button"
+                    className="gp-btn gp-btn-sm"
+                    onClick={() => store.selectQuoteCase(row.caseId!)}
+                  >
+                    去 {row.caseId}
+                  </button>
+                )}
+                {!row.caseId && row.changeRequestId && (
+                  <button
+                    type="button"
+                    className="gp-btn gp-btn-sm gp-btn-primary"
+                    onClick={() => setPrefill(row.changeRequestId!)}
+                  >
+                    立案
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          <p className="gp-reclassify-note">
+            解冻发生在<strong>发出变更开工邮件</strong>那一刻——批准、报客户、客户确认都还不解冻。
+            在那之前受影响阶段不能开工，其余资产照常制作。
+          </p>
+        </div>
+      )}
+
       <div className="gp-quotation-body">
         <aside className="gp-card gp-case-list" aria-label="报价案件">
           <header className="gp-card-head">
             <h2>{TABS.find((tab) => tab.key === quoteTab)?.label}</h2>
-            <span className="gp-count">{listed.length + pendingHere.length}</span>
+            <span className="gp-count">{listed.length}</span>
           </header>
-          {listed.length === 0 && pendingHere.length === 0 && (
-            <p className="gp-empty">这个页签下暂时没有案件。</p>
+          {listed.length === 0 && (
+            <p className="gp-empty">
+              {quoteTab === 'mine'
+                ? '没有等你动手的事。切到「全部进行中」看还在别人手上的。'
+                : '这个页签下暂时没有案件。'}
+            </p>
           )}
 
           {/*
-            待立案的变更单排在最前面：阶段已经因为它冻住了，
-            这是这一页上最该先处理的东西。
+            一行一件待办，**跨全部状态**收集，等我的排前面。
+            原来按状态区间分三桶，案件一过复核「处理中」就整桶空了——
+            而真正等 PM 动手的两步跑到了「客户环节」，那个名字读不出「该我做」。
           */}
           <ul className="gp-case-items">
-            {pendingHere.map(({ request, frozenStages }) => (
-              <li key={request.id}>
-                <button
-                  type="button"
-                  className="gp-case is-pending"
-                  onClick={() => setPrefill(request.id)}
-                >
-                  <span className="gp-case-top">
-                    <span className="gp-pill is-warn-pill">待立案</span>
-                    <span className="gp-case-time">冻结中</span>
-                  </span>
-                  <strong className="gp-case-title">
-                    {request.id} · {request.title}
-                  </strong>
-                  <span className="gp-case-meta">
-                    {request.projectCode} · {request.assetId} ·{' '}
-                    {frozenStages.length > 0
-                      ? `冻住 ${frozenStages.map((stage) => stage.stageName).join('、')}`
-                      : '尚未冻结阶段'}
-                  </span>
-                </button>
-              </li>
-            ))}
-            {listed.map((entry) => {
-              const entryVersion = activeVersion(demo, entry.id)
+            {listed.map((row) => {
+              const isPending = row.kind === 'change-request'
+              const entryVersion = row.quoteCase ? activeVersion(demo, row.quoteCase.id) : undefined
+              const frozen = row.pending?.frozenStages ?? []
               return (
-                <li key={entry.id}>
+                <li key={row.id}>
                   <button
                     type="button"
-                    className={`gp-case${entry.id === selected.id ? ' is-active' : ''}`}
-                    onClick={() => store.selectQuoteCase(entry.id)}
+                    className={`gp-case${isPending ? ' is-pending' : ''}${
+                      !isPending && row.id === selected.id ? ' is-active' : ''
+                    }`}
+                    onClick={() =>
+                      isPending ? setPrefill(row.id) : store.selectQuoteCase(row.id)
+                    }
                   >
                     <span className="gp-case-top">
-                      <span className={`gp-pill is-quote-${entry.kind}`}>
-                        {QUOTE_KIND_LABEL[entry.kind]}
+                      <span
+                        className={`gp-pill ${
+                          isPending
+                            ? 'is-warn-pill'
+                            : `is-quote-${row.quoteCase!.kind}`
+                        }`}
+                      >
+                        {isPending ? '待立案' : QUOTE_KIND_LABEL[row.quoteCase!.kind]}
                       </span>
-                      <span className="gp-case-time">{entry.createdAt.slice(5, 10)}</span>
+                      {/* 等谁，一眼可见——这是 PM 打开这一页真正想知道的 */}
+                      <span className={`gp-wait-tag${row.mine ? ' is-mine' : ''}`}>
+                        {row.waiting.label}
+                      </span>
                     </span>
                     <strong className="gp-case-title">
-                      {entry.id} · {entry.title}
+                      {row.id} · {row.title}
                     </strong>
                     <span className="gp-case-meta">
-                      {entry.projectCode} · {QUOTE_STATUS_LABEL[entry.status]}
+                      {row.projectCode}
+                      {row.quoteCase && ` · ${QUOTE_STATUS_LABEL[row.quoteCase.status]}`}
                       {entryVersion && ` · ${money(quoteTotals(entryVersion).amount)}`}
+                      {frozen.length > 0 &&
+              ` · 冻住 ${frozen.map((stage) => stage.stageName).join('、')}`}
                     </span>
+                    {row.next && <span className="gp-case-next">下一步：{row.next}</span>}
                   </button>
                 </li>
               )

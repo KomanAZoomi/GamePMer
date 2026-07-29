@@ -85,7 +85,11 @@ export interface WorkspaceState {
 
 export type InboxTab = 'review' | 'blocked' | 'done'
 
-export type QuoteTab = 'active' | 'ready' | 'done'
+/**
+ * `mine` = 责任在 PM 自己的；`active` = 全部未终结（含等别人的）。
+ * 原来按状态区间分桶，案件一过复核「处理中」就空了——按责任分才不会漏。
+ */
+export type QuoteTab = 'mine' | 'active' | 'done'
 
 export type CloseoutTab = 'active' | 'ready' | 'archived'
 
@@ -170,7 +174,7 @@ function initialState(demo: DemoState, today: string): WorkspaceState {
     selectedCandidateId: demo.candidates.find((entry) => entry.status === 'NeedsReview')?.id,
     inboxTab: 'review',
     selectedQuoteCaseId: demo.quoteCases.find((entry) => entry.status === 'AwaitingReview')?.id,
-    quoteTab: 'active',
+    quoteTab: 'mine',
     selectedCloseoutCaseId: demo.closeoutCases.find((entry) => entry.status !== 'Archived')?.id,
     closeoutTab: 'active',
     selectedPathProject: demo.projects[0]?.code,

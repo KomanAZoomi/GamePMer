@@ -95,7 +95,8 @@ test('报价需求核验后确认成案件，并能接着去派给总监', async
 
   await page.getByRole('button', { name: '去报价与变更派给总监' }).click()
   await expect(page).toHaveURL(/#\/quotation/)
-  // 建案件不等于报了价：它停在总监报价中，等着录入
+  // 新建的案件在等总监，不在「待我处理」里
+  await page.getByRole('button', { name: /全部进行中/ }).click()
   await expect(page.getByText(/新角色 6 套时装需求/).first()).toBeVisible()
 })
 

@@ -428,18 +428,160 @@ export function pendingChangeRequests(state: DemoState): PendingChangeRequest[] 
     })
 }
 
+// ---------------------------------------------------------------- 等谁
+
+export type WaitingActor = 'me' | 'director' | 'reviewer' | 'client'
+
+export interface WaitingOn {
+  actor: WaitingActor
+  /** 界面上的徽标文字 */
+  label: string
+  /** 下一步具体要做什么。只说「进行中」等于没说 */
+  next: string
+  /** 责任是否在 PM 自己——「待我处理」就是按这个筛的 */
+  mine: boolean
+}
+
+const WAITING_BY_STATUS: Record<QuoteCase['status'], WaitingOn | undefined> = {
+  Received: { actor: 'me', label: '等我', next: '派给 2D/3D 总监', mine: true },
+  Assigned: { actor: 'director', label: '等总监', next: '总监出人天与节点', mine: false },
+  DirectorQuoting: {
+    actor: 'director',
+    label: '等总监',
+    next: '总监出人天与节点（你也可以代录）',
+    mine: false,
+  },
+  AwaitingReview: { actor: 'reviewer', label: '等复核', next: '组长/BD 确认人天与节点', mine: false },
+  Approved: { actor: 'me', label: '等报客户', next: 'BD 把报价报给客户', mine: true },
+  SentToClient: { actor: 'client', label: '等客户', next: '等客户回话，可催一次', mine: false },
+  ClientAccepted: { actor: 'me', label: '等我', next: '发出开工通知（首次报价会同时建项）', mine: true },
+  KickoffSent: undefined,
+  Rejected: undefined,
+}
+
+/**
+ * 这个案件在等谁。
+ *
+ * 原来左侧按状态区间分三桶，结果案件一过复核「处理中」就空了，
+ * 而真正等 PM 动手的两步跑到了「客户环节」——那个名字读不出「该我做」。
+ * 按**责任在谁**分才不会漏。
+ */
+export function quoteWaitingOn(state: DemoState, caseId: string): WaitingOn | undefined {
+  const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
+  if (!quoteCase) return undefined
+  return WAITING_BY_STATUS[quoteCase.status]
+}
+
+export interface QuoteTodo {
+  id: string
+  kind: 'quote-case' | 'change-request'
+  title: string
+  projectCode: string
+  waiting: WaitingOn
+  mine: boolean
+  next: string
+  quoteCase?: QuoteCase
+  pending?: PendingChangeRequest
+}
+
+/**
+ * 报价环节的全部待办。
+ *
+ * **跨全部状态收集**，包括还没立案的变更单——按状态区间分桶正是上次漏掉的原因。
+ * 责任在自己的排前面：PM 打开这一页是想知道「该我做什么」，不是想读状态机。
+ */
+export function quoteTodoList(state: DemoState): QuoteTodo[] {
+  const fromCases: QuoteTodo[] = state.quoteCases
+    .map((quoteCase) => ({ quoteCase, waiting: WAITING_BY_STATUS[quoteCase.status] }))
+    .filter((row): row is { quoteCase: QuoteCase; waiting: WaitingOn } => Boolean(row.waiting))
+    .map(({ quoteCase, waiting }) => ({
+      id: quoteCase.id,
+      kind: 'quote-case' as const,
+      title: quoteCase.title,
+      projectCode: quoteCase.projectCode,
+      waiting,
+      mine: waiting.mine,
+      next: waiting.next,
+      quoteCase,
+    }))
+
+  const fromPending: QuoteTodo[] = pendingChangeRequests(state).map((pending) => ({
+    id: pending.request.id,
+    kind: 'change-request' as const,
+    title: pending.request.title,
+    projectCode: pending.request.projectCode,
+    waiting: { actor: 'me', label: '等我', next: '立报价案件交给总监', mine: true },
+    mine: true,
+    next: '立报价案件交给总监',
+    pending,
+  }))
+
+  // 等我的排前面，其余按新到旧
+  return [...fromPending, ...fromCases].sort((a, b) => Number(b.mine) - Number(a.mine))
+}
+
+export interface FrozenSummary {
+  assets: number
+  stages: number
+  /** 每个冻结阶段靠哪条待办解冻。说不出解法的告警等于噪音 */
+  unfreezeVia: Array<{
+    stageId: string
+    stageName: string
+    assetId: string
+    caseId?: string
+    changeRequestId?: string
+    next: string
+  }>
+}
+
 /**
  * 冻结统计。
  *
  * **资产数和阶段数是两个数。** 界面上写「资产冻结中」却拿阶段数去填，
  * 同一资产冻两个阶段时就会显示 2，而实际只有 1 个资产被卡住。
+ *
+ * 更要紧的是 `unfreezeVia`：验收时的原话是「不知道怎么操作才能消除这个异常」。
+ * 一个说不出怎么消的告警，挂在那里只会让人学会无视它。
  */
-export function frozenSummary(state: DemoState): { assets: number; stages: number } {
+export function frozenSummary(state: DemoState): FrozenSummary {
   const stages = state.projects
     .flatMap((project) => project.assets)
     .flatMap((asset) => asset.stages)
     .filter((stage) => stage.flags.includes('WaitingChangeQuote'))
-  return { assets: new Set(stages.map((stage) => stage.assetId)).size, stages: stages.length }
+
+  const unfreezeVia = stages.map((stage) => {
+    // 冻结只会由「判为范围外」产生，所以一定能追回那条变更单
+    const request = state.changeRequests.find((entry) => {
+      const item = state.feedbackBatches
+        .flatMap((batch) => batch.items)
+        .find((row) => row.id === entry.sourceFeedbackItemId)
+      return item?.stageId === stage.id
+    })
+    const quoteCase = request
+      ? state.quoteCases.find(
+          (entry) => entry.changeRequestId === request.id || entry.id === request.id,
+        )
+      : undefined
+
+    return {
+      stageId: stage.id,
+      stageName: stage.name,
+      assetId: stage.assetId,
+      caseId: quoteCase?.id,
+      changeRequestId: request?.id,
+      next: quoteCase
+        ? `${quoteCase.id}：${WAITING_BY_STATUS[quoteCase.status]?.next ?? '已走完，发出变更开工邮件即解冻'}`
+        : request
+          ? `${request.id}：先立报价案件`
+          : '找不到对应的变更单，请检查反馈分流记录',
+    }
+  })
+
+  return {
+    assets: new Set(stages.map((stage) => stage.assetId)).size,
+    stages: stages.length,
+    unfreezeVia,
+  }
 }
 
 // ---------------------------------------------------------------- 立案
