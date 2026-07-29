@@ -1,9 +1,14 @@
 import type { ReactNode } from 'react'
 import { NAV_ITEMS, type RouteKey } from '../../app/navigation'
+import type { DemoState } from '../../domain/model'
+import type { SearchHit } from '../../domain/search'
+import { GlobalSearch } from './GlobalSearch'
 
 interface AppShellProps {
   route: RouteKey
   onNavigate: (key: RouteKey) => void
+  demo: DemoState
+  onOpenSearchHit: (hit: SearchHit) => void
   pendingMessages: number
   pendingMails: number
   onResetDemo: () => void
@@ -13,6 +18,8 @@ interface AppShellProps {
 export function AppShell({
   route,
   onNavigate,
+  demo,
+  onOpenSearchHit,
   pendingMessages,
   pendingMails,
   onResetDemo,
@@ -61,10 +68,7 @@ export function AppShell({
 
       <div className="gp-main">
         <header className="gp-topbar">
-          <label className="gp-search">
-            <span className="gp-visually-hidden">全局搜索</span>
-            <input type="search" placeholder="搜索任务、项目、资产、文件路径…" />
-          </label>
+          <GlobalSearch demo={demo} onOpen={onOpenSearchHit} />
           <div className="gp-top-actions">
             {/* 这两个是计数指示器，不是动作——做成按钮会让人以为点得开 */}
             <span className="gp-counter" title="待分流的客户反馈项">
@@ -76,13 +80,17 @@ export function AppShell({
             <button type="button" className="gp-btn gp-btn-quiet" onClick={onResetDemo}>
               恢复示例数据
             </button>
+            {/*
+              任务是投影出来的，没有「手工新建任务」这回事；
+              要凭空加一条，正规入口是候选收件箱的手工录入——确认之后才生成正式记录。
+            */}
             <button
               type="button"
               className="gp-btn gp-btn-primary"
-              disabled
-              title="任务由正式业务状态投影生成，手工新建任务计划在候选收件箱（切片 3）一并交付"
+              onClick={() => onNavigate('inbox')}
+              title="任务由正式业务状态投影生成，不能手工新建；去候选收件箱手工录入一条，确认后自动生成对应待办"
             >
-              新建任务
+              手工录入
             </button>
           </div>
         </header>

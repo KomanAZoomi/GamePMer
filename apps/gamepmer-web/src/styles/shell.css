@@ -150,8 +150,9 @@
 }
 
 .gp-search {
+  position: relative;
   flex: 1;
-  max-width: 420px;
+  max-width: 460px;
 }
 
 .gp-search input {
@@ -165,6 +166,104 @@
 
 .gp-search input::placeholder {
   color: var(--text-faint);
+}
+
+/* ---------------------------------------------------------------- 搜索结果 */
+
+.gp-search-panel {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: var(--space-2);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: 0 12px 32px rgb(23 21 18 / 12%);
+}
+
+.gp-search-hit {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.gp-search-hit.is-active {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+
+.gp-search-kind {
+  padding: 2px 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  text-align: center;
+}
+
+.gp-search-hit.is-active .gp-search-kind {
+  background: var(--surface-card);
+  color: var(--accent-ink);
+}
+
+.gp-search-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.gp-search-text strong {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.gp-search-text em {
+  color: var(--text-faint);
+  font-style: normal;
+  font-size: var(--text-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gp-search-matched {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.gp-search-note {
+  padding: 9px 10px;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.7;
+}
+
+.gp-search-foot {
+  border-top: 1px solid var(--border-faint);
+  color: var(--text-faint);
+}
+
+.gp-search-note kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: var(--text-2xs);
 }
 
 .gp-top-actions {

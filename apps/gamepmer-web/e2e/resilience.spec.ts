@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { DEMO_STORAGE_KEY } from '../src/data/LocalDemoRepository'
+
 /**
  * 压力数据与可达性回归。
  *
@@ -7,14 +9,19 @@ import { expect, test, type Page } from '@playwright/test'
  * 资产会很多、一次反馈会拆出十几项——这些情况下版面不能垮。
  */
 
-const STORAGE_KEY = 'gamepmer.web-demo.v7'
+/**
+ * 直接引真常量，不再手抄。
+ * 存储键是由 schema 版本拼出来的，抄一份在这里的后果是：
+ * schema 一升版，这份压力数据就悄悄写进了没人读的旧键，测试却还「通过」。
+ */
+const STORAGE_KEY = DEMO_STORAGE_KEY
 
 /** 往仓储里塞一份极端数据：超长名称、多资产、多反馈项。 */
 async function seedStressData(page: Page) {
   await page.addInitScript((key: string) => {
     const longName = '蒸汽守卫机甲主角资产包（含可拆卸武器组与四套涂装变体）第二批次'
     const base = {
-      schemaVersion: 7,
+      schemaVersion: 8,
       calendars: [{ id: 'cal-company', name: '公司日历 2026', holidays: ['2026-08-05'], extraWorkdays: [] }],
       productionGroups: [
         { id: 'grp-3d-a', name: '3D 角色 A 组（含外包协作）', discipline: '3D', leadName: 'Leo', dailyCapacity: 1.5 },
@@ -103,6 +110,7 @@ async function seedStressData(page: Page) {
       notificationDrafts: [],
       auditEvents: [],
       changeRequests: [],
+      insightDispositions: [],
     }
     window.localStorage.setItem(key, JSON.stringify(base))
   }, STORAGE_KEY)
@@ -194,17 +202,32 @@ test.describe('键盘可达性', () => {
     expect(sawRing, '获得焦点的控件应当有可见焦点环').toBe(true)
   })
 
-  test('禁用的未实现控件不抢占 Tab 焦点', async ({ page }) => {
-    await page.goto('/#/tasks')
-    const disabled = page.getByRole('button', { name: '新建任务' })
-    await expect(disabled).toBeDisabled()
+  /**
+   * 原来这条盯的是顶栏那个禁用的「新建任务」。那个按钮已经改成真的能跳去候选收件箱，
+   * 于是这条测试没了靶子——换成守真正的规则本身：**禁用的控件必须说明为什么禁用**。
+   * 这样以后哪个按钮被禁用都跑不掉，不会再随某一个按钮的去留而失效。
+   */
+  test('每个禁用控件都说明了为什么禁用', async ({ page }) => {
+    let seenDisabled = 0
 
-    // 禁用按钮不应出现在 Tab 序列里
-    const focusable = await page.evaluate(() => {
-      const nodes = Array.from(document.querySelectorAll('button'))
-      return nodes.filter((node) => !(node as HTMLButtonElement).disabled).length
-    })
-    expect(focusable).toBeGreaterThan(0)
+    for (const route of ['tasks', 'projects', 'quotation', 'closeout', 'files']) {
+      await page.goto(`/#/${route}`)
+      const naked = await page.evaluate(() => {
+        const nodes = Array.from(document.querySelectorAll('button[disabled]'))
+        return {
+          total: nodes.length,
+          // 禁用又不说原因的，就是让人点了没反应的死键
+          silent: nodes
+            .filter((node) => !node.getAttribute('title')?.trim())
+            .map((node) => node.textContent?.trim() ?? ''),
+        }
+      })
+      expect(naked.silent, `${route} 存在禁用但没说明原因的控件`).toEqual([])
+      seenDisabled += naked.total
+    }
+
+    // 全站一个禁用控件都没有的话，这条测试就是空转
+    expect(seenDisabled, '应当至少有一个禁用控件可供检查').toBeGreaterThan(0)
   })
 
   test('反馈中心的关键动作都有可读的可访问名', async ({ page }) => {

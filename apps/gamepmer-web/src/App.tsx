@@ -14,6 +14,7 @@ import { FilesPage } from './features/files/FilesPage'
 import { AnalyticsPage } from './features/analytics/AnalyticsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { createWorkspaceStore, selectHomeView, type WorkspaceStore } from './features/workspace/workspaceStore'
+import type { SearchHit } from './domain/search'
 
 const defaultStore = createWorkspaceStore()
 
@@ -29,10 +30,41 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
   )
   const pendingMails = workspace.demo.notificationDrafts.filter((draft) => draft.status === 'draft').length
 
+  /** 搜索结果点开：先切模块，再把对应记录选中——只跳过去不选中等于没跳 */
+  function openSearchHit(hit: SearchHit) {
+    navigate(hit.route)
+    switch (hit.kind) {
+      case 'project':
+      case 'asset':
+        store.selectProject(hit.selectId)
+        break
+      case 'stage':
+        store.selectStage(hit.selectId)
+        break
+      case 'feedback':
+        store.selectFeedbackItem(hit.selectId)
+        break
+      case 'candidate':
+        store.selectCandidate(hit.selectId)
+        break
+      case 'quote':
+        store.selectQuoteCase(hit.selectId)
+        break
+      case 'closeout':
+        store.selectCloseoutCase(hit.selectId)
+        break
+      case 'path':
+        store.selectPathProject(hit.selectId)
+        break
+    }
+  }
+
   return (
     <AppShell
       route={route}
       onNavigate={navigate}
+      demo={workspace.demo}
+      onOpenSearchHit={openSearchHit}
       pendingMessages={pendingMessages}
       pendingMails={pendingMails}
       onResetDemo={store.resetDemo}
