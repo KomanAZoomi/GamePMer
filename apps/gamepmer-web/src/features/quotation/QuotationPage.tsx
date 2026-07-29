@@ -27,7 +27,7 @@ interface QuotationPageProps {
 
 const TABS: Array<{ key: QuoteTab; label: string }> = [
   { key: 'active', label: '处理中' },
-  { key: 'ready', label: '待开工' },
+  { key: 'ready', label: '客户环节' },
   { key: 'done', label: '已完成' },
 ]
 
@@ -45,7 +45,10 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
       active: byNewest.filter((entry) =>
         ['Received', 'Assigned', 'DirectorQuoting', 'AwaitingReview'].includes(entry.status),
       ),
-      ready: byNewest.filter((entry) => entry.status === 'Approved'),
+      // 复核之后到开工之前，全都在等客户或等 PM 动手——这三个状态是一组
+      ready: byNewest.filter((entry) =>
+        ['Approved', 'SentToClient', 'ClientAccepted'].includes(entry.status),
+      ),
       done: byNewest.filter((entry) => entry.status === 'KickoffSent' || entry.status === 'Rejected'),
     }
   }, [demo.quoteCases])
@@ -76,7 +79,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   const reviewIssues = version ? reviewBlockingIssues(version) : ['尚无报价版本']
   const kickoffIssues = kickoffBlockingIssues(demo, selected.id)
   const canReview = selected.status === 'AwaitingReview' && reviewIssues.length === 0
-  const canKickoff = selected.status === 'Approved' && kickoffIssues.length === 0
+  const canKickoff = selected.status === 'ClientAccepted' && kickoffIssues.length === 0
 
   const summary = projectQuoteSummary(demo, selected.projectCode)
   // 只要还没开工，总监就该能提交报价——包括被退回之后。
@@ -96,8 +99,8 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
         <div>
           <h1>报价与变更</h1>
           <p>
-            需求流转 · 人天排期 · 复核确认 · 正式开工 · {today} · 待复核 {todos.length} 件 ·
-            待发开工邮件 {buckets.ready.length} 件
+            BD 需求 · 总监报价 · 组长复核 · 报给客户 · 客户确认 · 开工建项 · {today} · 待复核{' '}
+            {todos.length} 件 · 客户环节 {buckets.ready.length} 件
           </p>
         </div>
         <div className="gp-chip-row">
@@ -125,10 +128,11 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
           <b>{todos.length}</b>
           <small>{todos.some((t) => t.roles.length > 1) ? '含组长兼 BD 合并复核' : '需要组长/BD 确认'}</small>
         </div>
+        {/* 等客户单独一格：这段时间是客户占用的，混进「待开工」会看不出卡在谁那边 */}
         <div className="gp-metric">
-          <span>待发开工邮件</span>
-          <b>{buckets.ready.length}</b>
-          <small>已复核，尚未生效</small>
+          <span>等客户确认</span>
+          <b>{buckets.ready.filter((c) => c.status === 'SentToClient').length}</b>
+          <small>已报客户，等回话</small>
         </div>
         {/* 冻结数归零时不再标黄——没有东西被卡住就不该继续报警 */}
         <div className={`gp-metric${frozenStages > 0 ? ' is-warn' : ''}`}>
@@ -424,6 +428,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
             </>
           )}
 
+          {/* 复核通过 → BD 报给客户。内部认了不等于报出去了 */}
           {selected.status === 'Approved' && (
             <>
               <div className="gp-block-box is-ok">
@@ -432,7 +437,106 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                   {version?.review?.roles.join('兼')} {reviewer?.name} 于{' '}
                   {version?.review?.decidedAt.slice(5, 16).replace('T', ' ')} 通过。
                   <br />
-                  <strong>批准不等于开工</strong>：排期此刻还没有变，要等你发出开工邮件。
+                  <strong>复核通过不等于报给客户了</strong>：这一版还在公司内部，
+                  要 BD 发给 {selected.client} 之后才进入等客户的窗口。
+                </p>
+              </div>
+              <label className="gp-note-field">
+                <span>BD 从哪里发给客户</span>
+                <select className="gp-input" value={via} onChange={(event) => setVia(event.target.value)}>
+                  <option>Outlook</option>
+                  <option>企业微信</option>
+                  <option>飞书</option>
+                  <option>当面口头 + 补邮件</option>
+                </select>
+              </label>
+              <div className="gp-detail-actions gp-quote-actions is-single">
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-primary"
+                  onClick={() => store.sendToClient(selected.id, via)}
+                >
+                  BD 已把报价报给客户
+                </button>
+              </div>
+              <p className="gp-reclassify-note">
+                工作台不发送邮件。这里记的是 BD 的<strong>人工声明</strong>。
+              </p>
+            </>
+          )}
+
+          {/* 已报客户 → 等客户点头。这段等待是客户占用的时间，要单独看得见 */}
+          {selected.status === 'SentToClient' && (
+            <>
+              <div className="gp-block-box">
+                <h3>等客户确认</h3>
+                <p>
+                  {selected.sentToClientBy} 于{' '}
+                  {selected.sentToClientAt?.slice(5, 16).replace('T', ' ')} 报给 {selected.client}。
+                  <br />
+                  <strong>客户没点头之前不能开工</strong>，项目也还没建出来——
+                  这段等待算客户占用，不计团队产能。
+                </p>
+              </div>
+              <label className="gp-note-field">
+                <span>客户从哪里回的</span>
+                <select className="gp-input" value={via} onChange={(event) => setVia(event.target.value)}>
+                  <option>Outlook</option>
+                  <option>企业微信</option>
+                  <option>飞书</option>
+                  <option>电话口头 + 补邮件</option>
+                </select>
+              </label>
+              <label className="gp-note-field">
+                <span>客户怎么说的（不接受时必填）</span>
+                <textarea
+                  className="gp-input"
+                  rows={2}
+                  placeholder="不接受时写清是价格、排期还是范围——下次报价要用"
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                />
+              </label>
+              <div className="gp-detail-actions gp-quote-actions">
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-primary"
+                  onClick={() => store.recordClientReply(selected.id, 'accept', via, note)}
+                >
+                  客户已确认接受
+                </button>
+                <button
+                  type="button"
+                  className="gp-btn"
+                  disabled={!note.trim()}
+                  title={note.trim() ? undefined : '客户不接受时必须写清原因'}
+                  onClick={() => store.recordClientReply(selected.id, 'decline', via, note)}
+                >
+                  客户未接受 · 终止案件
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* 客户点头 → PM 发开工通知，这一刻才正式建项 */}
+          {selected.status === 'ClientAccepted' && (
+            <>
+              <div className="gp-block-box is-ok">
+                <h3>客户已确认</h3>
+                <p>
+                  {selected.clientRepliedAt?.slice(5, 16).replace('T', ' ')} 收到 {selected.client}{' '}
+                  的确认。
+                  <br />
+                  {!project && selected.kind === 'initial' ? (
+                    <>
+                      发出开工通知后<strong>才正式建项</strong>：
+                      {selected.projectCode} 及其资产、阶段将按报价单生成，报价节点同时成为基准排期。
+                    </>
+                  ) : (
+                    <>
+                      <strong>客户确认不等于开工</strong>：排期此刻还没有变，要等你发出开工邮件。
+                    </>
+                  )}
                 </p>
               </div>
               {kickoffIssues.length > 0 && (

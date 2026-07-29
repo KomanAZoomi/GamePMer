@@ -1,5 +1,14 @@
-import { findBatchCode } from './batchCode'
-import { CloseoutBlocked, completeGate as completeCloseoutGate } from './closeout'
+import {
+  BATCH_CODE_EXAMPLE,
+  BATCH_CODE_RULE,
+  findBatchCode,
+  parseBatchCode,
+} from './batchCode'
+import {
+  CloseoutBlocked,
+  completeGate as completeCloseoutGate,
+  gateBlockingIssues,
+} from './closeout'
 import type {
   AuditEvent,
   CandidateField,
@@ -16,6 +25,7 @@ import type {
   StageCode,
   StagePlan,
 } from './model'
+import { STAGE_LABEL } from './model'
 
 /**
  * 候选收件箱。
@@ -77,7 +87,14 @@ export function overallConfidence(candidate: InboxCandidate): number {
   return Math.min(...required.map((field) => field.confidence))
 }
 
-export function blockingIssues(candidate: InboxCandidate): string[] {
+/**
+ * 确认前的全部阻断理由。
+ *
+ * **必须把 `state` 一起看。** 只看字段填没填，会出现「按钮是亮的、点下去在
+ * `confirmCandidate` 里抛错、界面什么都不发生」——验收时就是这么卡住的。
+ * 凡是确认时会抛的，这里都要先说出来，让按钮直接是灰的并写明原因。
+ */
+export function blockingIssues(state: DemoState, candidate: InboxCandidate): string[] {
   const issues: string[] = []
 
   if (candidate.status === 'Confirmed') issues.push('该候选已确认，不能重复确认')
@@ -94,11 +111,50 @@ export function blockingIssues(candidate: InboxCandidate): string[] {
     }
   }
 
+  if (issues.length > 0) return issues
+  if (!state.sourceRecords.some((entry) => entry.id === candidate.sourceId)) {
+    issues.push('来源证据缺失，无法确认')
+  }
+
+  issues.push(...targetIssues(state, candidate))
   return issues
 }
 
-export function canConfirm(candidate: InboxCandidate): boolean {
-  return blockingIssues(candidate).length === 0
+/** 确认要落到哪条正式记录上——落不下去就在这里说清楚，不留到点击时才炸。 */
+function targetIssues(state: DemoState, candidate: InboxCandidate): string[] {
+  if (candidate.kind === 'quote-request') {
+    const code = fieldValue(candidate, 'batchCode')
+    // 新需求的批次编号本来就还不存在，只校验格式，不查库
+    if (code && !parseBatchCode(code).valid) {
+      return [`批次编号「${code}」不符合规范 ${BATCH_CODE_RULE}，例如 ${BATCH_CODE_EXAMPLE}`]
+    }
+    if (code && state.projects.some((project) => project.code === code)) {
+      return [`${code} 已经是正式项目了，追加需求请走反馈中心的范围外分流，不要新开首次报价`]
+    }
+    return []
+  }
+
+  if (candidate.kind === 'it-receipt') {
+    const projectCode = fieldValue(candidate, 'projectCode')!
+    const item = state.closeoutCases.find((entry) => entry.projectCode === projectCode)
+    if (!item) return [`${projectCode} 还没有结项案件，IT 回执无处可挂——请先在结项中心开启结项`]
+    return gateBlockingIssues(state, item.id, 'it-backup')
+  }
+
+  const projectCode = fieldValue(candidate, 'projectCode')!
+  const assetId = fieldValue(candidate, 'assetId')!
+  const stageCode = fieldValue(candidate, 'stageCode')!
+  if (!locateStage(state, projectCode, assetId, stageCode)) {
+    return [
+      `${projectCode} / ${assetId} / ${stageCode} 在正式数据里不存在——` +
+        `如果这是一条还没立项的新需求，应当按「报价需求」导入，而不是挂到既有项目上`,
+    ]
+  }
+  return []
+}
+
+export function canConfirm(state: DemoState, candidate: InboxCandidate): boolean {
+  return blockingIssues(state, candidate).length === 0
 }
 
 /** PM 手工填写的字段就是确定的，不该再显示成 62% 置信度。 */
@@ -157,17 +213,6 @@ const KIND_KEYWORDS: Array<[RegExp, CandidateKind]> = [
   [/反馈|修改|调整|重做|评审意见/, 'client-feedback'],
 ]
 
-export const STAGE_LABEL: Record<StageCode, string> = {
-  '2D_SKETCH': '草图',
-  '2D_DETAIL_50': '细化 50%',
-  '2D_FINAL': '完成稿',
-  '3D_MID': '中模',
-  '3D_HIGH': '高模',
-  '3D_LOW': '低模',
-  '3D_BAKE': '烘焙',
-  '3D_TEXTURE': '贴图',
-  '3D_LOD': 'LOD',
-}
 
 function excerpt(text: string, needle: string): string | undefined {
   const at = text.indexOf(needle)
@@ -183,7 +228,55 @@ function excerpt(text: string, needle: string): string | undefined {
  * 这是 Demo 的规则式实现，正式版会换成 LLM 抽取。**接口一样**：
  * 每个字段都带置信度和原文片段，识别不出来就是 `undefined`，不许拿默认值糊弄。
  */
-export function extractFields(state: DemoState, text: string): CandidateField[] {
+export function extractFields(
+  state: DemoState,
+  text: string,
+  kind: CandidateKind = 'client-feedback',
+): CandidateField[] {
+  // 报价需求是 BD 刚谈下来的活，**这时项目根本还不存在**，
+  // 要求填「关联资产 / 制作阶段」是把后面的事提前问了。它只需要客户和批次编号。
+  if (kind === 'quote-request') return quoteRequestFields(state, text)
+  return productionFields(state, text)
+}
+
+function quoteRequestFields(state: DemoState, text: string): CandidateField[] {
+  const batchCode = findBatchCode(text)
+  const client = state.projects
+    .map((project) => project.client)
+    .find((name) => text.includes(name))
+
+  const dueMatch = text.match(/\d{4}-\d{2}-\d{2}/)
+
+  return [
+    {
+      key: 'clientName',
+      label: '客户',
+      value: client,
+      confidence: client ? 0.95 : 0,
+      sourceExcerpt: client ? excerpt(text, client) : undefined,
+      required: true,
+    },
+    {
+      key: 'batchCode',
+      label: '批次编号',
+      value: batchCode,
+      // 这里**不查库**：新需求的批次编号本来就还不该存在，只校验格式
+      confidence: batchCode ? 0.9 : 0,
+      sourceExcerpt: batchCode ? excerpt(text, batchCode) : undefined,
+      required: true,
+    },
+    {
+      key: 'dueDate',
+      label: '期望交付时间',
+      value: dueMatch?.[0],
+      confidence: dueMatch ? 0.8 : 0,
+      sourceExcerpt: dueMatch ? excerpt(text, dueMatch[0]) : undefined,
+      required: false,
+    },
+  ]
+}
+
+function productionFields(state: DemoState, text: string): CandidateField[] {
   // 编号规则与 batchCode.ts 共用一份，两处不能各写各的正则
   const projectCode = findBatchCode(text)
   const knownProject = state.projects.find((project) => project.code === projectCode)
@@ -305,8 +398,9 @@ export function ingestText(state: DemoState, input: IngestInput): IngestResult {
   )
 
   const duplicate = Boolean(priorCandidate)
-  const fields = extractFields(state, input.text)
+  // 先判类型再抽字段：报价需求和制作类候选要的字段根本不是一套
   const kind = detectKind(input.text)
+  const fields = extractFields(state, input.text, kind)
 
   const candidate: InboxCandidate = {
     id: candidateId,
@@ -453,27 +547,27 @@ export function confirmCandidate(
   const candidate = state.candidates.find((entry) => entry.id === candidateId)
   if (!candidate) throw new CandidateBlocked([`找不到候选 ${candidateId}`])
 
-  const issues = blockingIssues(candidate)
+  const issues = blockingIssues(state, candidate)
   if (issues.length > 0) throw new CandidateBlocked(issues)
 
-  const source = state.sourceRecords.find((entry) => entry.id === candidate.sourceId)
-  if (!source) throw new CandidateBlocked(['来源证据缺失，无法确认'])
+  const source = state.sourceRecords.find((entry) => entry.id === candidate.sourceId)!
+  const auditId = nextSequentialId(state.auditEvents.map((event) => event.id), 'AE-', 3)
 
-  const projectCode = fieldValue(candidate, 'projectCode')!
-  const assetId = fieldValue(candidate, 'assetId')!
-  const stageCode = fieldValue(candidate, 'stageCode')!
-  const located = locateStage(state, projectCode, assetId, stageCode)
-  if (!located) {
-    throw new CandidateBlocked([`${projectCode} / ${assetId} / ${stageCode} 在正式数据里不存在`])
+  // 报价需求这时还没有项目可指——定位阶段是后面几类才需要的事
+  if (candidate.kind === 'quote-request') {
+    return confirmAsQuoteRequest(state, candidate, source, options, auditId)
   }
 
-  const auditId = nextSequentialId(state.auditEvents.map((event) => event.id), 'AE-', 3)
+  const located = locateStage(
+    state,
+    fieldValue(candidate, 'projectCode')!,
+    fieldValue(candidate, 'assetId')!,
+    fieldValue(candidate, 'stageCode')!,
+  )!
 
   switch (candidate.kind) {
     case 'client-feedback':
       return confirmAsFeedback(state, candidate, source, located, options, auditId)
-    case 'quote-request':
-      return confirmAsQuoteRequest(state, candidate, source, located, options, auditId)
     case 'it-receipt':
       return confirmAsItReceipt(state, candidate, source, located, options, auditId)
     default:
@@ -491,7 +585,6 @@ function confirmAsQuoteRequest(
   state: DemoState,
   candidate: InboxCandidate,
   source: SourceRecord,
-  located: StageLocation,
   options: ConfirmOptions,
   auditId: string,
 ): ConfirmResult {
@@ -506,20 +599,30 @@ function confirmAsQuoteRequest(
     throw new CandidateBlocked(['成员里没有组长或 BD，报价案件没有复核人，无法创建'])
   }
 
+  const batchCode = fieldValue(candidate, 'batchCode')!
+  const discipline = parseBatchCode(batchCode).discipline === '2D' ? '2D' : '3D'
+  // 总监按 2D / 3D 分工。这里按批次编号里的类型段取，取不到才退回第一位艺术总监
+  const director =
+    state.people.find((person) => person.roles.includes('艺术总监')) ?? state.people[0]
+
   const quoteCase: QuoteCase = {
     id: caseId,
     // 从收件箱进来的都是新需求；对既有资产的追加走反馈中心的范围外分流，不走这里
     kind: 'initial',
-    projectCode: located.project.code,
-    client: located.project.client,
+    // 这时它还只是个**提议的**批次编号，正式项目要等客户确认、发出开工通知才建
+    projectCode: batchCode,
+    client: fieldValue(candidate, 'clientName')!,
     title: candidate.title,
     // 需求原文即证据，不重新措辞
     requirement: source.body,
     status: 'DirectorQuoting',
-    affectedAssetIds: [located.assetId],
-    directorName: located.project.artDirectorName,
+    // 资产还没拆，总监报价时才知道有哪些
+    affectedAssetIds: [],
+    directorName: director?.name ?? '待指派',
     reviewerPersonId: reviewer.id,
     createdAt: options.now,
+    dueDate: fieldValue(candidate, 'dueDate'),
+    discipline,
     evidence: [evidenceFrom(source)],
   }
 
@@ -857,8 +960,8 @@ export function inboxMetrics(state: DemoState, today: string): InboxMetrics {
   const open = state.candidates.filter((entry) => entry.status === 'NeedsReview' || entry.status === 'New')
   return {
     needsReview: open.length,
-    readyToConfirm: open.filter((entry) => canConfirm(entry)).length,
-    incomplete: open.filter((entry) => !canConfirm(entry)).length,
+    readyToConfirm: open.filter((entry) => canConfirm(state, entry)).length,
+    incomplete: open.filter((entry) => !canConfirm(state, entry)).length,
     confirmedToday: state.candidates.filter(
       (entry) => entry.status === 'Confirmed' && entry.confirmedAt?.startsWith(today),
     ).length,

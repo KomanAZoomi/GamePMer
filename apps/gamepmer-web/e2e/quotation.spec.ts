@@ -1,11 +1,21 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 
 /**
  * 报价与变更端到端。
  *
- * 对应五分钟脚本之后的第二条主路径：
- * 追加需求 → 总监报价（含排期）→ 组长兼 BD 一次复核 → PM 发出变更开工邮件 → 资产解冻、排期更新。
+ * 对应完整业务主线：
+ * BD 需求 → 总监报价（含排期）→ 组长兼 BD 一次复核 → **BD 报给客户** →
+ * **BD 回传客户确认** → PM 发出开工邮件 → 资产解冻、排期更新（首次报价还会正式建项）。
+ *
+ * 中间两步是验收时补上的：复核通过只是公司内部认了，客户没点头不能开工。
  */
+
+/** 复核通过 → 报客户 → 客户确认，走到「可以发开工邮件」 */
+async function throughClient(page: Page) {
+  await page.getByRole('button', { name: /以组长兼BD身份复核通过/ }).click()
+  await page.getByRole('button', { name: 'BD 已把报价报给客户' }).click()
+  await page.getByRole('button', { name: '客户已确认接受' }).click()
+}
 
 test('首次打开有真实密度，五个指标与四个页签都有数字', async ({ page }) => {
   await page.goto('/#/quotation')
@@ -55,7 +65,7 @@ test('批准不等于开工：复核通过后甘特上的排期还没变', async
 
 test('发出变更开工邮件后：受影响资产解冻，排期按报价单更新', async ({ page }) => {
   await page.goto('/#/quotation')
-  await page.getByRole('button', { name: /以组长兼BD身份复核通过/ }).click()
+  await throughClient(page)
   await page.getByRole('button', { name: /我已发出变更开工邮件/ }).click()
   await expect(page.getByRole('heading', { name: '已开工' })).toBeVisible()
 
@@ -83,19 +93,57 @@ test('退回总监后不能开工，状态回到总监报价中', async ({ page 
   await expect(page.getByRole('button', { name: /我已发出变更开工邮件/ })).toHaveCount(0)
 })
 
-test('项目还没建出来的首次报价，开工被诚实阻断', async ({ page }) => {
+/**
+ * 「才算正式接入项目」在数据上的落点。
+ * 在这一刻之前，`AUR_B_3D_B34` 只是一个提议的批次编号，不是项目。
+ */
+test('客户确认后发开工通知，项目在这一刻才建出来', async ({ page }) => {
+  await page.goto('/#/projects')
+  await expect(page.getByText('AUR_B_3D_B34')).toHaveCount(0)
+
   await page.goto('/#/quotation')
-  await page.getByRole('button', { name: /待开工/ }).click()
+  await page.getByRole('button', { name: /客户环节/ }).click()
   await page.getByLabel('报价案件').getByText(/Q-029/).click()
 
   const detail = page.getByLabel('报价详情')
-  await expect(detail.getByText(/还不是正式项目/)).toBeVisible()
-  await expect(detail.getByRole('button', { name: /标记开工（被阻断）/ })).toBeDisabled()
+  await expect(detail.getByText(/才正式建项/)).toBeVisible()
+  await detail.getByRole('button', { name: /我已发出正式开工邮件/ }).click()
+
+  // 项目、资产、阶段一次性建出来，报价节点同时成为基准
+  await page.goto('/#/projects')
+  await expect(page.getByText('AUR_B_3D_B34').first()).toBeVisible()
+})
+
+test('客户没点头之前开工按钮根本不出现', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: /以组长兼BD身份复核通过/ }).click()
+  await expect(page.getByRole('button', { name: /我已发出变更开工邮件/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'BD 已把报价报给客户' }).click()
+  await expect(page.getByRole('button', { name: /我已发出变更开工邮件/ })).toHaveCount(0)
+  await expect(page.getByLabel('报价详情').getByText(/客户没点头之前不能开工/)).toBeVisible()
+
+  await page.getByRole('button', { name: '客户已确认接受' }).click()
+  await expect(page.getByRole('button', { name: /我已发出变更开工邮件/ })).toBeEnabled()
+})
+
+/** 客户不接受是终止，不是退回重报；这条路径也是 Rejected 唯一的入口 */
+test('客户不接受必须写原因，写了才终止案件', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: /以组长兼BD身份复核通过/ }).click()
+  await page.getByRole('button', { name: 'BD 已把报价报给客户' }).click()
+
+  const decline = page.getByRole('button', { name: '客户未接受 · 终止案件' })
+  await expect(decline).toBeDisabled()
+
+  await page.getByLabel(/客户怎么说的/).fill('价格超预算 30%')
+  await decline.click()
+  await expect(page.getByLabel('报价详情').getByText(/客户未接受/).first()).toBeVisible()
 })
 
 test('开工只生成通知草稿，不出现「已发送」', async ({ page }) => {
   await page.goto('/#/quotation')
-  await page.getByRole('button', { name: /以组长兼BD身份复核通过/ }).click()
+  await throughClient(page)
   await page.getByRole('button', { name: /我已发出变更开工邮件/ }).click()
 
   const notifications = page.getByLabel('通知草稿')
@@ -110,7 +158,7 @@ test('原报价永不覆盖：应结汇总同时列出首次报价与追加报�
   await expect(detail.getByText(/首次报价 Q-021/)).toBeVisible()
   await expect(detail.getByText(/追加报价 CQ-004/)).toBeVisible()
 
-  await page.getByRole('button', { name: /以组长兼BD身份复核通过/ }).click()
+  await throughClient(page)
   await page.getByRole('button', { name: /我已发出变更开工邮件/ }).click()
   await expect(page.getByLabel('报价详情').getByText('¥ 51,000')).toBeVisible()
 })

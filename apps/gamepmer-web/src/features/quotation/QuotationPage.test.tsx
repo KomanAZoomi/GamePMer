@@ -36,6 +36,18 @@ async function goto(user: ReturnType<typeof userEvent.setup>) {
   await user.click(within(nav).getByRole('button', { name: /报价与变更/ }))
 }
 
+/**
+ * 从复核通过一路点到「可以发开工邮件」。
+ *
+ * 中间隔着 BD 报客户、客户回话两步——验收时用户指出真实流程是
+ * 组长复核后给客户、BD 回传客户确认，才算正式接项目。
+ */
+async function throughClient(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+  await user.click(screen.getByRole('button', { name: 'BD 已把报价报给客户' }))
+  await user.click(screen.getByRole('button', { name: '客户已确认接受' }))
+}
+
 function caseOf(id: string) {
   return store.getState().demo.quoteCases.find((entry) => entry.id === id)!
 }
@@ -130,26 +142,59 @@ describe('批准不等于开工', () => {
     )).toBe(before)
 
     const detail = screen.getByLabelText('报价详情')
-    expect(within(detail).getByText(/批准不等于开工/)).toBeInTheDocument()
+    expect(within(detail).getByText(/复核通过不等于报给客户了/)).toBeInTheDocument()
   })
 
-  it('复核前不给开工按钮，复核后才出现', async () => {
+  it('复核前不给开工按钮，走完客户环节才出现', async () => {
     const { user } = renderQuotation()
     await goto(user)
 
     expect(screen.queryByRole('button', { name: /我已发出变更开工邮件/ })).toBeNull()
+
     await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    // 复核通过还不给开工：这一版还在公司内部，没报给客户
+    expect(screen.queryByRole('button', { name: /我已发出变更开工邮件/ })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: 'BD 已把报价报给客户' }))
+    // 报出去了也不给：客户没点头
+    expect(screen.queryByRole('button', { name: /我已发出变更开工邮件/ })).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: '客户已确认接受' }))
     expect(screen.getByRole('button', { name: /我已发出变更开工邮件/ })).toBeEnabled()
   })
 
-  it('开工是人工声明，界面写明工作台不发信', async () => {
+  it('每一步「发出」都是人工声明，界面逐步写明工作台不发信', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+
+    await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    const detail = screen.getByLabelText('报价详情')
+    expect(within(detail).getByText(/工作台不发送邮件/)).toBeInTheDocument()
+    expect(within(detail).getByLabelText('BD 从哪里发给客户')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'BD 已把报价报给客户' }))
+    expect(screen.getByLabelText('客户从哪里回的')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '客户已确认接受' }))
+    expect(screen.getByLabelText('你从哪里发出的')).toBeInTheDocument()
+  })
+
+  /** 客户不接受是终止，不是退回重报——而且必须写清原因 */
+  it('客户不接受要写原因才能终止案件', async () => {
     const { user } = renderQuotation()
     await goto(user)
     await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    await user.click(screen.getByRole('button', { name: 'BD 已把报价报给客户' }))
 
-    const detail = screen.getByLabelText('报价详情')
-    expect(within(detail).getByText(/工作台不发送邮件/)).toBeInTheDocument()
-    expect(within(detail).getByLabelText('你从哪里发出的')).toBeInTheDocument()
+    const decline = screen.getByRole('button', { name: '客户未接受 · 终止案件' })
+    expect(decline).toBeDisabled()
+
+    await user.type(screen.getByLabelText(/客户怎么说的/), '价格超预算 30%')
+    expect(decline).toBeEnabled()
+    await user.click(decline)
+
+    expect(caseOf('CQ-004').status).toBe('Rejected')
+    expect(caseOf('CQ-004').clientReplyNote).toBe('价格超预算 30%')
   })
 })
 
@@ -164,7 +209,7 @@ describe('开工后的业务落点', () => {
       stageOf('MECH-01/3D_HIGH').baselineFinish,
     ]
 
-    await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    await throughClient(user)
     await user.click(screen.getByRole('button', { name: /我已发出变更开工邮件/ }))
 
     expect(stageOf('MECH-01/3D_BAKE').flags).not.toContain('WaitingChangeQuote')
@@ -183,7 +228,7 @@ describe('开工后的业务落点', () => {
       store.getState().demo.projects[0].assets.find((a) => a.id === 'MECH-02'),
     )
 
-    await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    await throughClient(user)
     await user.click(screen.getByRole('button', { name: /我已发出变更开工邮件/ }))
 
     expect(
@@ -194,7 +239,7 @@ describe('开工后的业务落点', () => {
   it('开工生成的通知只是草稿，没有被标记为已发送', async () => {
     const { user } = renderQuotation()
     await goto(user)
-    await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    await throughClient(user)
     await user.click(screen.getByRole('button', { name: /我已发出变更开工邮件/ }))
 
     const kickoffDrafts = store
@@ -228,16 +273,28 @@ describe('驳回与阻断', () => {
     expect(within(detail).queryByRole('button', { name: /复核通过/ })).toBeNull()
   })
 
-  it('首次报价的项目还没创建时，开工被诚实阻断', async () => {
+  /**
+   * 这条原来断言「项目没建出来所以开工被阻断」。
+   * 现在建项就发生在开工那一刻——阻断变成了交付：点下去项目才出现。
+   */
+  it('客户确认后发开工通知，项目在这一刻才建出来', async () => {
     const { user } = renderQuotation()
     await goto(user)
 
-    await user.click(screen.getByRole('button', { name: /待开工/ }))
+    await user.click(screen.getByRole('button', { name: /客户环节/ }))
     const list = screen.getByLabelText('报价案件')
     await user.click(within(list).getByText(/Q-029/))
 
+    // 点之前这个批次还不是正式项目
+    expect(store.getState().demo.projects.some((p) => p.code === 'AUR_B_3D_B34')).toBe(false)
     const detail = screen.getByLabelText('报价详情')
-    expect(within(detail).getByRole('button', { name: /标记开工（被阻断）/ })).toBeDisabled()
+    expect(within(detail).getByText(/才正式建项/)).toBeInTheDocument()
+
+    await user.click(within(detail).getByRole('button', { name: /我已发出正式开工邮件/ }))
+
+    const created = store.getState().demo.projects.find((p) => p.code === 'AUR_B_3D_B34')!
+    expect(created).toBeDefined()
+    expect(created.assets.flatMap((a) => a.stages).length).toBeGreaterThan(0)
   })
 })
 
@@ -335,7 +392,7 @@ describe('总监录入报价——每个状态都要能往下走', () => {
   it('已开工的案件不再提供录入入口，改动要走新变更单', async () => {
     const { user } = renderQuotation()
     await goto(user)
-    await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    await throughClient(user)
     await user.click(screen.getByRole('button', { name: /我已发出变更开工邮件/ }))
 
     expect(screen.queryByRole('button', { name: '录入总监报价' })).toBeNull()
@@ -358,7 +415,7 @@ describe('原报价永不覆盖', () => {
     const { user } = renderQuotation()
     await goto(user)
 
-    await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    await throughClient(user)
     await user.click(screen.getByRole('button', { name: /我已发出变更开工邮件/ }))
 
     const initial = store.getState().demo.quoteVersions.find((v) => v.caseId === 'Q-021')!
@@ -367,5 +424,57 @@ describe('原报价永不覆盖', () => {
 
     const detail = screen.getByLabelText('报价详情')
     expect(within(detail).getByText('¥ 51,000')).toBeInTheDocument()
+  })
+})
+
+
+/**
+ * 审批链画几步，实际就得走几步。
+ *
+ * 原来链上只有四步，复核通过直接跳到开工——等于把公司内部认可当成了客户认可。
+ * 这条测试把「链上的步数」和「真实要点几下」绑在一起：
+ * 少画一步，或者多画一步不能点，都会当场失败。
+ */
+describe('审批链与真实流转一一对应', () => {
+  it('六步全在，且每一步都对应一次真实动作', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+
+    const track = document.querySelector('.gp-approval-track')!
+    const steps = track.querySelectorAll('li')
+    expect(steps).toHaveLength(6)
+
+    expect(within(track as HTMLElement).getByText('BD 报给客户')).toBeInTheDocument()
+    expect(within(track as HTMLElement).getByText('客户确认')).toBeInTheDocument()
+
+    // 逐步点下去，链上对应节点依次变成已完成
+    const doneCount = () => track.querySelectorAll('li.is-done').length
+    const before = doneCount()
+
+    await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    expect(doneCount()).toBe(before + 1)
+
+    await user.click(screen.getByRole('button', { name: 'BD 已把报价报给客户' }))
+    expect(doneCount()).toBe(before + 2)
+
+    await user.click(screen.getByRole('button', { name: '客户已确认接受' }))
+    expect(doneCount()).toBe(before + 3)
+
+    await user.click(screen.getByRole('button', { name: /我已发出变更开工邮件/ }))
+    expect(doneCount()).toBe(6)
+  })
+
+  it('客户未接受时那一步标红，开工那步保持关闭', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+
+    await user.click(screen.getByRole('button', { name: /以组长兼BD身份复核通过/ }))
+    await user.click(screen.getByRole('button', { name: 'BD 已把报价报给客户' }))
+    await user.type(screen.getByLabelText(/客户怎么说的/), '预算不够')
+    await user.click(screen.getByRole('button', { name: '客户未接受 · 终止案件' }))
+
+    const track = document.querySelector('.gp-approval-track')!
+    expect(within(track as HTMLElement).getByText(/客户未接受 · 预算不够/)).toBeInTheDocument()
+    expect(track.querySelectorAll('li.is-done')).toHaveLength(4)
   })
 })

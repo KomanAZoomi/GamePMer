@@ -113,16 +113,22 @@ describe('阻断要说清楚为什么', () => {
    *
    * 现在挡住它的是真门禁：两个必填字段置信度低于 70%，得 PM 亲自过目。
    */
-  it('低置信度照旧阻断，且理由不再引用切片进度', async () => {
+  it('报价需求只问客户与批次编号，低置信度照旧阻断', async () => {
     const { user } = renderInbox()
     await gotoInbox(user)
 
     await user.click(screen.getByRole('button', { name: /需补全/ }))
     const list = screen.getByLabelText('候选记录')
-    await user.click(within(list).getByText('新角色 6 套时装需求'))
+    await user.click(within(list).getByText(/新角色 6 套时装需求/))
+
+    // BD 需求阶段项目还不存在，所以这一类根本不问资产和阶段
+    const extract = screen.getByLabelText('AI 识别结果')
+    expect(within(extract).getByText('批次编号')).toBeInTheDocument()
+    expect(within(extract).queryByText('关联资产')).toBeNull()
+    expect(within(extract).queryByText('制作阶段')).toBeNull()
 
     const detail = screen.getByLabelText('候选详情')
-    expect(within(detail).getByText(/置信度仅 50%/)).toBeInTheDocument()
+    expect(within(detail).getByText(/置信度仅 55%/)).toBeInTheDocument()
     expect(within(detail).queryByText(/切片/)).toBeNull()
     expect(within(detail).getByRole('button', { name: /确认（被阻断）/ })).toBeDisabled()
   })
@@ -287,19 +293,13 @@ describe('报价需求与 IT 回执确认后有正式去处', () => {
     await gotoInbox(user)
 
     await user.click(screen.getByRole('button', { name: /需补全/ }))
-    await user.click(within(screen.getByLabelText('候选记录')).getByText('新角色 6 套时装需求'))
+    await user.click(within(screen.getByLabelText('候选记录')).getByText(/新角色 6 套时装需求/))
 
-    // 两个低置信度字段各自过目一遍：点开分数就是进编辑
-    for (const [label, value] of [
-      ['关联资产', 'MECH-01'],
-      ['制作阶段', '3D_HIGH'],
-    ]) {
-      const extract = screen.getByLabelText('AI 识别结果')
-      const field = within(extract).getByText(label).closest('.gp-field')!
-      await user.click(within(field as HTMLElement).getByRole('button'))
-      await user.selectOptions(screen.getByLabelText(label), value)
-      await user.click(screen.getByRole('button', { name: '保存' }))
-    }
+    // 批次编号是 BD 口头给的，PM 过目一遍：点开分数就是进编辑
+    const extract = screen.getByLabelText('AI 识别结果')
+    const field = within(extract).getByText('批次编号').closest('.gp-field')!
+    await user.click(within(field as HTMLElement).getByRole('button'))
+    await user.click(screen.getByRole('button', { name: '保存' }))
 
     const confirm = within(screen.getByLabelText('候选详情')).getByRole('button', {
       name: /确认并创建报价案件/,
@@ -309,7 +309,10 @@ describe('报价需求与 IT 回执确认后有正式去处', () => {
 
     const created = store.getState().demo.quoteCases.at(-1)!
     expect(created.status).toBe('DirectorQuoting')
-    expect(created.title).toBe('新角色 6 套时装需求')
+    expect(created.title).toBe('新角色 6 套时装需求（B26 批次）')
+    // 提议的批次编号，此刻还不是正式项目
+    expect(created.projectCode).toBe('NST_A_3D_B26')
+    expect(store.getState().demo.projects.some((p) => p.code === 'NST_A_3D_B26')).toBe(false)
 
     await user.click(screen.getByRole('button', { name: '去报价与变更派给总监' }))
     expect(window.location.hash).toBe('#/quotation')

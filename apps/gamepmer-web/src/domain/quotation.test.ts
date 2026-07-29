@@ -10,15 +10,34 @@ import {
   kickoffBlockingIssues,
   quoteTotals,
   reviewBlockingIssues,
+  recordClientReply,
   reviewQuote,
   reviewTodos,
   sendKickoff,
+  sendToClient,
   submitQuoteVersion,
 } from './quotation'
 import type { DemoState, QuoteLine } from './model'
 
 const ACTOR = 'Brandon'
 const NOW = `${DEMO_TODAY}T15:00:00+08:00`
+
+/**
+ * 走完「复核通过 → BD 报客户 → 客户确认」，把案件推到可以开工的位置。
+ *
+ * 这三步以前是不存在的：复核通过就直接能开工。验收时用户指出真实流程是
+ * 总监报价 → 组长复核 → 报给客户 → BD 回传客户确认 → 才算正式接项目。
+ */
+function throughClient(state: DemoState, caseId: string): DemoState {
+  const approved = reviewQuote(state, caseId, {
+    decision: 'approve',
+    actor: 'Leo',
+    now: NOW,
+    note: '人天与节点合理',
+  })
+  const sent = sendToClient(approved, caseId, { actor: 'Leo（BD）', now: NOW, via: 'Outlook' })
+  return recordClientReply(sent, caseId, 'accept', { actor: 'Leo（BD）', now: NOW, via: 'Outlook' })
+}
 
 /** 正式排期的指纹。开工之前，报价流程不许动它。 */
 function scheduleFingerprint(state: DemoState): string {
@@ -277,7 +296,11 @@ describe('开工门禁', () => {
     )
   })
 
-  it('复核通过后才解禁；开工前正式排期一个字节都没变', () => {
+  /**
+   * 复核通过之后还隔着两步：BD 报给客户、客户回话。
+   * 这两步以前不存在，复核通过就能开工——那是把公司内部认可当成了客户认可。
+   */
+  it('复核通过还不能开工，要先报客户、再等客户点头', () => {
     const state = createDemoState()
     const fingerprint = scheduleFingerprint(state)
 
@@ -287,10 +310,20 @@ describe('开工门禁', () => {
       now: NOW,
       note: '同意',
     })
+    expect(kickoffBlockingIssues(approved, 'CQ-004')).toContain('复核通过了，但还没报给客户')
 
-    expect(kickoffBlockingIssues(approved, 'CQ-004')).toEqual([])
-    // 批准 ≠ 开工：排期此时仍然没动
-    expect(scheduleFingerprint(approved)).toBe(fingerprint)
+    const sent = sendToClient(approved, 'CQ-004', { actor: 'Leo（BD）', now: NOW, via: 'Outlook' })
+    expect(kickoffBlockingIssues(sent, 'CQ-004')).toContain('还在等客户确认，客户没点头不能开工')
+
+    const accepted = recordClientReply(sent, 'CQ-004', 'accept', {
+      actor: 'Leo（BD）',
+      now: NOW,
+      via: 'Outlook',
+    })
+    expect(kickoffBlockingIssues(accepted, 'CQ-004')).toEqual([])
+
+    // 走完这三步，排期依然一个字节都没动——真正改排期的只有开工那一下
+    expect(scheduleFingerprint(accepted)).toBe(fingerprint)
   })
 
   it('复核驳回后不能开工，且退回总监重报', () => {
@@ -328,13 +361,8 @@ describe('追加报价开工的业务落点', () => {
       .flatMap((a) => a.stages)
       .map((s) => [s.id, s.baselineStart, s.baselineFinish])
 
-    const approved = reviewQuote(state, 'CQ-004', {
-      decision: 'approve',
-      actor: 'Leo',
-      now: NOW,
-      note: '同意',
-    })
-    const started = sendKickoff(approved, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })
+    const accepted = throughClient(state, 'CQ-004')
+    const started = sendKickoff(accepted, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })
 
     const stages = started.projects.flatMap((p) => p.assets).flatMap((a) => a.stages)
     expect(stages.every((stage) => !stage.flags.includes('WaitingChangeQuote'))).toBe(true)
@@ -355,13 +383,8 @@ describe('追加报价开工的业务落点', () => {
 
   it('开工同时生成一条排期修订，能在甘特的修订历史里查到', () => {
     const state = createDemoState()
-    const approved = reviewQuote(state, 'CQ-004', {
-      decision: 'approve',
-      actor: 'Leo',
-      now: NOW,
-      note: '同意',
-    })
-    const started = sendKickoff(approved, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })
+    const accepted = throughClient(state, 'CQ-004')
+    const started = sendKickoff(accepted, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })
 
     const revision = started.revisions.at(-1)!
     expect(revision.reason).toBe('scope-change')
@@ -371,13 +394,8 @@ describe('追加报价开工的业务落点', () => {
 
   it('开工邮件只能发一次，重复发送被拒绝', () => {
     const state = createDemoState()
-    const approved = reviewQuote(state, 'CQ-004', {
-      decision: 'approve',
-      actor: 'Leo',
-      now: NOW,
-      note: '同意',
-    })
-    const started = sendKickoff(approved, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })
+    const accepted = throughClient(state, 'CQ-004')
+    const started = sendKickoff(accepted, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })
 
     expect(() => sendKickoff(started, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })).toThrow(
       QuoteBlocked,
@@ -419,13 +437,8 @@ describe('追加报价开工的业务落点', () => {
 describe('原报价永不覆盖', () => {
   it('结项汇总 = 首次报价 + 全部已开工的追加报价', () => {
     const state = createDemoState()
-    const approved = reviewQuote(state, 'CQ-004', {
-      decision: 'approve',
-      actor: 'Leo',
-      now: NOW,
-      note: '同意',
-    })
-    const started = sendKickoff(approved, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })
+    const accepted = throughClient(state, 'CQ-004')
+    const started = sendKickoff(accepted, 'CQ-004', { actor: ACTOR, now: NOW, via: 'Outlook' })
 
     const initial = started.quoteCases.find((c) => c.projectCode === 'NST_A_3D_B24' && c.kind === 'initial')!
     const initialAmount = quoteTotals(activeVersion(started, initial.id)!).amount
@@ -436,5 +449,191 @@ describe('原报价永不覆盖', () => {
     // 首次报价的版本没有被追加报价改写
     expect(activeVersion(started, initial.id)!.version).toBe(1)
     expect(activeVersion(started, initial.id)!.supersededAt).toBeUndefined()
+  })
+})
+
+/**
+ * 客户环节与建项。
+ *
+ * 验收时用户把真实流程讲清楚了：
+ * BD 需求 → 需求入库 → 总监报价 → 组长复核 → **给客户** → **BD 回复客户确认**
+ * → 才算正式接入项目，发开工通知。
+ *
+ * 原实现缺了中间两步，「正式接入项目」也从来没真发生过。
+ */
+describe('报给客户与客户答复', () => {
+  it('没复核就报客户会被拒绝', () => {
+    const state = createDemoState()
+    expect(() =>
+      sendToClient(state, 'CQ-004', { actor: 'Leo（BD）', now: NOW, via: 'Outlook' }),
+    ).toThrow(QuoteBlocked)
+  })
+
+  it('还没报客户就谈客户答复，同样被拒绝', () => {
+    const state = createDemoState()
+    const approved = reviewQuote(state, 'CQ-004', {
+      decision: 'approve',
+      actor: 'Leo',
+      now: NOW,
+      note: '同意',
+    })
+    expect(() =>
+      recordClientReply(approved, 'CQ-004', 'accept', { actor: 'Leo（BD）', now: NOW, via: 'Outlook' }),
+    ).toThrow(QuoteBlocked)
+  })
+
+  it('报客户与客户答复都写审计，并写明工作台没发信', () => {
+    const state = createDemoState()
+    const accepted = throughClient(state, 'CQ-004')
+    const actions = accepted.auditEvents.slice(-2).map((entry) => entry.action)
+
+    expect(actions).toEqual(['BD 已将报价报给客户', '客户确认接受报价'])
+    expect(accepted.auditEvents.at(-2)?.reason).toContain('工作台未执行发送')
+  })
+
+  /** 客户不接受是**终止**，不是退回总监重报——重报是另一件事 */
+  it('客户不接受必须写原因，写了才终止案件', () => {
+    const state = createDemoState()
+    const approved = reviewQuote(state, 'CQ-004', {
+      decision: 'approve',
+      actor: 'Leo',
+      now: NOW,
+      note: '同意',
+    })
+    const sent = sendToClient(approved, 'CQ-004', { actor: 'Leo（BD）', now: NOW, via: 'Outlook' })
+
+    expect(() =>
+      recordClientReply(sent, 'CQ-004', 'decline', { actor: 'Leo（BD）', now: NOW, via: 'Outlook' }),
+    ).toThrow(QuoteBlocked)
+
+    const declined = recordClientReply(sent, 'CQ-004', 'decline', {
+      actor: 'Leo（BD）',
+      now: NOW,
+      via: 'Outlook',
+      note: '价格超预算 30%',
+    })
+    expect(findCase(declined, 'CQ-004').status).toBe('Rejected')
+    expect(findCase(declined, 'CQ-004').clientReplyNote).toBe('价格超预算 30%')
+  })
+
+  /** `Rejected` 以前在类型里存在却永远到不了，这条路径是它唯一的入口 */
+  it('每个非终态都有出路，Rejected 现在真的可达', () => {
+    const state = createDemoState()
+    for (const quoteCase of state.quoteCases) {
+      if (TERMINAL_QUOTE_STATUSES.includes(quoteCase.status)) continue
+      expect(
+        availableActions(state, quoteCase.id).length,
+        `${quoteCase.id}（${quoteCase.status}）没有任何可用动作`,
+      ).toBeGreaterThan(0)
+    }
+
+    const approved = reviewQuote(state, 'CQ-004', {
+      decision: 'approve',
+      actor: 'Leo',
+      now: NOW,
+      note: '同意',
+    })
+    const sent = sendToClient(approved, 'CQ-004', { actor: 'Leo（BD）', now: NOW, via: 'Outlook' })
+    const declined = recordClientReply(sent, 'CQ-004', 'decline', {
+      actor: 'Leo（BD）',
+      now: NOW,
+      via: 'Outlook',
+      note: '预算不够',
+    })
+    expect(findCase(declined, 'CQ-004').status).toBe('Rejected')
+  })
+})
+
+describe('客户确认后才正式建项', () => {
+  const CASE = 'Q-029'
+
+  it('种子里 Q-029 的项目此刻还不存在——它只是个提议的批次编号', () => {
+    const state = createDemoState()
+    expect(findCase(state, CASE).status).toBe('ClientAccepted')
+    expect(state.projects.some((p) => p.code === 'AUR_B_3D_B34')).toBe(false)
+    // 客户已经点头，所以开工没有任何阻断
+    expect(kickoffBlockingIssues(state, CASE)).toEqual([])
+  })
+
+  it('发出开工通知 → 项目、资产、阶段一次性建出来', () => {
+    const state = createDemoState()
+    const before = state.projects.length
+    const started = sendKickoff(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook' })
+
+    expect(started.projects).toHaveLength(before + 1)
+    const project = started.projects.find((p) => p.code === 'AUR_B_3D_B34')!
+    expect(project.client).toBe('Aurora Interactive')
+    expect(project.status).toBe('InProduction')
+    expect(project.assets.length).toBeGreaterThan(0)
+
+    // 阶段就是报价行——报的是什么，做的就是什么
+    const stages = project.assets.flatMap((asset) => asset.stages)
+    const lines = activeVersion(started, CASE)!.lines
+    expect(stages).toHaveLength(lines.length)
+  })
+
+  it('报价节点同时成为基准和当前计划，基准从此不再被改写', () => {
+    const state = createDemoState()
+    const started = sendKickoff(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook' })
+
+    const project = started.projects.find((p) => p.code === 'AUR_B_3D_B34')!
+    const lines = activeVersion(started, CASE)!.lines
+    for (const stage of project.assets.flatMap((asset) => asset.stages)) {
+      const line = lines.find((entry) => entry.stageCode === stage.code && entry.assetId === stage.assetId)!
+      expect(stage.baselineStart).toBe(line.plannedStart)
+      expect(stage.baselineFinish).toBe(line.plannedFinish)
+      expect(stage.currentStart).toBe(stage.baselineStart)
+      expect(stage.currentFinish).toBe(stage.baselineFinish)
+      // 新建项目的阶段都还没开工
+      expect(stage.status).toBe('NotStarted')
+    }
+  })
+
+  /**
+   * 新项目**不该有排期修订**。修订记的是「相对基准改了什么」，
+   * 而新项目的基准就是这份报价单自己，没有前一版可比——
+   * 硬记一条会出现 `08-17 → 08-17（+15 工作日）` 这种自己改自己的假修订。
+   */
+  it('新建的项目没有排期修订，只有建项审计', () => {
+    const state = createDemoState()
+    const before = state.revisions.length
+    const started = sendKickoff(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook' })
+
+    expect(started.revisions).toHaveLength(before)
+    expect(started.revisions.some((entry) => entry.projectCode === 'AUR_B_3D_B34')).toBe(false)
+  })
+
+  it('首次开工的通知草稿不叫「变更开工」', () => {
+    const state = createDemoState()
+    const started = sendKickoff(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook' })
+
+    const draft = started.notificationDrafts.at(-1)!
+    expect(draft.subject).toContain('正式开工')
+    expect(draft.subject).not.toContain('变更开工')
+    expect(draft.status).toBe('draft')
+  })
+
+  it('建项写审计，说清是哪张报价单生出来的', () => {
+    const state = createDemoState()
+    const started = sendKickoff(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook' })
+
+    const audit = started.auditEvents.find((entry) => entry.action === '客户确认后正式建项')!
+    expect(audit.targetId).toBe('AUR_B_3D_B34')
+    expect(audit.reason).toContain('Q-029')
+  })
+
+  it('客户还没确认时不建项，且整体不留任何副作用', () => {
+    const base = createDemoState()
+    const state: DemoState = {
+      ...base,
+      quoteCases: base.quoteCases.map((entry) =>
+        entry.id !== CASE ? entry : { ...entry, status: 'SentToClient' as const },
+      ),
+    }
+
+    expect(() => sendKickoff(state, CASE, { actor: ACTOR, now: NOW, via: 'Outlook' })).toThrow(
+      QuoteBlocked,
+    )
+    expect(state.projects.some((p) => p.code === 'AUR_B_3D_B34')).toBe(false)
   })
 })

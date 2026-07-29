@@ -1,9 +1,13 @@
+import { BATCH_CODE_RULE, parseBatchCode } from './batchCode'
+import { STAGE_LABEL } from './model'
 import type {
+  Asset,
   AuditEvent,
   DemoState,
   NotificationDraft,
   Person,
   PersonRole,
+  Project,
   QuoteCase,
   QuoteVersion,
   ScheduleRevision,
@@ -117,7 +121,9 @@ export function kickoffBlockingIssues(state: DemoState, caseId: string): string[
 
   const issues: string[] = []
   if (quoteCase.status === 'KickoffSent') issues.push('开工邮件已经发过了，不能重复发送')
-  if (quoteCase.status === 'Rejected') issues.push('该报价已被驳回')
+  if (quoteCase.status === 'Rejected') issues.push('客户未接受该报价，案件已终止')
+  if (quoteCase.status === 'Approved') issues.push('复核通过了，但还没报给客户')
+  if (quoteCase.status === 'SentToClient') issues.push('还在等客户确认，客户没点头不能开工')
 
   const version = activeVersion(state, caseId)
   if (!version) {
@@ -129,15 +135,28 @@ export function kickoffBlockingIssues(state: DemoState, caseId: string): string[
   }
   issues.push(...reviewBlockingIssues(version))
 
-  // 报价行必须能落到正式排期上。首次报价常常在项目还没建出来时就批了——
-  // 那时候「开工」无处可写，与其假装成功，不如说清楚缺什么。
   const project = state.projects.find((entry) => entry.code === quoteCase.projectCode)
-  if (!project) {
-    issues.push(`${quoteCase.projectCode} 还不是正式项目，需要先建项目与资产（建项流程尚未实现）`)
-  } else {
+
+  if (project) {
+    // 项目已存在（追加报价、或首次报价的补发）：报价行必须能落到既有排期上
     for (const line of version.lines) {
       if (!findStage(state, quoteCase.projectCode, line.assetId, line.stageCode)) {
         issues.push(`报价行「${line.title}」指向的 ${line.assetId} / ${line.stageCode} 在正式排期里不存在`)
+      }
+    }
+  } else if (quoteCase.kind === 'change') {
+    issues.push(`${quoteCase.projectCode} 不是正式项目，追加报价无处可落`)
+  } else {
+    // 首次报价：项目本来就该在这一刻才建出来。要建就得有完整的行
+    if (!parseBatchCode(quoteCase.projectCode).valid) {
+      issues.push(
+        `批次编号「${quoteCase.projectCode}」不符合规范 ${BATCH_CODE_RULE}，无法据此建项`,
+      )
+    }
+    if (version.lines.length === 0) issues.push('报价单一行都没有，建不出项目与资产')
+    for (const line of version.lines) {
+      if (!line.plannedStart || !line.plannedFinish) {
+        issues.push(`报价行「${line.title}」缺节点日期，建项后阶段没有排期`)
       }
     }
   }
@@ -152,17 +171,20 @@ export function kickoffBlockingIssues(state: DemoState, caseId: string): string[
  * 结果 Q-030 卡死、「退回总监修改」也成了死胡同。有了这个投影，
  * 任何一个非终态却没有可用动作的状态都会被测试当场抓住。
  */
-export type QuoteAction = 'quote' | 'review' | 'kickoff'
+export type QuoteAction = 'quote' | 'review' | 'send-to-client' | 'client-reply' | 'kickoff'
 
 export function availableActions(state: DemoState, caseId: string): QuoteAction[] {
   const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
   if (!quoteCase) return []
 
   const actions: QuoteAction[] = []
-  // 只要还没开工、也没被终止，总监就能提交（新）报价
+  // 只要还没开工、也没被终止，总监就能提交（新）报价。
+  // 客户已经看过的报价改了就得重新走复核和送客户，这由 submitQuoteVersion 退回状态保证
   if (quoteCase.status !== 'KickoffSent' && quoteCase.status !== 'Rejected') actions.push('quote')
   if (quoteCase.status === 'AwaitingReview') actions.push('review')
-  if (quoteCase.status === 'Approved') actions.push('kickoff')
+  if (quoteCase.status === 'Approved') actions.push('send-to-client')
+  if (quoteCase.status === 'SentToClient') actions.push('client-reply')
+  if (quoteCase.status === 'ClientAccepted') actions.push('kickoff')
   return actions
 }
 
@@ -360,6 +382,187 @@ export function reviewQuote(state: DemoState, caseId: string, input: ReviewInput
   }
 }
 
+// ---------------------------------------------------------------- 送客户与客户回复
+
+export interface ClientStepInput {
+  actor: string
+  now: string
+  /** BD 实际用哪个渠道发的 / 客户从哪个渠道回的，作为人工声明的证据 */
+  via: string
+  note?: string
+}
+
+/**
+ * BD 把复核通过的报价报给客户。
+ *
+ * 工作台不发信，这里记的是 BD 的人工声明。发出之后进入等客户的窗口——
+ * 这段时间是客户占用的，和团队产能无关，所以必须是一个能看见的独立状态。
+ */
+export function sendToClient(state: DemoState, caseId: string, input: ClientStepInput): DemoState {
+  const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
+  if (!quoteCase) throw new QuoteBlocked([`找不到报价案件 ${caseId}`])
+  if (quoteCase.status !== 'Approved') {
+    throw new QuoteBlocked([
+      `${QUOTE_STATUS_LABEL[quoteCase.status]}：只有复核通过的报价才能报给客户`,
+    ])
+  }
+
+  const audit: AuditEvent = {
+    id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
+    at: input.now,
+    actor: input.actor,
+    action: 'BD 已将报价报给客户',
+    targetKind: 'QuoteCase',
+    targetId: caseId,
+    before: quoteCase.status,
+    after: 'SentToClient',
+    reason: `${input.actor} 声明已通过${input.via}报给 ${quoteCase.client}；工作台未执行发送`,
+  }
+
+  return {
+    ...state,
+    quoteCases: state.quoteCases.map((entry) =>
+      entry.id !== caseId
+        ? entry
+        : { ...entry, status: 'SentToClient' as const, sentToClientAt: input.now, sentToClientBy: input.actor },
+    ),
+    auditEvents: [...state.auditEvents, audit],
+  }
+}
+
+/**
+ * BD 回传客户的答复。
+ *
+ * 客户不接受就是**终止**，不是退回总监重报——重报是另一件事（总监再提交新版本）。
+ * 这条路径也是 `Rejected` 唯一的入口：以前它在类型里存在却永远到不了。
+ */
+export function recordClientReply(
+  state: DemoState,
+  caseId: string,
+  decision: 'accept' | 'decline',
+  input: ClientStepInput,
+): DemoState {
+  const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
+  if (!quoteCase) throw new QuoteBlocked([`找不到报价案件 ${caseId}`])
+  if (quoteCase.status !== 'SentToClient') {
+    throw new QuoteBlocked([
+      `${QUOTE_STATUS_LABEL[quoteCase.status]}：报价还没报给客户，谈不上客户答复`,
+    ])
+  }
+  if (decision === 'decline' && !input.note?.trim()) {
+    throw new QuoteBlocked(['客户未接受时必须记下原因——价格、排期还是范围，下次报价要用'])
+  }
+
+  const next = decision === 'accept' ? ('ClientAccepted' as const) : ('Rejected' as const)
+  const audit: AuditEvent = {
+    id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
+    at: input.now,
+    actor: input.actor,
+    action: decision === 'accept' ? '客户确认接受报价' : '客户未接受报价，案件终止',
+    targetKind: 'QuoteCase',
+    targetId: caseId,
+    before: quoteCase.status,
+    after: next,
+    reason: `${input.actor} 由${input.via}回传${input.note ? `：${input.note.trim()}` : ''}`,
+  }
+
+  return {
+    ...state,
+    quoteCases: state.quoteCases.map((entry) =>
+      entry.id !== caseId
+        ? entry
+        : {
+            ...entry,
+            status: next,
+            clientRepliedAt: input.now,
+            clientReplyNote: input.note?.trim(),
+          },
+    ),
+    auditEvents: [...state.auditEvents, audit],
+  }
+}
+
+/**
+ * 从报价单建出项目、资产与阶段。
+ *
+ * 阶段就是报价行——报价报的是什么，做的就是什么，两边不该各写一套。
+ * 制作组按 2D/3D 匹配，匹配不到就用第一个同工种的组。
+ */
+function createProjectFromQuote(
+  state: DemoState,
+  quoteCase: QuoteCase,
+  version: QuoteVersion,
+  input: KickoffInput,
+): DemoState {
+  const parsed = parseBatchCode(quoteCase.projectCode)
+  const discipline = quoteCase.discipline ?? (parsed.discipline === '2D' ? '2D' : '3D')
+  const group =
+    state.productionGroups.find((entry) => entry.discipline === discipline) ??
+    state.productionGroups[0]
+  const pm = state.people.find((person) => person.roles.includes('PM'))
+  const director = state.people.find((person) => person.roles.includes('艺术总监'))
+
+  const byAsset = new Map<string, typeof version.lines>()
+  for (const line of version.lines) {
+    byAsset.set(line.assetId, [...(byAsset.get(line.assetId) ?? []), line])
+  }
+
+  const assets: Asset[] = [...byAsset.entries()].map(([assetId, lines]) => ({
+    id: assetId,
+    name: lines[0]?.title ?? assetId,
+    discipline,
+    projectCode: quoteCase.projectCode,
+    stages: lines.map((line) => ({
+      id: `${quoteCase.projectCode}/${assetId}/${line.stageCode}`,
+      code: line.stageCode,
+      name: STAGE_LABEL[line.stageCode],
+      assetId,
+      productionGroupId: group?.id ?? '',
+      ownerName: group?.name ?? '待指派',
+      estimatedPersonDays: line.personDays,
+      // 开工那一刻的报价节点**同时**成为基准和当前计划。
+      // 基准从此不再被任何修订覆盖，后面所有偏差都以它为准
+      baselineStart: line.plannedStart!,
+      baselineFinish: line.plannedFinish!,
+      currentStart: line.plannedStart!,
+      currentFinish: line.plannedFinish!,
+      dependsOn: [],
+      status: 'NotStarted' as const,
+      flags: [],
+    })),
+  }))
+
+  const project: Project = {
+    id: `prj-${quoteCase.projectCode.toLowerCase()}`,
+    code: quoteCase.projectCode,
+    name: quoteCase.title,
+    client: quoteCase.client,
+    discipline,
+    status: 'InProduction',
+    pmName: pm?.name ?? input.actor,
+    artDirectorName: director?.name ?? quoteCase.directorName,
+    calendarId: state.calendars[0]?.id ?? '',
+    assets,
+  }
+
+  const audit: AuditEvent = {
+    id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
+    at: input.now,
+    actor: input.actor,
+    action: '客户确认后正式建项',
+    targetKind: 'Project',
+    targetId: project.code,
+    after: `${assets.length} 个资产 · ${version.lines.length} 个阶段`,
+    reason: `由报价 ${quoteCase.id} 的 ${version.id} 生成；基准排期即报价节点`,
+  }
+
+  return {
+    ...state,
+    projects: [...state.projects, project],
+    auditEvents: [...state.auditEvents, audit],
+  }
+}
+
 export interface KickoffInput {
   actor: string
   now: string
@@ -381,6 +584,13 @@ export function sendKickoff(state: DemoState, caseId: string, input: KickoffInpu
 
   const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)!
   const version = activeVersion(state, caseId)!
+
+  // 首次报价走到这一步才**正式接入项目**：项目、资产、阶段都从报价单生出来。
+  // 这就是「客户确认后才算正式接项目」在数据上的落点——
+  // 在这之前，那个批次编号只是一个提议。
+  const justCreated =
+    quoteCase.kind === 'initial' && !state.projects.some((p) => p.code === quoteCase.projectCode)
+  if (justCreated) state = createProjectFromQuote(state, quoteCase, version, input)
 
   // 先解析全部报价行指向的阶段。有一条对不上就整体拒绝，不允许「改了一半」
   const changes: StageDateChange[] = []
@@ -407,19 +617,32 @@ export function sendKickoff(state: DemoState, caseId: string, input: KickoffInpu
     })
   }
 
-  const revisionId = nextId(state.revisions.map((entry) => entry.id), `REV-${quoteCase.projectCode}-`, 1)
-  const revision: ScheduleRevision = {
-    id: revisionId,
-    version: state.revisions.filter((entry) => entry.projectCode === quoteCase.projectCode).length + 1,
-    projectCode: quoteCase.projectCode,
-    assetId: quoteCase.affectedAssetIds[0] ?? '',
-    sourceFeedbackItemId: quoteCase.sourceFeedbackItemId,
-    reason: 'scope-change',
-    note: `${caseId} v${version.version} 变更开工`,
-    confirmedBy: input.actor,
-    confirmedAt: input.now,
-    changes,
-  }
+  /**
+   * 刚建出来的项目**不产生排期修订**。
+   *
+   * 修订是「相对基准改了什么」的记录，新项目的基准就是这份报价单本身，
+   * 没有前一版可比。硬记一条会出现 `08-17 → 08-17（+15 工作日）` 这种
+   * 自己改自己的假修订，还会让「生效修订数」凭空多一。建项已经写了审计。
+   */
+  const revisionId = justCreated
+    ? undefined
+    : nextId(state.revisions.map((entry) => entry.id), `REV-${quoteCase.projectCode}-`, 1)
+
+  const revision: ScheduleRevision | undefined = revisionId
+    ? {
+        id: revisionId,
+        version:
+          state.revisions.filter((entry) => entry.projectCode === quoteCase.projectCode).length + 1,
+        projectCode: quoteCase.projectCode,
+        assetId: quoteCase.affectedAssetIds[0] ?? '',
+        sourceFeedbackItemId: quoteCase.sourceFeedbackItemId,
+        reason: 'scope-change',
+        note: `${caseId} v${version.version} ${quoteCase.kind === 'change' ? '变更开工' : '开工'}`,
+        confirmedBy: input.actor,
+        confirmedAt: input.now,
+        changes,
+      }
+    : undefined
 
   const projects = state.projects.map((project) =>
     project.code !== quoteCase.projectCode
@@ -438,12 +661,15 @@ export function sendKickoff(state: DemoState, caseId: string, input: KickoffInpu
         },
   )
 
+  const isChange = quoteCase.kind === 'change'
   const notification: NotificationDraft = {
     id: nextId(state.notificationDrafts.map((entry) => entry.id), 'ND-', 3),
     recipientRole: '组长',
     recipientName: personOf(state, quoteCase.reviewerPersonId)?.name ?? '组长',
-    subject: `【变更开工】${quoteCase.projectCode} · ${quoteCase.title}`,
-    body: `${caseId} v${version.version} 已复核通过，追加 ${quoteTotals(version).personDays} 人天，工期 +${version.scheduleImpactWorkdays} 工作日。受影响资产：${quoteCase.affectedAssetIds.join('、')}。`,
+    subject: `【${isChange ? '变更开工' : '正式开工'}】${quoteCase.projectCode} · ${quoteCase.title}`,
+    body: isChange
+      ? `${caseId} v${version.version} 已复核通过，追加 ${quoteTotals(version).personDays} 人天，工期 +${version.scheduleImpactWorkdays} 工作日。受影响资产：${quoteCase.affectedAssetIds.join('、')}。`
+      : `${caseId} v${version.version} 客户已确认，共 ${quoteTotals(version).personDays} 人天。${justCreated ? `项目 ${quoteCase.projectCode} 已按报价单建出 ${version.lines.length} 个阶段，报价节点即基准排期。` : ''}`,
     sourceKind: 'kickoff',
     sourceId: caseId,
     // 工作台不发信：这封是草稿，PM 自己在 Outlook 发出后回来标记
@@ -457,15 +683,17 @@ export function sendKickoff(state: DemoState, caseId: string, input: KickoffInpu
     action: quoteCase.kind === 'change' ? '发出变更开工邮件' : '发出正式开工邮件',
     targetKind: 'QuoteCase',
     targetId: caseId,
-    before: 'Approved',
+    before: 'ClientAccepted',
     after: 'KickoffSent',
-    reason: `经 ${input.via} 发出 · 解冻 ${quoteCase.affectedAssetIds.join('、')} · 排期修订 ${revisionId}`,
+    reason: justCreated
+      ? `经 ${input.via} 发出 · 按报价单建出 ${quoteCase.projectCode}`
+      : `经 ${input.via} 发出 · 解冻 ${quoteCase.affectedAssetIds.join('、')} · 排期修订 ${revisionId}`,
   }
 
   return {
     ...state,
     projects,
-    revisions: [...state.revisions, revision],
+    revisions: revision ? [...state.revisions, revision] : state.revisions,
     notificationDrafts: [...state.notificationDrafts, notification],
     quoteCases: state.quoteCases.map((entry) =>
       entry.id !== caseId
@@ -520,9 +748,11 @@ export const QUOTE_STATUS_LABEL: Record<QuoteCase['status'], string> = {
   Assigned: '已分派总监',
   DirectorQuoting: '总监报价中',
   AwaitingReview: '等待组长/BD 复核',
-  Approved: '复核通过 · 待发开工邮件',
+  Approved: '复核通过 · 待报给客户',
+  SentToClient: '已报客户 · 等客户确认',
+  ClientAccepted: '客户已确认 · 待开工建项',
   KickoffSent: '已开工',
-  Rejected: '已驳回',
+  Rejected: '客户未接受 · 已终止',
 }
 
 export const QUOTE_KIND_LABEL: Record<QuoteCase['kind'], string> = {

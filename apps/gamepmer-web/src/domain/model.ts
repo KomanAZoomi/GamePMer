@@ -35,6 +35,19 @@ export type StageCode =
   | '3D_TEXTURE'
   | '3D_LOD'
 
+/** 阶段中文名。放在这里而不是某个用例模块里——它是词汇表，谁都要用。 */
+export const STAGE_LABEL: Record<StageCode, string> = {
+  '2D_SKETCH': '草图',
+  '2D_DETAIL_50': '细化 50%',
+  '2D_FINAL': '完成稿',
+  '3D_MID': '中模',
+  '3D_HIGH': '高模',
+  '3D_LOW': '低模',
+  '3D_BAKE': '烘焙',
+  '3D_TEXTURE': '贴图',
+  '3D_LOD': 'LOD',
+}
+
 /**
  * 阶段主状态。
  * 「完成制作」「已交 PM」「已提交客户」「客户确认」是四件不同的事，不允许合并成一个完成状态。
@@ -361,10 +374,20 @@ export interface Person {
 export type QuoteKind = 'initial' | 'change'
 
 /**
- * `Received → Assigned → DirectorQuoting → AwaitingReview → Approved → KickoffSent | Rejected`
+ * ```
+ * Received → Assigned → DirectorQuoting → AwaitingReview → Approved
+ *          → SentToClient → ClientAccepted → KickoffSent
+ *                        ↘ Rejected（客户不接受）
+ * ```
  *
- * 批准 ≠ 开工。只有 PM 发出正式开工（或变更开工）邮件后才进入制作——
- * 这一步是人工声明，工作台不发信。
+ * 三条容易被合并、但合并了就再也拆不回来的分界：
+ *
+ * 1. **复核通过 ≠ 已报给客户。** 组长/BD 内部认了，还没发出去。
+ * 2. **已报给客户 ≠ 客户接受。** 中间这段等待是客户占用的时间，要单独看得见。
+ * 3. **客户接受 ≠ 已开工。** 首次报价要到这一步才真正建项目、发开工通知——
+ *    「才算正式接入项目」说的就是这里。
+ *
+ * 送客户与客户回复都由 BD 在系统外完成，工作台记的是 PM/BD 的人工声明，不发信。
  */
 export type QuoteCaseStatus =
   | 'Received'
@@ -372,6 +395,8 @@ export type QuoteCaseStatus =
   | 'DirectorQuoting'
   | 'AwaitingReview'
   | 'Approved'
+  | 'SentToClient'
+  | 'ClientAccepted'
   | 'KickoffSent'
   | 'Rejected'
 
@@ -414,7 +439,21 @@ export interface QuoteVersion {
 export interface QuoteCase {
   id: string
   kind: QuoteKind
+  /**
+   * 首次报价时这里是**提议的**批次编号——正式项目要等客户确认、发出开工通知
+   * 才真正建出来。所以「有 projectCode」不等于「项目已存在」。
+   */
   projectCode: string
+  /** BD 给的期望交付时间，可能没有 */
+  dueDate?: string
+  /** 首次报价用来决定阶段模板（2D 三段 / 3D PBR 六段） */
+  discipline?: '2D' | '3D'
+  /** BD 报给客户的时间与人（人工声明，工作台不发信） */
+  sentToClientAt?: string
+  sentToClientBy?: string
+  /** 客户答复回传的时间；未接受时 note 里记原因 */
+  clientRepliedAt?: string
+  clientReplyNote?: string
   client: string
   title: string
   requirement: string

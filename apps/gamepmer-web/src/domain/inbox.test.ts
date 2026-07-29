@@ -74,10 +74,10 @@ describe('字段门禁', () => {
     const state = createDemoState()
     const candidate = pick(state, 'C-20260727-019') // 种子里缺关联资产的那条
 
-    const issues = blockingIssues(candidate)
+    const issues = blockingIssues(state, candidate)
     expect(issues.length).toBeGreaterThan(0)
     expect(issues.some((issue) => issue.includes('关联资产'))).toBe(true)
-    expect(canConfirm(candidate)).toBe(false)
+    expect(canConfirm(state, candidate)).toBe(false)
   })
 
   it('PM 补全字段后解除阻断，且该字段标记为人工填写', () => {
@@ -90,7 +90,7 @@ describe('字段门禁', () => {
     expect(field?.editedByPm).toBe(true)
     // 人工填写就是确定的，不该再显示成 62% 置信度
     expect(field?.confidence).toBe(1)
-    expect(canConfirm(filled)).toBe(true)
+    expect(canConfirm(state, filled)).toBe(true)
   })
 
   it('综合置信度取最低的必填字段——一项没谱就整条没谱', () => {
@@ -104,8 +104,8 @@ describe('字段门禁', () => {
   it('低置信度字段即使有值也要 PM 过目，不能直接确认', () => {
     const state = createDemoState()
     const candidate = pick(state, 'C-20260727-021') // OCR 出来的低置信候选
-    expect(canConfirm(candidate)).toBe(false)
-    expect(blockingIssues(candidate).some((issue) => issue.includes('置信度'))).toBe(true)
+    expect(canConfirm(state, candidate)).toBe(false)
+    expect(blockingIssues(state, candidate).some((issue) => issue.includes('置信度'))).toBe(true)
   })
 })
 
@@ -185,7 +185,7 @@ describe('确认事务', () => {
   it('阻断理由不再拿「某某切片未交付」当借口', () => {
     const state = createDemoState()
     for (const candidate of state.candidates) {
-      const issues = blockingIssues(candidate).join('；')
+      const issues = blockingIssues(state, candidate).join('；')
       expect(issues, `候选 ${candidate.id} 的阻断理由仍在引用切片进度`).not.toMatch(/切片/)
     }
   })
@@ -259,7 +259,7 @@ describe('零审批导入', () => {
       actor: ACTOR,
     })
     expect(candidate.fields.find((f) => f.key === 'projectCode')?.value).toBeUndefined()
-    expect(canConfirm(candidate)).toBe(false)
+    expect(canConfirm(state, candidate)).toBe(false)
   })
 
   it('导入本身不改变任何正式数据', () => {
@@ -284,30 +284,55 @@ describe('零审批导入', () => {
 describe('报价需求确认后真的建出报价案件', () => {
   const CANDIDATE = 'C-20260726-014'
 
-  /** 低置信度字段仍然要 PM 核验，这是真门禁，不能跟着一起放开 */
+  /** 批次编号是 BD 口头给的，得 PM 核一下——这是真门禁，不能跟着一起放开 */
   function verified(state: DemoState): DemoState {
-    let next = state
-    for (const key of ['assetId', 'stageCode']) {
-      next = {
-        ...next,
-        candidates: next.candidates.map((entry) =>
-          entry.id !== CANDIDATE ? entry : updateCandidateField(entry, key, fieldValue(entry, key)!),
-        ),
-      }
+    return {
+      ...state,
+      candidates: state.candidates.map((entry) =>
+        entry.id !== CANDIDATE
+          ? entry
+          : updateCandidateField(entry, 'batchCode', fieldValue(entry, 'batchCode')!),
+      ),
     }
-    return next
   }
+
+  /**
+   * BD 需求进来时**项目还不存在**。
+   * 逼 PM 填「关联资产 / 制作阶段」是把后面的事提前问了——验收时就是被这个卡住的。
+   */
+  it('只问客户和批次编号，不问资产与阶段', () => {
+    const state = createDemoState()
+    const candidate = state.candidates.find((entry) => entry.id === CANDIDATE)!
+    const keys = candidate.fields.map((field) => field.key)
+
+    expect(keys).toContain('clientName')
+    expect(keys).toContain('batchCode')
+    expect(keys).not.toContain('assetId')
+    expect(keys).not.toContain('stageCode')
+  })
 
   it('不再拿「切片 5 未交付」当阻断理由', () => {
     const state = createDemoState()
     const candidate = state.candidates.find((entry) => entry.id === CANDIDATE)!
-    expect(blockingIssues(candidate).join()).not.toMatch(/切片/)
+    expect(blockingIssues(state, candidate).join()).not.toMatch(/切片/)
   })
 
   it('低置信度字段照旧阻断——PM 核验这道门没被顺手放开', () => {
     const state = createDemoState()
     const candidate = state.candidates.find((entry) => entry.id === CANDIDATE)!
-    expect(blockingIssues(candidate).some((issue) => issue.includes('置信度'))).toBe(true)
+    expect(blockingIssues(state, candidate).some((issue) => issue.includes('置信度'))).toBe(true)
+  })
+
+  it('批次编号格式不对时说清规范，不含糊地说一句「无法确认」', () => {
+    const base = createDemoState()
+    const state: DemoState = {
+      ...base,
+      candidates: base.candidates.map((entry) =>
+        entry.id !== CANDIDATE ? entry : updateCandidateField(entry, 'batchCode', 'LYS_X'),
+      ),
+    }
+    const candidate = state.candidates.find((entry) => entry.id === CANDIDATE)!
+    expect(blockingIssues(state, candidate).join()).toMatch(/不符合规范/)
   })
 
   it('核验后确认 → 建出待总监报价的案件，并指回候选', () => {
@@ -318,7 +343,9 @@ describe('报价需求确认后真的建出报价案件', () => {
     const created = result.state.quoteCases.find((entry) => entry.id === result.recordId)!
     expect(created.status).toBe('DirectorQuoting')
     expect(created.kind).toBe('initial')
-    expect(created.projectCode).toBe('NST_A_3D_B24')
+    // 这时它还只是**提议的**批次编号，正式项目要等客户确认、发出开工通知才建
+    expect(created.projectCode).toBe('NST_A_3D_B26')
+    expect(state.projects.some((p) => p.code === 'NST_A_3D_B26')).toBe(false)
     // 需求原文即证据，不重新措辞
     expect(created.requirement).toContain('时装')
     expect(created.evidence.length).toBeGreaterThan(0)
@@ -350,7 +377,7 @@ describe('IT 回执确认后写进结项证据', () => {
   it('不再拿「切片 6 未交付」当阻断理由', () => {
     const state = createDemoState()
     const candidate = state.candidates.find((entry) => entry.id === CANDIDATE)!
-    expect(blockingIssues(candidate).join()).not.toMatch(/切片/)
+    expect(blockingIssues(state, candidate).join()).not.toMatch(/切片/)
   })
 
   it('确认 → 完成 AUR_A_3D_B11 的「IT 备份」门禁，并带上邮件证据', () => {

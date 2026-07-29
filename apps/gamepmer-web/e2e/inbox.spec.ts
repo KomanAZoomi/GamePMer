@@ -62,10 +62,17 @@ test('OCR 低置信度即使有值也阻断，并说出具体数字', async ({ p
 test('低置信度照旧阻断，理由不再引用切片进度', async ({ page }) => {
   await page.goto('/#/inbox')
   await page.getByRole('button', { name: /需补全/ }).click()
-  await page.getByLabel('候选记录').getByText('新角色 6 套时装需求').click()
+  await page.getByLabel('候选记录').getByText(/新角色 6 套时装需求/).click()
+
+  // BD 需求阶段项目还不存在，所以这一类只问客户和批次编号
+  // 「批次编号」在阻断说明里也会出现，所以按字段标签定位
+  const fields = page.getByLabel('AI 识别结果').locator('.gp-field-label')
+  await expect(fields.filter({ hasText: '批次编号' })).toHaveCount(1)
+  await expect(fields.filter({ hasText: '关联资产' })).toHaveCount(0)
+  await expect(fields.filter({ hasText: '制作阶段' })).toHaveCount(0)
 
   const detail = page.getByLabel('候选详情')
-  await expect(detail.getByText(/置信度仅 50%/)).toBeVisible()
+  await expect(detail.getByText(/置信度仅 55%/)).toBeVisible()
   await expect(detail.getByText(/切片/)).toHaveCount(0)
   await expect(detail.getByRole('button', { name: /确认（被阻断）/ })).toBeDisabled()
 })
@@ -73,17 +80,12 @@ test('低置信度照旧阻断，理由不再引用切片进度', async ({ page 
 test('报价需求核验后确认成案件，并能接着去派给总监', async ({ page }) => {
   await page.goto('/#/inbox')
   await page.getByRole('button', { name: /需补全/ }).click()
-  await page.getByLabel('候选记录').getByText('新角色 6 套时装需求').click()
+  await page.getByLabel('候选记录').getByText(/新角色 6 套时装需求/).click()
 
-  for (const [label, value] of [
-    ['关联资产', 'MECH-01'],
-    ['制作阶段', '3D_HIGH'],
-  ]) {
-    const field = page.getByLabel('AI 识别结果').locator('.gp-field', { hasText: label })
-    await field.getByRole('button').first().click()
-    await page.getByLabel(label, { exact: true }).selectOption(value)
-    await page.getByRole('button', { name: '保存' }).click()
-  }
+  // 批次编号是 BD 口头给的，PM 过目一遍
+  const field = page.getByLabel('AI 识别结果').locator('.gp-field', { hasText: '批次编号' })
+  await field.getByRole('button').first().click()
+  await page.getByRole('button', { name: '保存' }).click()
 
   const detail = page.getByLabel('候选详情')
   await detail.getByRole('button', { name: /确认并创建报价案件/ }).click()
@@ -94,7 +96,7 @@ test('报价需求核验后确认成案件，并能接着去派给总监', async
   await page.getByRole('button', { name: '去报价与变更派给总监' }).click()
   await expect(page).toHaveURL(/#\/quotation/)
   // 建案件不等于报了价：它停在总监报价中，等着录入
-  await expect(page.getByText('新角色 6 套时装需求').first()).toBeVisible()
+  await expect(page.getByText(/新角色 6 套时装需求/).first()).toBeVisible()
 })
 
 test('IT 回执确认后结项门禁解锁通知 BD 出账', async ({ page }) => {

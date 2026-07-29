@@ -655,12 +655,18 @@ const quoteCases: QuoteCase[] = [
     client: 'Aurora Interactive',
     title: '载具模型 4 台',
     requirement: '4 台载具，含中模与高模，不含贴图。',
-    status: 'Approved',
+    // 客户已点头，还没发开工邮件——AUR_B_3D_B34 这个项目此刻**还不存在**，
+    // 发出开工通知的那一刻才按报价单建出来
+    status: 'ClientAccepted',
     affectedAssetIds: ['VEHICLE-01'],
+    discipline: '3D',
     directorName: 'Evan',
     reviewerPersonId: 'PER-liu',
     createdAt: '2026-07-23T15:20:00+08:00',
     activeVersionId: 'Q-029/V01',
+    sentToClientAt: '2026-07-24T10:00:00+08:00',
+    sentToClientBy: 'Leo（BD）',
+    clientRepliedAt: '2026-07-25T14:30:00+08:00',
     evidence: [
       {
         id: 'EV-Q029-1',
@@ -898,7 +904,8 @@ const sourceRecords: SourceRecord[] = [
     receivedAt: '2026-07-26T16:30:00+08:00',
     from: 'bd.liu@studio.example',
     subject: '新角色 6 套时装需求',
-    body: '客户想加 6 套时装，麻烦出个报价和排期。NST_A_3D_B24 这个项目下走。',
+    body:
+      'Northstar Studio 想加 6 套时装，麻烦出个报价和排期。批次编号先按 NST_A_3D_B26 走。',
     attachments: ['需求说明_v2.docx'],
     contentHash: 'e2081bb5',
   },
@@ -1039,16 +1046,16 @@ const candidates: InboxCandidate[] = [
     createdAt: '2026-07-27T14:21:00+08:00',
   },
   {
-    // 诚实阻断：模块尚未交付
+    // BD 需求：这时项目还不存在，所以只要客户和批次编号，不问资产与阶段
     id: 'C-20260726-014',
     sourceId: 'SRC-0005',
     kind: 'quote-request',
-    title: '新角色 6 套时装需求',
+    title: '新角色 6 套时装需求（B26 批次）',
     status: 'NeedsReview',
     fields: [
-      field('projectCode', '关联项目', 'NST_A_3D_B24', 0.9, true, '…NST_A_3D_B24 这个项目下走。'),
-      field('assetId', '关联资产', 'MECH-01', 0.5, true),
-      field('stageCode', '制作阶段', '3D_HIGH', 0.4, true),
+      field('clientName', '客户', 'Northstar Studio', 0.95, true, '…Northstar 想加 6 套时装…'),
+      // 编号是 BD 口头给的，PM 要核一下——批次号很容易记串
+      field('batchCode', '批次编号', 'NST_A_3D_B26', 0.55, true),
       field('dueDate', '期望交付时间', undefined, 0, false),
     ],
     aiSummary: 'BD 转来的新增需求，共 6 套时装，未给出期望交付时间。',

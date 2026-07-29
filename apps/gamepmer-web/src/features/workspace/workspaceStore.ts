@@ -32,8 +32,10 @@ import {
   reopenGate as reopenCloseoutGate,
 } from '../../domain/closeout'
 import {
+  recordClientReply as recordQuoteClientReply,
   reviewQuote as reviewQuoteCase,
   sendKickoff as sendQuoteKickoff,
+  sendToClient as sendQuoteToClient,
   submitQuoteVersion,
 } from '../../domain/quotation'
 import { confirmScheduleEntry as confirmEntry } from '../../domain/scheduleEntry'
@@ -127,6 +129,8 @@ export interface WorkspaceStore {
   setQuoteTab(tab: QuoteTab): void
   submitQuote(caseId: string, lines: QuoteLine[], scheduleImpactWorkdays: number): void
   reviewQuote(caseId: string, decision: 'approve' | 'reject', note: string): void
+  sendToClient(caseId: string, via: string): void
+  recordClientReply(caseId: string, decision: 'accept' | 'decline', via: string, note: string): void
   sendKickoff(caseId: string, via: string): void
   selectCloseoutCase(caseId: string): void
   setCloseoutTab(tab: CloseoutTab): void
@@ -354,7 +358,7 @@ export function createWorkspaceStore(
         selectedCandidateId: candidate.id,
         // 跳到新候选实际所在的页签，免得用户以为导入失败了
         inboxTab:
-          candidate.status === 'Duplicate' ? 'done' : canConfirm(candidate) ? 'review' : 'blocked',
+          candidate.status === 'Duplicate' ? 'done' : canConfirm(demo, candidate) ? 'review' : 'blocked',
       }
       emit()
     },
@@ -386,6 +390,23 @@ export function createWorkspaceStore(
         note,
         actor: 'Brandon',
         now: clock.now(),
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    sendToClient(caseId, via) {
+      const demo = sendQuoteToClient(state.demo, caseId, { actor: 'Leo（BD）', now: clock.now(), via })
+      repository.save(demo)
+      state = { ...state, demo, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    recordClientReply(caseId, decision, via, note) {
+      const demo = recordQuoteClientReply(state.demo, caseId, decision, {
+        actor: 'Leo（BD）',
+        now: clock.now(),
+        via,
+        note,
       })
       repository.save(demo)
       state = { ...state, demo, selectedQuoteCaseId: caseId }

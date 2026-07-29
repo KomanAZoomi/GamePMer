@@ -3,13 +3,13 @@ import type { RouteKey } from '../../app/navigation'
 import {
   CANDIDATE_KIND_LABEL,
   CONFIDENCE_THRESHOLD,
-  STAGE_LABEL,
   blockingIssues,
   canConfirm,
   channelLabel,
   inboxMetrics,
   overallConfidence,
 } from '../../domain/inbox'
+import { STAGE_LABEL } from '../../domain/model'
 import type { CandidateField, CandidateKind, InboxCandidate, StageCode } from '../../domain/model'
 import type { InboxTab, WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { ImportPanel } from './ImportPanel'
@@ -100,22 +100,22 @@ export function InboxPage({ workspace, store, onNavigate }: InboxPageProps) {
     const byNewest = [...demo.candidates].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     const open = byNewest.filter((entry) => entry.status === 'NeedsReview' || entry.status === 'New')
     return {
-      review: open.filter((entry) => canConfirm(entry)),
-      blocked: open.filter((entry) => !canConfirm(entry)),
+      review: open.filter((entry) => canConfirm(demo, entry)),
+      blocked: open.filter((entry) => !canConfirm(demo, entry)),
       done: byNewest.filter(
         (entry) =>
           entry.status === 'Confirmed' || entry.status === 'Ignored' || entry.status === 'Duplicate',
       ),
     }
-  }, [demo.candidates])
+  }, [demo])
 
   const listed = buckets[inboxTab]
   const selected =
     demo.candidates.find((entry) => entry.id === selectedCandidateId) ?? listed[0] ?? demo.candidates[0]
 
   const source = demo.sourceRecords.find((entry) => entry.id === selected?.sourceId)
-  const issues = selected ? blockingIssues(selected) : []
-  const ready = selected ? canConfirm(selected) : false
+  const issues = selected ? blockingIssues(demo, selected) : []
+  const ready = issues.length === 0
 
   if (!selected || !source) {
     return (
