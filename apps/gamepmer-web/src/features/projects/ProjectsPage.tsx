@@ -177,6 +177,7 @@ export function ProjectsPage({ workspace, store, onNavigate }: ProjectsPageProps
           today={today}
           onOpenFeedback={() => onNavigate('feedback')}
           onAdvance={store.advanceStage}
+          onOpenTriage={() => onNavigate('feedback')}
         />
       </aside>
     </div>

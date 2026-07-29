@@ -109,7 +109,7 @@ export interface WorkspaceStore {
   selectWorkItem(id: string): void
   selectProject(code: string): void
   selectStage(stageId: string): void
-  advanceStage(stageId: string, action: StageAction): void
+  advanceStage(stageId: string, action: StageAction, note?: string): void
   setAxisScale(scale: AxisScale): void
   confirmScheduleEntry(
     projectCode: string,
@@ -220,11 +220,28 @@ export function createWorkspaceStore(
       state = { ...state, selectedStageId: stageId }
       emit()
     },
-    advanceStage(stageId, action) {
+    advanceStage(stageId, action, note) {
       // 领域层阻断时抛错且无副作用，让它冒泡——静默吞掉会显示虚假的成功
-      const demo = advanceStage(state.demo, stageId, action, { actor: 'Brandon', now: clock.now() })
+      const demo = advanceStage(state.demo, stageId, action, {
+        actor: 'Brandon',
+        now: clock.now(),
+        note,
+      })
       repository.save(demo)
-      state = { ...state, demo, selectedStageId: stageId }
+
+      // 返修会新建一条待分流反馈项。把它选中再跳过去——
+      // 否则人落在反馈中心的另一个批次上，还得自己找刚才那条
+      const known = new Set(state.demo.feedbackBatches.flatMap((b) => b.items).map((i) => i.id))
+      const created = demo.feedbackBatches
+        .flatMap((batch) => batch.items)
+        .find((item) => !known.has(item.id))
+
+      state = {
+        ...state,
+        demo,
+        selectedStageId: stageId,
+        selectedFeedbackItemId: created?.id ?? state.selectedFeedbackItemId,
+      }
       emit()
     },
     setAxisScale(scale) {

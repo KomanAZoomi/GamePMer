@@ -34,7 +34,16 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
   const calendar = demo.calendars[0] ?? EMPTY_CALENDAR
   const [note, setNote] = useState('')
 
-  const batch: FeedbackBatch | undefined = demo.feedbackBatches[0]
+  /**
+   * 批次跟着选中的反馈项走。
+   *
+   * 这里原来写死 `feedbackBatches[0]`——于是第二个批次永远看不到，
+   * 从别处（收件箱确认、阶段返修）新建的批次也打不开。
+   */
+  const batch: FeedbackBatch | undefined =
+    demo.feedbackBatches.find((entry) =>
+      entry.items.some((item) => item.id === selectedFeedbackItemId),
+    ) ?? demo.feedbackBatches[0]
   const selected =
     batch?.items.find((item) => item.id === selectedFeedbackItemId) ?? batch?.items[0]
 
@@ -96,7 +105,13 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
             <span className="gp-count">{demo.feedbackBatches.length}</span>
           </header>
           {demo.feedbackBatches.map((entry) => (
-            <div key={entry.id} className="gp-batch-card is-active">
+            // 每张卡都写死 is-active 时，看起来全都选中了，而且哪张都点不动
+            <button
+              key={entry.id}
+              type="button"
+              className={`gp-batch-card${entry.id === batch?.id ? ' is-active' : ''}`}
+              onClick={() => store.selectFeedbackItem(entry.items[0]?.id ?? '')}
+            >
               <div className="gp-batch-head">
                 <strong>{entry.id}</strong>
                 <span className="gp-pill is-feedback">
@@ -116,7 +131,7 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
               <p className="gp-batch-meta">
                 客户等待归因 {entry.clientWaitWorkdays} 个工作日（与团队延期分开统计）
               </p>
-            </div>
+            </button>
           ))}
         </aside>
 

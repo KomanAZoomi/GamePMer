@@ -285,7 +285,11 @@ describe('等客户之后有两条路', () => {
 
   it('客户要返修 → 回到制作中并打上返修标记', () => {
     const state = toAwaitingClient(createDemoState())
-    const next = advanceStage(state, MID, 'client-rework', { actor: ACTOR, now: NOW })
+    const next = advanceStage(state, MID, 'client-rework', {
+      actor: ACTOR,
+      now: NOW,
+      note: '发光面积再大一圈',
+    })
 
     expect(stage(next, MID).status).toBe('InProduction')
     expect(stage(next, MID).flags).toContain('Rework')
@@ -302,7 +306,7 @@ describe('等客户之后有两条路', () => {
       { ...state, projects: withStage(state, MID, { status: 'AwaitingClient' }).projects },
       MID,
       'client-rework',
-      { actor: ACTOR, now: NOW },
+      { actor: ACTOR, now: NOW, note: '还要再改' },
     )
     expect(reset.projects.flatMap((p) => p.assets).flatMap((a) => a.stages).find((s) => s.id === MID)!
       .clientApprovedAt).toBeUndefined()
@@ -311,7 +315,7 @@ describe('等客户之后有两条路', () => {
 
   it('返修后可以重新走完一轮，交回客户再验收', () => {
     let state = toAwaitingClient(createDemoState())
-    state = advanceStage(state, MID, 'client-rework', { actor: ACTOR, now: NOW })
+    state = advanceStage(state, MID, 'client-rework', { actor: ACTOR, now: NOW, note: '改一版' })
 
     for (const action of ['hand-to-pm', 'submit-to-client', 'client-approve'] as const) {
       state = advanceStage(state, MID, action, { actor: ACTOR, now: NOW })
@@ -338,5 +342,106 @@ describe('等客户之后有两条路', () => {
     const state = withStage(base, frozen.id, { status: 'InProduction' })
 
     expect(stageBlockingIssues(state, frozen.id, 'hand-to-pm').join()).toContain('变更报价')
+  })
+})
+
+/**
+ * 返修与反馈中心打通。
+ *
+ * 直接改个状态就完事，等于绕过整条反馈线：范围内返修与范围外追加报价的分岔
+ * 就在分流那一步，没有反馈项就没有那个分岔，客户到底说了什么也没留下。
+ */
+describe('返修要留下客户说了什么', () => {
+  const MID = 'PROP-02/3D_MID'
+  const SAID = '灯柱顶部的发光面积再大一圈'
+
+  function toAwaitingClient(state: DemoState): DemoState {
+    let next = state
+    for (const action of ['start', 'hand-to-pm', 'submit-to-client'] as const) {
+      next = advanceStage(next, MID, action, { actor: ACTOR, now: NOW })
+    }
+    return next
+  }
+
+  it('不写客户原话就不许标返修', () => {
+    const state = toAwaitingClient(createDemoState())
+    expect(() => advanceStage(state, MID, 'client-rework', { actor: ACTOR, now: NOW })).toThrow(
+      StageFlowBlocked,
+    )
+  })
+
+  it('返修会生成一条待分流的资产级反馈项，范围留给 PM 判', () => {
+    const state = toAwaitingClient(createDemoState())
+    const before = state.feedbackBatches.flatMap((batch) => batch.items).length
+
+    const next = advanceStage(state, MID, 'client-rework', {
+      actor: ACTOR,
+      now: NOW,
+      note: SAID,
+    })
+
+    const items = next.feedbackBatches.flatMap((batch) => batch.items)
+    expect(items).toHaveLength(before + 1)
+    const created = items.find((item) => item.stageId === MID)!
+    expect(created.status).toBe('NeedsClassification')
+    expect(created.scope).toBe('unclassified')
+    // 客户原话原样留着，不重新措辞
+    expect(created.originalText).toBe(SAID)
+  })
+
+  it('同一天同一项目的客户回话归到一个批次里', () => {
+    let state = toAwaitingClient(createDemoState())
+    state = advanceStage(state, MID, 'client-rework', { actor: ACTOR, now: NOW, note: SAID })
+    const batches = state.feedbackBatches.length
+
+    // 另一个阶段当天也被打回
+    let other = state
+    for (const action of ['hand-to-pm', 'submit-to-client'] as const) {
+      other = advanceStage(other, MID, action, { actor: ACTOR, now: NOW })
+    }
+    other = advanceStage(other, MID, 'client-rework', { actor: ACTOR, now: NOW, note: '再改一版' })
+
+    expect(other.feedbackBatches).toHaveLength(batches)
+  })
+})
+
+describe('反馈项能走完，不再停在返修中', () => {
+  const STAGE = 'MECH-01/3D_HIGH'
+
+  it('交回客户 → 已重提；客户验收 → 已关闭', () => {
+    const base = createDemoState()
+    // 种子里 MECH-01 高模正在等待客户，先造一条返修中的反馈项
+    const state: DemoState = {
+      ...base,
+      feedbackBatches: base.feedbackBatches.map((batch) => ({
+        ...batch,
+        items: batch.items.map((item) =>
+          item.stageId === STAGE ? { ...item, status: 'InRework' as const } : item,
+        ),
+      })),
+      projects: withStage(base, STAGE, { status: 'HandedToPm' }).projects,
+    }
+
+    const submitted = advanceStage(state, STAGE, 'submit-to-client', { actor: ACTOR, now: NOW })
+    const resubmitted = submitted.feedbackBatches
+      .flatMap((batch) => batch.items)
+      .filter((item) => item.stageId === STAGE)
+    expect(resubmitted.every((item) => item.status === 'Resubmitted')).toBe(true)
+
+    const approved = advanceStage(submitted, STAGE, 'client-approve', { actor: ACTOR, now: NOW })
+    const closed = approved.feedbackBatches
+      .flatMap((batch) => batch.items)
+      .filter((item) => item.stageId === STAGE)
+    expect(closed.every((item) => item.status === 'Closed')).toBe(true)
+  })
+
+  it('没在返修的反馈项不会被顺手改掉', () => {
+    const base = createDemoState()
+    const state = withStage(base, STAGE, { status: 'HandedToPm' })
+    const before = state.feedbackBatches.flatMap((b) => b.items).map((i) => [i.id, i.status])
+
+    const next = advanceStage(state, STAGE, 'submit-to-client', { actor: ACTOR, now: NOW })
+    const after = next.feedbackBatches.flatMap((b) => b.items).map((i) => [i.id, i.status])
+    expect(after).toEqual(before)
   })
 })

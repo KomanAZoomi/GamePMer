@@ -378,3 +378,17 @@
   font-size: var(--text-2xs);
   font-weight: var(--weight-bold);
 }
+
+
+/* 批次卡现在可点：原来写死 is-active，看起来全选中、哪张都点不动 */
+.gp-batch-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.gp-batch-card:hover {
+  border-color: var(--accent-border);
+}

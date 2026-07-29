@@ -1,5 +1,5 @@
 import { stageStatusLabel } from './lookup'
-import type { AuditEvent, DemoState, StageMainStatus, StagePlan } from './model'
+import type { AuditEvent, DemoState, FeedbackItem, StageMainStatus, StagePlan } from './model'
 
 /**
  * 阶段推进。
@@ -168,6 +168,12 @@ export function naturalAction(stage: StagePlan): StageAction | undefined {
 export interface AdvanceInput {
   actor: string
   now: string
+  /**
+   * 返修时是**客户原话**，必填。
+   *
+   * 「客户要改」而不记下客户说了什么，等于把证据丢了：
+   * 之后没法判范围内外、没法估返修人天、也没法在结项时拿出来对账。
+   */
   note?: string
 }
 
@@ -185,6 +191,11 @@ export function advanceStage(
 ): DemoState {
   const issues = stageBlockingIssues(state, stageId, action)
   if (issues.length > 0) throw new StageFlowBlocked(issues)
+  if (action === 'client-rework' && !input.note?.trim()) {
+    throw new StageFlowBlocked([
+      '返修要记下客户原话——不记就没法判范围内外、没法估人天，结项时也拿不出来对账',
+    ])
+  }
 
   const stage = findStageById(state, stageId)!
   const today = input.now.slice(0, 10)
@@ -217,7 +228,7 @@ export function advanceStage(
     reason: input.note,
   }
 
-  return {
+  let next2: DemoState = {
     ...state,
     projects: state.projects.map((project) => ({
       ...project,
@@ -227,5 +238,103 @@ export function advanceStage(
       })),
     })),
     auditEvents: [...state.auditEvents, audit],
+  }
+
+  if (action === 'client-rework') {
+    next2 = recordClientRework(next2, stage, input)
+  }
+  // 交回客户即「已重提」；客户点头即「已关闭」——反馈项不该停在 InRework 再也不动
+  if (action === 'submit-to-client') next2 = markFeedback(next2, stageId, 'InRework', 'Resubmitted')
+  if (action === 'client-approve') {
+    next2 = markFeedback(next2, stageId, 'Resubmitted', 'Closed')
+    next2 = markFeedback(next2, stageId, 'InRework', 'Closed')
+  }
+
+  return next2
+}
+
+/**
+ * 返修时把客户原话登记成一条**待分流**的资产级反馈项。
+ *
+ * 直接改状态就完事，等于绕过了整条反馈线：范围内返修与范围外追加报价的分岔
+ * 就在分流那一步，没有反馈项就没有那个分岔。
+ */
+function recordClientRework(state: DemoState, stage: StagePlan, input: AdvanceInput): DemoState {
+  const project = state.projects.find((entry) =>
+    entry.assets.some((asset) => asset.id === stage.assetId),
+  )
+  if (!project) return state
+
+  const today = input.now.slice(0, 10)
+  // 同一天同一项目的客户回话归到一个批次里，不要一条一个批次
+  const existing = state.feedbackBatches.find(
+    (batch) => batch.projectCode === project.code && batch.receivedAt.slice(0, 10) === today,
+  )
+
+  const item: FeedbackItem = {
+    id: `${existing?.id ?? nextBatchId(state)}/ITEM-${String((existing?.items.length ?? 0) + 1).padStart(2, '0')}`,
+    batchId: existing?.id ?? nextBatchId(state),
+    assetId: stage.assetId,
+    stageId: stage.id,
+    title: input.note!.trim().slice(0, 30),
+    originalText: input.note!.trim(),
+    // 范围内外由 PM 在反馈中心判，这里不预判
+    scope: 'unclassified',
+    status: 'NeedsClassification',
+    ownerName: stage.ownerName,
+    estimatedReworkDays: 1,
+  }
+
+  if (existing) {
+    return {
+      ...state,
+      feedbackBatches: state.feedbackBatches.map((batch) =>
+        batch.id !== existing.id ? batch : { ...batch, items: [...batch.items, item] },
+      ),
+    }
+  }
+
+  return {
+    ...state,
+    feedbackBatches: [
+      ...state.feedbackBatches,
+      {
+        id: item.batchId,
+        projectCode: project.code,
+        client: project.client,
+        receivedAt: input.now,
+        feedbackDrivePath: `\\\\NAS-ART\\Feedback\\${project.code}\\${item.batchId}`,
+        summary: `${stage.assetId} ${stage.name} 提交后客户要求修改`,
+        evidence: [],
+        items: [item],
+        clientWaitWorkdays: 0,
+      },
+    ],
+  }
+}
+
+function nextBatchId(state: DemoState): string {
+  const max = state.feedbackBatches.reduce((acc, batch) => {
+    const hit = batch.id.match(/^F-(\d+)/)
+    return hit ? Math.max(acc, Number(hit[1])) : acc
+  }, 0)
+  return `F-${String(max + 1).padStart(3, '0')}`
+}
+
+/** 把这个阶段上处于 `from` 的反馈项推到 `to`。 */
+function markFeedback(
+  state: DemoState,
+  stageId: string,
+  from: FeedbackItem['status'],
+  to: FeedbackItem['status'],
+): DemoState {
+  return {
+    ...state,
+    feedbackBatches: state.feedbackBatches.map((batch) => ({
+      ...batch,
+      items: batch.items.map((item) =>
+        item.stageId === stageId && item.status === from ? { ...item, status: to } : item,
+      ),
+    })),
   }
 }

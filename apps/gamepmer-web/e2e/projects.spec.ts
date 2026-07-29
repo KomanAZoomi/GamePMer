@@ -123,6 +123,13 @@ test('客户要返修 → 回到制作中，甘特上标出返修', async ({ pag
   for (const label of ['标记开工', '已交 PM', '已提交客户', '客户要返修']) {
     await inspector.getByRole('button', { name: label, exact: true }).click()
   }
+  await inspector.getByLabel('客户原话').fill('灯柱顶部的发光面积再大一圈')
+  await inspector.getByRole('button', { name: '记下并去分流' }).click()
+  // 记完直接把人送到分流那一步
+  await expect(page).toHaveURL(/#\/feedback/)
+  await page.goto('/#/projects')
+  await page.getByRole('button', { name: /NST_C_3D_B31/ }).click()
+  await gantt.getByRole('button', { name: /中模/ }).nth(1).click()
 
   await expect(inspector.getByText('制作中').first()).toBeVisible()
   // 甘特行上同时看得到「制作中」和「返修」
@@ -136,18 +143,48 @@ test('返修完能再交回客户，验收后返修标记消失', async ({ page 
   const gantt = page.getByLabel('项目排期甘特')
   const inspector = page.getByLabel('阶段详情')
   await gantt.getByRole('button', { name: /中模/ }).nth(1).click()
-  for (const label of [
-    '标记开工',
-    '已交 PM',
-    '已提交客户',
-    '客户要返修',
-    '已交 PM',
-    '已提交客户',
-    '客户已验收',
-  ]) {
+  for (const label of ['标记开工', '已交 PM', '已提交客户', '客户要返修']) {
+    await inspector.getByRole('button', { name: label, exact: true }).click()
+  }
+  await inspector.getByLabel('客户原话').fill('再改一版')
+  await inspector.getByRole('button', { name: '记下并去分流' }).click()
+
+  await page.goto('/#/projects')
+  await page.getByRole('button', { name: /NST_C_3D_B31/ }).click()
+  await gantt.getByRole('button', { name: /中模/ }).nth(1).click()
+  for (const label of ['已交 PM', '已提交客户', '客户已验收']) {
     await inspector.getByRole('button', { name: label, exact: true }).click()
   }
 
   await expect(inspector.getByText('已验收').first()).toBeVisible()
   await expect(inspector.getByText('推进这个阶段')).toHaveCount(0)
+})
+
+
+/**
+ * 返修要留下客户说了什么，并且直接把人送到分流那一步。
+ * 直接改个状态就完事，等于绕过整条反馈线——范围内返修与范围外追加报价的分岔
+ * 就在分流那一步。
+ */
+test('返修记下客户原话 → 反馈中心多出一条待分流', async ({ page }) => {
+  await page.goto('/#/feedback')
+  const before = await page.getByLabel('资产级反馈项').locator('tbody tr').count()
+
+  await page.goto('/#/projects')
+  await page.getByRole('button', { name: /NST_C_3D_B31/ }).click()
+  const gantt = page.getByLabel('项目排期甘特')
+  const inspector = page.getByLabel('阶段详情')
+  await gantt.getByRole('button', { name: /中模/ }).nth(1).click()
+  for (const label of ['标记开工', '已交 PM', '已提交客户', '客户要返修']) {
+    await inspector.getByRole('button', { name: label, exact: true }).click()
+  }
+
+  // 不写客户原话按不下去
+  await expect(inspector.getByRole('button', { name: '记下并去分流' })).toBeDisabled()
+  await inspector.getByLabel('客户原话').fill('灯柱顶部的发光面积再大一圈')
+  await inspector.getByRole('button', { name: '记下并去分流' }).click()
+
+  await expect(page).toHaveURL(/#\/feedback/)
+  await expect(page.getByText('灯柱顶部的发光面积再大一圈').first()).toBeVisible()
+  expect(before).toBeGreaterThanOrEqual(0)
 })
