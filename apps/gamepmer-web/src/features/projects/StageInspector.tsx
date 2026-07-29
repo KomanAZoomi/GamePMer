@@ -1,5 +1,12 @@
 import type { DemoState, Project, StagePlan } from '../../domain/model'
 import { groupName, stageFlagLabels, stageStatusLabel } from '../../domain/lookup'
+import {
+  STAGE_ACTION_LABEL,
+  availableStageActions,
+  naturalAction,
+  stageBlockingIssues,
+  type StageAction,
+} from '../../domain/stageFlow'
 import { countWorkdays, dateRange, shortDate } from '../../domain/workCalendar'
 import { EMPTY_CALENDAR } from '../../domain/workCalendar'
 
@@ -9,6 +16,7 @@ interface StageInspectorProps {
   stage?: StagePlan
   today: string
   onOpenFeedback: () => void
+  onAdvance: (stageId: string, action: StageAction) => void
 }
 
 const REASON_LABELS: Record<string, string> = {
@@ -19,7 +27,14 @@ const REASON_LABELS: Record<string, string> = {
   'capacity-conflict': '容量冲突',
 }
 
-export function StageInspector({ state, project, stage, today, onOpenFeedback }: StageInspectorProps) {
+export function StageInspector({
+  state,
+  project,
+  stage,
+  today,
+  onOpenFeedback,
+  onAdvance,
+}: StageInspectorProps) {
   if (!stage) {
     return (
       <section className="gp-card gp-detail" aria-label="阶段详情">
@@ -39,6 +54,13 @@ export function StageInspector({ state, project, stage, today, onOpenFeedback }:
   const blockers = (asset?.stages ?? []).filter(
     (item) => stage.dependsOn.includes(item.id) && item.status !== 'Approved',
   )
+
+  const actions = availableStageActions(state, stage.id)
+  // 动不了就得说清为什么——但只说**该做的那一步**为什么做不了。
+  // 把四个动作的前置全列出来，会得到三条「未开始，已交 PM 要求先到制作中」，
+  // 那是在背状态机，不是在回答 PM 的问题
+  const next = naturalAction(stage)
+  const blockedReasons = next ? stageBlockingIssues(state, stage.id, next) : []
 
   const feedback = state.feedbackBatches
     .flatMap((batch) => batch.items.map((item) => ({ batch, item })))
@@ -129,6 +151,41 @@ export function StageInspector({ state, project, stage, today, onOpenFeedback }:
           <p className="gp-inspector-text">
             {blockers.map((item) => `${item.name}（${stageStatusLabel(item)}）`).join('、')}
             ：前置未获客户验收前，本阶段的开工日期只是计划值。
+          </p>
+        </div>
+      )}
+
+      {/*
+        推进动作。**工作台只提示「可以开工了」，不替 PM 改状态**——
+        与「不自动发信、不自动改排期」是同一条原则。
+        动不了时不给一个点了没反应的按钮，而是把原因逐条写出来。
+      */}
+      {stage.status !== 'Approved' && (
+        <div className="gp-stage-flow">
+          <h3>推进这个阶段</h3>
+          {actions.length > 0 ? (
+            <div className="gp-detail-actions">
+              {actions.map((action) => (
+                <button
+                  key={action}
+                  type="button"
+                  className={`gp-btn${action === actions[0] ? ' gp-btn-primary' : ''}`}
+                  onClick={() => onAdvance(stage.id, action)}
+                >
+                  {STAGE_ACTION_LABEL[action]}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <ul className="gp-stage-flow-blocked">
+              {blockedReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
+          <p className="gp-assistant-note">
+            推进只写实际发生的日期，<strong>不改计划、不改基准</strong>——
+            计划要变得走排期重排。
           </p>
         </div>
       )}

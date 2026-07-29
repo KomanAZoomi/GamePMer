@@ -731,3 +731,40 @@
     grid-template-columns: minmax(0, 1fr) 360px;
   }
 }
+
+
+/* 推进这个阶段：动得了给按钮，动不了逐条说原因——没按钮又没理由才是死胡同 */
+.gp-stage-flow {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+  background: var(--surface-rail);
+}
+
+.gp-stage-flow h3 {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  margin-bottom: var(--space-3);
+}
+
+.gp-stage-flow-blocked {
+  display: grid;
+  gap: 5px;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.gp-stage-flow-blocked li {
+  padding: 7px 9px;
+  border: 1px solid var(--amber-border);
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-stage-flow .gp-detail-actions {
+  margin-bottom: var(--space-3);
+}

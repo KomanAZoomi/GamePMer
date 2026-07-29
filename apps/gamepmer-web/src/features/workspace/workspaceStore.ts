@@ -21,6 +21,7 @@ import {
 } from '../../domain/inbox'
 import { saveApiKey as persistApiKey } from '../../domain/settings'
 import { disposeInsight, type DisposeInsightInput } from '../../domain/insightDisposition'
+import { advanceStage, type StageAction } from '../../domain/stageFlow'
 import {
   removePath as removeProjectPath,
   savePath as saveProjectPath,
@@ -102,6 +103,7 @@ export interface WorkspaceStore {
   selectWorkItem(id: string): void
   selectProject(code: string): void
   selectStage(stageId: string): void
+  advanceStage(stageId: string, action: StageAction): void
   setAxisScale(scale: AxisScale): void
   confirmScheduleEntry(
     projectCode: string,
@@ -208,6 +210,13 @@ export function createWorkspaceStore(
     },
     selectStage(stageId) {
       state = { ...state, selectedStageId: stageId }
+      emit()
+    },
+    advanceStage(stageId, action) {
+      // 领域层阻断时抛错且无副作用，让它冒泡——静默吞掉会显示虚假的成功
+      const demo = advanceStage(state.demo, stageId, action, { actor: 'Brandon', now: clock.now() })
+      repository.save(demo)
+      state = { ...state, demo, selectedStageId: stageId }
       emit()
     },
     setAxisScale(scale) {

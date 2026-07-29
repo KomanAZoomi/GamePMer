@@ -131,3 +131,75 @@ describe('修订历史', () => {
     expect(within(history).getByText(/尚无已确认的排期修订/)).toBeInTheDocument()
   })
 })
+
+/**
+ * 阶段推进。
+ *
+ * 验收提问：反馈分流之后高模怎么流转到低模？当时答案是「流转不了」——
+ * 六个主状态里只有一条迁移能走，开工、提交客户、客户验收根本不存在。
+ */
+describe('在阶段详情里推进阶段', () => {
+  it('未开始的第一个阶段给「标记开工」，点完状态变制作中', async () => {
+    const { user, store } = await renderProjects()
+    await user.click(screen.getByRole('button', { name: /NST_C_3D_B31/ }))
+
+    const gantt = screen.getByLabelText('项目排期甘特')
+    // PROP-02 的中模是资产第一个阶段，没有前置
+    await user.click(within(gantt).getAllByRole('button', { name: /中模/ })[1])
+
+    const inspector = screen.getByLabelText('阶段详情')
+    await user.click(within(inspector).getByRole('button', { name: '标记开工' }))
+
+    const stage = store
+      .getState()
+      .demo.projects.flatMap((p) => p.assets)
+      .flatMap((a) => a.stages)
+      .find((s) => s.id === 'PROP-02/3D_MID')!
+    expect(stage.status).toBe('InProduction')
+    expect(stage.actualStart).toBeTruthy()
+  })
+
+  /** 动不了时不给一个点了没反应的按钮，而是把原因写出来 */
+  it('前置没客户验收时不给开工按钮，改为逐条说明原因', async () => {
+    const { user } = await renderProjects()
+    const gantt = screen.getByLabelText('项目排期甘特')
+    // MECH-01 低模：前置高模还在等待客户
+    await user.click(within(gantt).getByRole('button', { name: /低模.*Chen/ }))
+
+    const inspector = screen.getByLabelText('阶段详情')
+    expect(within(inspector).queryByRole('button', { name: '标记开工' })).toBeNull()
+    expect(within(inspector).getByText(/还没客户验收/)).toBeInTheDocument()
+  })
+
+  it('推进只写实际日期，计划与基准一个字节都没动', async () => {
+    const { user, store } = await renderProjects()
+    await user.click(screen.getByRole('button', { name: /NST_C_3D_B31/ }))
+
+    const plan = () =>
+      JSON.stringify(
+        store
+          .getState()
+          .demo.projects.flatMap((p) => p.assets)
+          .flatMap((a) => a.stages)
+          .map((s) => [s.id, s.baselineStart, s.baselineFinish, s.currentStart, s.currentFinish]),
+      )
+    const before = plan()
+
+    const gantt = screen.getByLabelText('项目排期甘特')
+    await user.click(within(gantt).getAllByRole('button', { name: /中模/ })[1])
+    await user.click(
+      within(screen.getByLabelText('阶段详情')).getByRole('button', { name: '标记开工' }),
+    )
+
+    expect(plan()).toBe(before)
+  })
+
+  it('已验收的阶段没有推进区，它是终态', async () => {
+    const { user } = await renderProjects()
+    const gantt = screen.getByLabelText('项目排期甘特')
+    await user.click(within(gantt).getAllByRole('button', { name: /中模/ })[0])
+
+    const inspector = screen.getByLabelText('阶段详情')
+    expect(within(inspector).queryByText('推进这个阶段')).toBeNull()
+  })
+})
