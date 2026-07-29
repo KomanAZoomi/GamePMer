@@ -284,3 +284,46 @@ test('追加报价改问项目与受影响资产，客户从项目上取', async
   await expect(detail.getByText('载具加一套涂装')).toBeVisible()
   await expect(detail.getByText('Northstar Studio').first()).toBeVisible()
 })
+
+/**
+ * 待立案的变更单。
+ *
+ * 判为范围外只建变更单并冻结阶段，不自动建报价案件。原来左侧列表只读报价案件，
+ * 于是「阶段冻着、指标数到了它、列表里却没有一行能点」——验收时正是这么问的。
+ */
+test('判为范围外后，报价页「处理中」里立刻出现一条待立案', async ({ page }) => {
+  await page.goto('/#/feedback')
+  const pendingRow = page.getByLabel('资产级反馈项').locator('tbody tr', { hasText: '待分流' }).first()
+  await pendingRow.click()
+  await page.getByRole('button', { name: '判为范围外' }).click()
+
+  await page.goto('/#/quotation')
+  const list = page.getByLabel('报价案件')
+  await expect(list.getByText('待立案').first()).toBeVisible()
+  // 冻了哪个阶段直接写在行里，不用再去甘特上找
+  await expect(list.locator('.gp-case.is-pending').first()).toContainText('冻住')
+})
+
+test('点待立案 → 录入面板已按变更单预填，立完案它从清单里消失', async ({ page }) => {
+  await page.goto('/#/feedback')
+  await page.getByLabel('资产级反馈项').locator('tbody tr', { hasText: '待分流' }).first().click()
+  await page.getByRole('button', { name: '判为范围外' }).click()
+
+  await page.goto('/#/quotation')
+  await page.getByLabel('报价案件').locator('.gp-case.is-pending').first().click()
+
+  const form = page.getByLabel('录入新需求')
+  await expect(form.getByText(/立报价案件/)).toBeVisible()
+  // 项目与受影响资产已经填好，客户原话也带过来了
+  await expect(form.getByLabel('挂到哪个项目')).toHaveValue(/\w+/)
+  await expect(form.getByLabel('需求描述')).not.toHaveValue('')
+
+  await page.getByRole('button', { name: '立案并交给总监报价' }).click()
+  await expect(page.getByLabel('报价案件').getByText('待立案')).toHaveCount(0)
+})
+
+test('资产冻结中数的是资产，阶段数另写', async ({ page }) => {
+  await page.goto('/#/quotation')
+  const card = page.locator('.gp-metric', { hasText: '资产冻结中' })
+  await expect(card.getByText(/共 \d+ 个阶段/)).toBeVisible()
+})

@@ -8,6 +8,8 @@ import {
   activeVersion,
   availableActions,
   createQuoteCase,
+  frozenSummary,
+  pendingChangeRequests,
   kickoffBlockingIssues,
   quoteTotals,
   reviewBlockingIssues,
@@ -18,6 +20,7 @@ import {
   sendToClient,
   submitQuoteVersion,
 } from './quotation'
+import { classifyOutOfScope, reclassifyFeedback } from './replan'
 import type { DemoState, QuoteLine } from './model'
 
 const ACTOR = 'Brandon'
@@ -815,5 +818,67 @@ describe('直接录入报价需求', () => {
     })
     const created = next.quoteCases.at(-1)!
     expect(availableActions(next, created.id)).toContain('quote')
+  })
+})
+
+/**
+ * 待立案的变更单。
+ *
+ * 反馈判为范围外时创建变更单并冻结阶段，但**不会自动建报价案件**。
+ * 原来左侧列表只读 `quoteCases`，于是出现「阶段冻着、指标数到了它、
+ * 列表里却没有一行能点」——验收时正是这么问的：冻结中的具体去哪看。
+ */
+describe('待立案的变更单要能看见', () => {
+  it('判为范围外后，它出现在待立案清单里', () => {
+    const state = createDemoState()
+    const item = state.feedbackBatches
+      .flatMap((batch) => batch.items)
+      .find((entry) => entry.status === 'NeedsClassification')!
+
+    const next = classifyOutOfScope(state, item.id, NOW, ACTOR)
+    const pending = pendingChangeRequests(next)
+
+    expect(pending.some((row) => row.request.sourceFeedbackItemId === item.id)).toBe(true)
+    const row = pending.find((entry) => entry.request.sourceFeedbackItemId === item.id)!
+    // 冻了哪个阶段要一起给出来，不然还得自己去甘特上找
+    expect(row.frozenStages.length).toBeGreaterThan(0)
+    expect(row.frozenStages[0].assetId).toBe(item.assetId)
+    // **只认这条变更单冻的那个阶段**。按「项目 + 资产」筛会把同资产上
+    // 别的变更单冻的阶段也算进来，界面上就成了张冠李戴
+    expect(row.frozenStages.map((stage) => stage.stageId)).toEqual([item.stageId])
+  })
+
+  it('已经立了案的变更单不再出现在待立案里', () => {
+    const state = createDemoState()
+    // 种子里的 CQ-004 已经有配对的报价案件
+    expect(pendingChangeRequests(state).some((row) => row.request.id === 'CQ-004')).toBe(false)
+  })
+
+  it('撤销范围外判定后，它从待立案里消失', () => {
+    const state = createDemoState()
+    const item = state.feedbackBatches
+      .flatMap((batch) => batch.items)
+      .find((entry) => entry.status === 'NeedsClassification')!
+
+    const classified = classifyOutOfScope(state, item.id, NOW, ACTOR)
+    expect(pendingChangeRequests(classified)).toHaveLength(1)
+
+    const undone = reclassifyFeedback(classified, item.id, NOW, ACTOR)
+    expect(pendingChangeRequests(undone)).toHaveLength(0)
+  })
+
+  /** 指标数的是阶段，标题却写「资产」——同一资产冻两个阶段时就对不上 */
+  it('冻结统计按资产去重，与按阶段计数区分开', () => {
+    const state = createDemoState()
+    const summary = frozenSummary(state)
+
+    const stages = state.projects
+      .flatMap((p) => p.assets)
+      .flatMap((a) => a.stages)
+      .filter((s) => s.flags.includes('WaitingChangeQuote'))
+
+    expect(summary.stages).toBe(stages.length)
+    expect(summary.assets).toBe(new Set(stages.map((s) => s.assetId)).size)
+    expect(summary.assets).toBeLessThanOrEqual(summary.stages)
   })
 })

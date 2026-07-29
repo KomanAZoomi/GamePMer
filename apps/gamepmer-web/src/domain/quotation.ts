@@ -3,6 +3,7 @@ import { STAGE_LABEL } from './model'
 import type {
   Asset,
   AuditEvent,
+  ChangeRequest,
   EvidenceRef,
   DemoState,
   NotificationDraft,
@@ -384,6 +385,63 @@ export function reviewQuote(state: DemoState, caseId: string, input: ReviewInput
   }
 }
 
+// ---------------------------------------------------------------- 待立案与冻结
+
+export interface PendingChangeRequest {
+  request: ChangeRequest
+  /** 被这条变更单冻住的阶段。不一起给出来，PM 还得自己去甘特上找 */
+  frozenStages: Array<{ assetId: string; stageId: string; stageName: string }>
+}
+
+/**
+ * 判为范围外、但还没立报价案件的变更单。
+ *
+ * `classifyOutOfScope` 只建变更单并冻结阶段，**不自动建报价案件**——
+ * 报价是人的判断，不该由一次分流点击顺手带出来。
+ * 但这意味着这段时间里阶段冻着、指标数着，列表里却没有一行能点：
+ * 所以这条投影必须存在，且必须出现在报价页的「处理中」里。
+ */
+export function pendingChangeRequests(state: DemoState): PendingChangeRequest[] {
+  return state.changeRequests
+    .filter(
+      (request) =>
+        request.status === 'ClassifiedExtra' &&
+        !request.quoteCaseId &&
+        !state.quoteCases.some((entry) => entry.changeRequestId === request.id || entry.id === request.id),
+    )
+    .map((request) => {
+      // 只认**这条**变更单冻的那个阶段。
+      // 按「项目 + 资产」筛会把同资产上别的变更单冻的阶段也算进来，
+      // 界面上就会出现「CQ-005 冻住 高模、烘焙」而烘焙其实是 CQ-004 冻的。
+      const item = state.feedbackBatches
+        .flatMap((batch) => batch.items)
+        .find((entry) => entry.id === request.sourceFeedbackItemId)
+
+      const frozenStages = state.projects
+        .filter((project) => project.code === request.projectCode)
+        .flatMap((project) => project.assets)
+        .flatMap((asset) => asset.stages)
+        .filter((stage) => stage.id === item?.stageId && stage.flags.includes('WaitingChangeQuote'))
+        .map((stage) => ({ assetId: stage.assetId, stageId: stage.id, stageName: stage.name }))
+
+      return { request, frozenStages }
+    })
+}
+
+/**
+ * 冻结统计。
+ *
+ * **资产数和阶段数是两个数。** 界面上写「资产冻结中」却拿阶段数去填，
+ * 同一资产冻两个阶段时就会显示 2，而实际只有 1 个资产被卡住。
+ */
+export function frozenSummary(state: DemoState): { assets: number; stages: number } {
+  const stages = state.projects
+    .flatMap((project) => project.assets)
+    .flatMap((asset) => asset.stages)
+    .filter((stage) => stage.flags.includes('WaitingChangeQuote'))
+  return { assets: new Set(stages.map((stage) => stage.assetId)).size, stages: stages.length }
+}
+
 // ---------------------------------------------------------------- 立案
 
 export interface CreateQuoteCaseInput {
@@ -400,6 +458,9 @@ export interface CreateQuoteCaseInput {
   /** 从收件箱确认过来时带上原始证据 */
   evidence?: EvidenceRef[]
   sourceLabel?: string
+  /** 由「待立案」的变更单立案时回填，两边从此互相指得到 */
+  changeRequestId?: string
+  sourceFeedbackItemId?: string
   actor: string
   now: string
 }
@@ -487,6 +548,8 @@ export function createQuoteCase(state: DemoState, input: CreateQuoteCaseInput): 
     createdAt: input.now,
     dueDate: input.dueDate,
     discipline,
+    changeRequestId: input.changeRequestId,
+    sourceFeedbackItemId: input.sourceFeedbackItemId,
     evidence: input.evidence ?? [],
   }
 
@@ -504,6 +567,12 @@ export function createQuoteCase(state: DemoState, input: CreateQuoteCaseInput): 
   return {
     ...state,
     quoteCases: [...state.quoteCases, quoteCase],
+    // 变更单回指报价案件，「待立案」清单据此把它摘掉
+    changeRequests: state.changeRequests.map((entry) =>
+      entry.id !== input.changeRequestId
+        ? entry
+        : { ...entry, status: 'Quoting' as const, quoteCaseId: caseId },
+    ),
     auditEvents: [...state.auditEvents, audit],
   }
 }

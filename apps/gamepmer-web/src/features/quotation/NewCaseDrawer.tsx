@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { BATCH_CODE_EXAMPLE, BATCH_CODE_RULE } from '../../domain/batchCode'
-import type { DemoState, QuoteKind } from '../../domain/model'
+import type { ChangeRequest, DemoState, QuoteKind } from '../../domain/model'
 import { createQuoteCaseIssues, type CreateQuoteCaseInput } from '../../domain/quotation'
 
 interface NewCaseDrawerProps {
   demo: DemoState
   today: string
+  /** 从「待立案」的变更单点进来时预填——项目、资产、标题不该让人再抄一遍 */
+  fromChangeRequest?: ChangeRequest
   onCancel: () => void
   onSubmit: (input: Omit<CreateQuoteCaseInput, 'actor' | 'now'>) => void
 }
@@ -21,14 +23,28 @@ interface NewCaseDrawerProps {
  *
  * 校验用的是领域层同一个 `createQuoteCaseIssues`，界面不另写一份。
  */
-export function NewCaseDrawer({ demo, today, onCancel, onSubmit }: NewCaseDrawerProps) {
-  const [kind, setKind] = useState<QuoteKind>('initial')
+export function NewCaseDrawer({
+  demo,
+  today,
+  fromChangeRequest,
+  onCancel,
+  onSubmit,
+}: NewCaseDrawerProps) {
+  const source = fromChangeRequest
+  const sourceItem = source
+    ? demo.feedbackBatches
+        .flatMap((batch) => batch.items)
+        .find((item) => item.id === source.sourceFeedbackItemId)
+    : undefined
+
+  const [kind, setKind] = useState<QuoteKind>(source ? 'change' : 'initial')
   const [client, setClient] = useState('')
-  const [projectCode, setProjectCode] = useState('')
-  const [title, setTitle] = useState('')
-  const [requirement, setRequirement] = useState('')
+  const [projectCode, setProjectCode] = useState(source?.projectCode ?? '')
+  const [title, setTitle] = useState(source?.title ?? '')
+  // 客户原话即需求。让 PM 自己转述一遍只会丢细节
+  const [requirement, setRequirement] = useState(sourceItem?.originalText ?? '')
   const [dueDate, setDueDate] = useState('')
-  const [assetIds, setAssetIds] = useState<string[]>([])
+  const [assetIds, setAssetIds] = useState<string[]>(source ? [source.assetId] : [])
 
   const project = demo.projects.find((entry) => entry.code === projectCode)
   const clients = [...new Set(demo.projects.map((entry) => entry.client))]
@@ -38,6 +54,8 @@ export function NewCaseDrawer({ demo, today, onCancel, onSubmit }: NewCaseDrawer
     projectCode,
     title,
     requirement,
+    changeRequestId: source?.id,
+    sourceFeedbackItemId: source?.sourceFeedbackItemId,
     client: kind === 'initial' ? client : undefined,
     dueDate: dueDate || undefined,
     affectedAssetIds: kind === 'change' ? assetIds : undefined,
@@ -56,8 +74,12 @@ export function NewCaseDrawer({ demo, today, onCancel, onSubmit }: NewCaseDrawer
     <section className="gp-new-case" aria-label="录入新需求">
       <header className="gp-card-head">
         <h2>
-          录入新需求
-          <small>录进来只是承认「这是一条真需求」，人天和金额由总监填</small>
+          {source ? `为 ${source.id} 立报价案件` : '录入新需求'}
+          <small>
+            {source
+              ? `来自反馈 ${source.sourceFeedbackItemId} 的范围外判定，${source.assetId} 的阶段已冻结`
+              : '录进来只是承认「这是一条真需求」，人天和金额由总监填'}
+          </small>
         </h2>
         <button type="button" className="gp-btn gp-btn-sm" onClick={onCancel}>
           取消

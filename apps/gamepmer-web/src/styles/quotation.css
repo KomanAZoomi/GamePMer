@@ -800,3 +800,21 @@
   resize: vertical;
   font-family: inherit;
 }
+
+
+/* 待立案的变更单：阶段已经因为它冻住了，是这一页最该先处理的东西 */
+.gp-case.is-pending {
+  border-left: 3px solid var(--amber);
+  background: var(--amber-soft);
+}
+
+.gp-case.is-pending:hover {
+  background: var(--amber-soft);
+  filter: brightness(0.985);
+}
+
+.gp-pill.is-warn-pill {
+  background: var(--amber-soft);
+  border: 1px solid var(--amber-border);
+  color: var(--amber-ink);
+}

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import type { RouteKey } from '../../app/navigation'
 import {
   QUOTE_KIND_LABEL,
+  frozenSummary,
+  pendingChangeRequests,
   QUOTE_STATUS_LABEL,
   activeVersion,
   kickoffBlockingIssues,
@@ -41,6 +43,13 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   const [entryOpen, setEntryOpen] = useState(false)
   // 从顶栏「新增需求」跳过来时直接把录入面板打开——跳过来还要再找一次按钮就没意义了
   const [newCaseOpen, setNewCaseOpen] = useState(() => window.location.hash.includes('new'))
+  // 点待立案的行时，用它预填录入面板——PM 不用把项目、资产、标题再抄一遍
+  const [prefillId, setPrefillId] = useState<string | undefined>()
+
+  function setPrefill(requestId: string) {
+    setPrefillId(requestId)
+    setNewCaseOpen(true)
+  }
 
   const buckets = useMemo(() => {
     const byNewest = [...demo.quoteCases].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -89,10 +98,12 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   // 少了这个入口，「退回总监修改」就是死胡同。
   const canQuote = selected.status !== 'KickoffSent' && selected.status !== 'Rejected'
   const project = demo.projects.find((entry) => entry.code === selected.projectCode)
-  const frozenStages = demo.projects
-    .flatMap((p) => p.assets)
-    .flatMap((a) => a.stages)
-    .filter((s) => s.flags.includes('WaitingChangeQuote')).length
+  const frozen = frozenSummary(demo)
+  // 判为范围外但还没立案的变更单。阶段已经冻上了，列表里必须有一行能点——
+  // 否则「资产冻结中 1」就是个数得出来、点不进去的死数字
+  const pending = useMemo(() => pendingChangeRequests(demo), [demo])
+  // 只在「处理中」页签下露出——它们本来就是还没处理完的东西
+  const pendingHere = quoteTab === 'active' ? pending : []
   // 开工邮件草稿就在这一页起草，也就该在这一页看到——不要让 PM 跑去反馈中心找
   const kickoffDrafts = demo.notificationDrafts.filter((draft) => draft.sourceKind === 'kickoff')
 
@@ -121,7 +132,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
               className={`gp-chip${tab.key === quoteTab ? ' is-active' : ''}`}
               onClick={() => store.setQuoteTab(tab.key)}
             >
-              {tab.label} {buckets[tab.key].length}
+              {tab.label} {buckets[tab.key].length + (tab.key === 'active' ? pending.length : 0)}
             </button>
           ))}
         </div>
@@ -145,10 +156,14 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
           <small>已报客户，等回话</small>
         </div>
         {/* 冻结数归零时不再标黄——没有东西被卡住就不该继续报警 */}
-        <div className={`gp-metric${frozenStages > 0 ? ' is-warn' : ''}`}>
+        {/* 资产数与阶段数是两个数：同一资产冻两个阶段时，写「资产」却填阶段数就对不上 */}
+        <div className={`gp-metric${frozen.assets > 0 ? ' is-warn' : ''}`}>
           <span>资产冻结中</span>
-          <b>{frozenStages}</b>
-          <small>只冻受影响阶段</small>
+          <b>{frozen.assets}</b>
+          <small>
+            共 {frozen.stages} 个阶段
+            {pending.length > 0 && ` · ${pending.length} 条待立案`}
+          </small>
         </div>
         <div className="gp-metric">
           <span>已开工</span>
@@ -162,10 +177,15 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
           <NewCaseDrawer
             demo={demo}
             today={today}
-            onCancel={() => setNewCaseOpen(false)}
+            fromChangeRequest={pending.find((row) => row.request.id === prefillId)?.request}
+            onCancel={() => {
+              setNewCaseOpen(false)
+              setPrefillId(undefined)
+            }}
             onSubmit={(input) => {
               store.createQuoteCase(input)
               setNewCaseOpen(false)
+              setPrefillId(undefined)
             }}
           />
         </div>
@@ -191,10 +211,40 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
         <aside className="gp-card gp-case-list" aria-label="报价案件">
           <header className="gp-card-head">
             <h2>{TABS.find((tab) => tab.key === quoteTab)?.label}</h2>
-            <span className="gp-count">{listed.length}</span>
+            <span className="gp-count">{listed.length + pendingHere.length}</span>
           </header>
-          {listed.length === 0 && <p className="gp-empty">这个页签下暂时没有案件。</p>}
+          {listed.length === 0 && pendingHere.length === 0 && (
+            <p className="gp-empty">这个页签下暂时没有案件。</p>
+          )}
+
+          {/*
+            待立案的变更单排在最前面：阶段已经因为它冻住了，
+            这是这一页上最该先处理的东西。
+          */}
           <ul className="gp-case-items">
+            {pendingHere.map(({ request, frozenStages }) => (
+              <li key={request.id}>
+                <button
+                  type="button"
+                  className="gp-case is-pending"
+                  onClick={() => setPrefill(request.id)}
+                >
+                  <span className="gp-case-top">
+                    <span className="gp-pill is-warn-pill">待立案</span>
+                    <span className="gp-case-time">冻结中</span>
+                  </span>
+                  <strong className="gp-case-title">
+                    {request.id} · {request.title}
+                  </strong>
+                  <span className="gp-case-meta">
+                    {request.projectCode} · {request.assetId} ·{' '}
+                    {frozenStages.length > 0
+                      ? `冻住 ${frozenStages.map((stage) => stage.stageName).join('、')}`
+                      : '尚未冻结阶段'}
+                  </span>
+                </button>
+              </li>
+            ))}
             {listed.map((entry) => {
               const entryVersion = activeVersion(demo, entry.id)
               return (
