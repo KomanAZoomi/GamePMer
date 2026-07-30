@@ -132,3 +132,32 @@ export function monthDayLabel(date: IsoDate): string {
   const value = parse(date)
   return `${value.getUTCMonth() + 1}/${value.getUTCDate()}`
 }
+
+/**
+ * 从开始日与人天推出结束日。
+ *
+ * 总监录报价时选了开始日，结束日就该自己算出来——手工数工作日是纯粹的浪费，
+ * 而且很容易把周末或公司休息日算进去。
+ *
+ * 三条规则：
+ *
+ * 1. **开始日算第一天。** 1 人天当天就结束，不是隔一天。
+ * 2. **小数向上取整。** 0.5 人天照样占一整个工作日——
+ *    人没法在半天里被切开排给两件事，排期上那一天就是被占住了。
+ * 3. **开始日撞上非工作日就前移**，并把 `snapped` 标出来。
+ *    阶段不可能在公司休息日开工，静默留着那个日期会一路流进甘特。
+ */
+export function planFromPersonDays(
+  start: IsoDate,
+  personDays: number,
+  calendar: WorkCalendar = EMPTY_CALENDAR,
+): { start: IsoDate; finish: IsoDate; snapped: boolean } | undefined {
+  if (!(personDays > 0)) return undefined
+
+  const from = nextWorkday(start, calendar)
+  return {
+    start: from,
+    finish: moveByWorkdays(from, Math.ceil(personDays) - 1, calendar),
+    snapped: from !== start,
+  }
+}

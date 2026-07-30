@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { WorkCalendar } from './model'
-import { countWorkdays, isWorkday, moveByWorkdays, nextWorkday, workdaySequence } from './workCalendar'
+import { countWorkdays, isWorkday, moveByWorkdays, nextWorkday, planFromPersonDays, workdaySequence } from './workCalendar'
 
 // 2026-08-05 是周三，设为公司休息日；2026-08-08 是周六，设为特殊工作日。
 const calendar: WorkCalendar = {
@@ -98,5 +98,75 @@ describe('workdaySequence', () => {
       { date: '2026-08-02', isWorkday: false },
       { date: '2026-08-03', isWorkday: true },
     ])
+  })
+})
+
+/**
+ * 从人天推节点。
+ *
+ * 总监录报价时选了开始日，结束日就该按人天自动算出来——手工数工作日是纯粹的浪费，
+ * 而且很容易把周末或公司休息日算进去。
+ */
+describe('按人天推出结束日', () => {
+  // 2026-08-05 是公司休息日
+  const calendar: WorkCalendar = {
+    id: 'cal-2026',
+    name: '公司日历 2026',
+    holidays: ['2026-08-05'],
+    extraWorkdays: [],
+  }
+
+  it('1 人天当天就结束——开始日自己算第一天', () => {
+    expect(planFromPersonDays('2026-08-03', 1, calendar)).toEqual({
+      start: '2026-08-03',
+      finish: '2026-08-03',
+      snapped: false,
+    })
+  })
+
+  it('跨周末顺延：周五开始 2 人天，结束落到下周一', () => {
+    // 2026-08-07 是周五
+    expect(planFromPersonDays('2026-08-07', 2, calendar)!.finish).toBe('2026-08-10')
+  })
+
+  it('跨公司休息日顺延：8/4 开始 3 人天，跳过 8/5', () => {
+    // 8/4 周二、8/5 休息、8/6 周四、8/7 周五
+    expect(planFromPersonDays('2026-08-04', 3, calendar)!.finish).toBe('2026-08-07')
+  })
+
+  /** 0.5 人天也占一个工作日——人不能在半天里被切成两半排给两件事 */
+  it('小数人天向上取整占整个工作日', () => {
+    expect(planFromPersonDays('2026-08-03', 0.5, calendar)!.finish).toBe('2026-08-03')
+    expect(planFromPersonDays('2026-08-03', 1.5, calendar)!.finish).toBe('2026-08-04')
+  })
+
+  /**
+   * 开始日落在非工作日时**前移到下一个工作日**，并标记 snapped。
+   * 阶段不可能在公司休息日开工，静默留着那个日期会一路流进甘特。
+   */
+  it('开始日撞上休息日时前移，并明确告知', () => {
+    const result = planFromPersonDays('2026-08-05', 2, calendar)!
+    expect(result.start).toBe('2026-08-06')
+    expect(result.finish).toBe('2026-08-07')
+    expect(result.snapped).toBe(true)
+  })
+
+  it('开始日撞上周末时同样前移', () => {
+    // 2026-08-08 周六
+    const result = planFromPersonDays('2026-08-08', 1, calendar)!
+    expect(result.start).toBe('2026-08-10')
+    expect(result.snapped).toBe(true)
+  })
+
+  it('人天为 0 或负数时算不出节点，返回 undefined', () => {
+    expect(planFromPersonDays('2026-08-03', 0, calendar)).toBeUndefined()
+    expect(planFromPersonDays('2026-08-03', -1, calendar)).toBeUndefined()
+  })
+
+  it('算出来的区间里工作日数正好等于取整后的人天', () => {
+    for (const days of [1, 2, 3, 5, 8]) {
+      const result = planFromPersonDays('2026-08-03', days, calendar)!
+      expect(countWorkdays(result.start, result.finish, calendar), `${days} 人天`).toBe(days)
+    }
   })
 })

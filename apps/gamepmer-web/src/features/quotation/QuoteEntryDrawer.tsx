@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
-import type { Project, QuoteLine, QuoteVersion, StageCode } from '../../domain/model'
+import type { Project, QuoteLine, QuoteVersion, StageCode, WorkCalendar } from '../../domain/model'
 import { quoteTotals, reviewBlockingIssues } from '../../domain/quotation'
+import { planFromPersonDays } from '../../domain/workCalendar'
 
 interface QuoteEntryDrawerProps {
   caseId: string
@@ -8,6 +9,8 @@ interface QuoteEntryDrawerProps {
   /** 项目还没建出来时为 undefined——首次报价常常就是这种情况 */
   project?: Project
   previous?: QuoteVersion
+  /** 推节点用的公司日历。没有它就会把周末和休息日算成工作日 */
+  calendar: WorkCalendar
   defaultUnitPrice?: number
   onCancel: () => void
   onSubmit: (lines: QuoteLine[], scheduleImpactWorkdays: number) => void
@@ -41,6 +44,7 @@ export function QuoteEntryDrawer({
   projectCode,
   project,
   previous,
+  calendar,
   defaultUnitPrice = 2000,
   onCancel,
   onSubmit,
@@ -50,6 +54,22 @@ export function QuoteEntryDrawer({
     previous ? previous.lines.map((line) => ({ ...line })) : [],
   )
   const [impact, setImpact] = useState(String(previous?.scheduleImpactWorkdays ?? 0))
+
+  /**
+   * 哪些行的结束日是**人手改过**的。
+   *
+   * 自动推算不能盖掉手工微调——总监把某一行的结束日往后拖了一天，
+   * 结果一改人天又被算回去，那这个便利就变成了打架。
+   */
+  const [manualFinish, setManualFinish] = useState<Record<string, true>>({})
+
+  /**
+   * 哪些行的开始日被前移过。
+   *
+   * 阶段不能在公司休息日开工，所以前移是对的——但**不能不说**。
+   * 静默改掉总监填的日期，他下次还会填错，而且会怀疑这张表在乱动。
+   */
+  const [snappedStart, setSnappedStart] = useState<Record<string, string>>({})
   const [bulkPrice, setBulkPrice] = useState(String(defaultUnitPrice))
 
   const assets = project?.assets ?? []
@@ -102,6 +122,28 @@ export function QuoteEntryDrawer({
         unitPrice: defaultUnitPrice,
       })),
     )
+  }
+
+  /**
+   * 按人天把这一行的节点算出来。
+   *
+   * 选了开始日就自动算，改了人天也自动跟着走——除非这一行的结束日被手工改过。
+   */
+  const autoPlan = (row: QuoteLine, next: Partial<QuoteLine>) => {
+    const merged = { ...row, ...next }
+    if (!merged.plannedStart || !(merged.personDays > 0)) return next
+    const plan = planFromPersonDays(merged.plannedStart, merged.personDays, calendar)
+    if (!plan) return next
+
+    setSnappedStart((current) => {
+      if (!plan.snapped) {
+        const { [row.id]: _dropped, ...rest } = current
+        return rest
+      }
+      return { ...current, [row.id]: merged.plannedStart! }
+    })
+
+    return { ...next, plannedStart: plan.start, plannedFinish: plan.finish }
   }
 
   /** 每行自己的问题，显示在行尾——不要让总监拿着一句「有 6 个错误」去猜是哪一行。 */
@@ -249,7 +291,16 @@ export function QuoteEntryDrawer({
                       className={`gp-input gp-input-num${row.personDays <= 0 ? ' is-invalid' : ''}`}
                       aria-label={`${rowName} 人天`}
                       value={row.personDays === 0 ? '' : String(row.personDays)}
-                      onChange={(event) => patch(row.id, { personDays: Number(event.target.value) || 0 })}
+                      onChange={(event) => {
+                        const personDays = Number(event.target.value) || 0
+                        // 改人天时结束日跟着走，但**不覆盖手工改过的那一行**
+                        patch(
+                          row.id,
+                          manualFinish[row.id]
+                            ? { personDays }
+                            : autoPlan(row, { personDays }),
+                        )
+                      }}
                     />
                   </td>
                   <td>
@@ -266,7 +317,15 @@ export function QuoteEntryDrawer({
                       className={`gp-input gp-input-date${row.plannedStart ? '' : ' is-invalid'}`}
                       aria-label={`${rowName} 开始日`}
                       value={row.plannedStart ?? ''}
-                      onChange={(event) => patch(row.id, { plannedStart: event.target.value || undefined })}
+                      onChange={(event) => {
+                        const plannedStart = event.target.value || undefined
+                        // 选开始日就把结束日一起算出来——这是「一键录入」的那一下
+                        patch(row.id, autoPlan(row, { plannedStart }))
+                        setManualFinish((current) => {
+                          const { [row.id]: _dropped, ...rest } = current
+                          return rest
+                        })
+                      }}
                     />
                   </td>
                   <td>
@@ -275,12 +334,38 @@ export function QuoteEntryDrawer({
                       className={`gp-input gp-input-date${row.plannedFinish ? '' : ' is-invalid'}`}
                       aria-label={`${rowName} 结束日`}
                       value={row.plannedFinish ?? ''}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        // 手工改过就记下来，之后改人天不再覆盖它
                         patch(row.id, { plannedFinish: event.target.value || undefined })
-                      }
+                        setManualFinish((current) => ({ ...current, [row.id]: true }))
+                      }}
                     />
                   </td>
-                  <td className={`gp-row-flag${issue ? ' is-err' : ' is-ok'}`}>{issue ?? '完整'}</td>
+                  <td className={`gp-row-flag${issue ? ' is-err' : ' is-ok'}`}>
+                    {issue ?? '完整'}
+                    {snappedStart[row.id] && (
+                      <em className="gp-snap-note">
+                        {snappedStart[row.id].slice(5)} 非工作日，已前移
+                      </em>
+                    )}
+                    {manualFinish[row.id] && (
+                      <button
+                        type="button"
+                        className="gp-recalc"
+                        aria-label={`${rowName} 按人天重算节点`}
+                        title="结束日已手工改过。点这里按人天重新算一遍"
+                        onClick={() => {
+                          patch(row.id, autoPlan(row, {}))
+                          setManualFinish((current) => {
+                            const { [row.id]: _dropped, ...rest } = current
+                            return rest
+                          })
+                        }}
+                      >
+                        手改 · 按人天重算
+                      </button>
+                    )}
+                  </td>
                   <td>
                     <button
                       type="button"

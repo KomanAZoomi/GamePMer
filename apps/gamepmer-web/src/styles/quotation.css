@@ -881,3 +881,28 @@
 .gp-unfreeze .gp-reclassify-note {
   padding: 0 var(--space-4) var(--space-4);
 }
+
+
+/* 手工改过结束日的行，给一个显式的重算入口 */
+.gp-recalc {
+  display: block;
+  margin-top: 3px;
+  padding: 1px 5px;
+  border: 1px solid var(--amber-border);
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+  color: var(--amber-ink);
+  font-size: var(--text-2xs);
+  cursor: pointer;
+}
+
+
+/* 开始日被前移时必须说出来：静默改掉总监填的日期，他下次还会填错 */
+.gp-snap-note {
+  display: block;
+  margin-top: 3px;
+  color: var(--amber-ink);
+  font-style: normal;
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+}

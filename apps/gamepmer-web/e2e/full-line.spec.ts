@@ -47,8 +47,9 @@ test('第一段：BD 需求 → 立案 → 报价 → 复核 → 报客户 → �
   // 工作台不替他编估算，模板生成的行也一样是空的
   await drawer.getByLabel('第 1 行 资产').fill('GUARD-01')
   await drawer.getByLabel('第 1 行 人天').fill('4')
+  // 选开始日时结束日按人天自动算出来，不用手工数工作日
   await drawer.getByLabel('第 1 行 开始日').fill('2026-08-10')
-  await drawer.getByLabel('第 1 行 结束日').fill('2026-08-14')
+  await expect(drawer.getByLabel('第 1 行 结束日')).toHaveValue('2026-08-13')
 
   await drawer.getByRole('button', { name: '提交给组长/BD 复核' }).click()
 

@@ -21,6 +21,7 @@ import { dateRange } from '../../domain/workCalendar'
 import type { QuoteTab, WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { NotificationList } from '../feedback/NotificationList'
 import { ApprovalTrack } from './ApprovalTrack'
+import { EMPTY_CALENDAR } from '../../domain/workCalendar'
 import { NewCaseDrawer } from './NewCaseDrawer'
 import { QuoteEntryDrawer } from './QuoteEntryDrawer'
 
@@ -232,6 +233,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
             projectCode={selected.projectCode}
             project={project}
             previous={version}
+            calendar={demo.calendars.find((entry) => entry.id === project?.calendarId) ?? demo.calendars[0] ?? EMPTY_CALENDAR}
             onCancel={() => setEntryOpen(false)}
             onSubmit={(lines, impact) => {
               store.submitQuote(selected.id, lines, impact)

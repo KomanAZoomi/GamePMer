@@ -334,8 +334,9 @@ describe('总监录入报价——每个状态都要能往下走', () => {
     for (const input of within(drawer).getAllByLabelText(/开始日$/)) {
       await user.type(input, '2026-08-17')
     }
+    // 结束日不用再填：选开始日时已按人天自动算好（2 人天 → 08-17 到 08-18）
     for (const input of within(drawer).getAllByLabelText(/结束日$/)) {
-      await user.type(input, '2026-08-18')
+      expect(input).toHaveValue('2026-08-18')
     }
 
     await user.click(within(drawer).getByRole('button', { name: '提交给组长/BD 复核' }))
@@ -571,5 +572,116 @@ describe('直接录入新需求', () => {
     expect(created.affectedAssetIds).toEqual(['MECH-02'])
     // 客户从项目上取，不用人再填一遍
     expect(created.client).toBe('Northstar Studio')
+  })
+})
+
+/**
+ * 节点按人天自动推。
+ *
+ * 手工数工作日是纯粹的浪费，而且很容易把周末或公司休息日算进去。
+ * 但自动推算**不能盖掉手工微调**——那样这个便利就变成了打架。
+ */
+describe('录入报价时节点按人天自动算', () => {
+  async function openEntry(user: ReturnType<typeof userEvent.setup>) {
+    await goto(user)
+    await showAll(user)
+    await user.click(within(screen.getByLabelText('报价案件')).getByText(/Q-030/))
+    await user.click(screen.getByRole('button', { name: '录入总监报价' }))
+    const drawer = screen.getByLabelText('录入报价')
+    await user.click(within(drawer).getByRole('button', { name: '新增一行' }))
+    return drawer
+  }
+
+  it('填人天再选开始日 → 结束日自动算出来', async () => {
+    const { user } = renderQuotation()
+    const drawer = await openEntry(user)
+
+    await user.clear(within(drawer).getByLabelText('第 1 行 人天'))
+    await user.type(within(drawer).getByLabelText('第 1 行 人天'), '3')
+    // 2026-08-04 周二，跨过 8/5 公司休息日
+    await user.type(within(drawer).getByLabelText('第 1 行 开始日'), '2026-08-04')
+
+    expect(within(drawer).getByLabelText('第 1 行 结束日')).toHaveValue('2026-08-07')
+  })
+
+  it('改人天时结束日跟着走', async () => {
+    const { user } = renderQuotation()
+    const drawer = await openEntry(user)
+
+    await user.type(within(drawer).getByLabelText('第 1 行 人天'), '1')
+    await user.type(within(drawer).getByLabelText('第 1 行 开始日'), '2026-08-03')
+    expect(within(drawer).getByLabelText('第 1 行 结束日')).toHaveValue('2026-08-03')
+
+    await user.clear(within(drawer).getByLabelText('第 1 行 人天'))
+    await user.type(within(drawer).getByLabelText('第 1 行 人天'), '2')
+    expect(within(drawer).getByLabelText('第 1 行 结束日')).toHaveValue('2026-08-04')
+  })
+
+  /** 这条是这个功能的关键：便利不能把人的微调吃掉 */
+  it('手工改过结束日之后，再改人天不覆盖它', async () => {
+    const { user } = renderQuotation()
+    const drawer = await openEntry(user)
+
+    await user.type(within(drawer).getByLabelText('第 1 行 人天'), '2')
+    await user.type(within(drawer).getByLabelText('第 1 行 开始日'), '2026-08-03')
+    await user.clear(within(drawer).getByLabelText('第 1 行 结束日'))
+    await user.type(within(drawer).getByLabelText('第 1 行 结束日'), '2026-08-06')
+
+    await user.clear(within(drawer).getByLabelText('第 1 行 人天'))
+    await user.type(within(drawer).getByLabelText('第 1 行 人天'), '4')
+    expect(within(drawer).getByLabelText('第 1 行 结束日')).toHaveValue('2026-08-06')
+  })
+
+  it('手改过的行给出「按人天重算」，点了就回到自动值', async () => {
+    const { user } = renderQuotation()
+    const drawer = await openEntry(user)
+
+    await user.type(within(drawer).getByLabelText('第 1 行 人天'), '2')
+    await user.type(within(drawer).getByLabelText('第 1 行 开始日'), '2026-08-03')
+    await user.clear(within(drawer).getByLabelText('第 1 行 结束日'))
+    await user.type(within(drawer).getByLabelText('第 1 行 结束日'), '2026-08-06')
+
+    await user.click(within(drawer).getByRole('button', { name: '第 1 行 按人天重算节点' }))
+    expect(within(drawer).getByLabelText('第 1 行 结束日')).toHaveValue('2026-08-04')
+  })
+
+  it('重新选开始日会重新接管结束日', async () => {
+    const { user } = renderQuotation()
+    const drawer = await openEntry(user)
+
+    await user.type(within(drawer).getByLabelText('第 1 行 人天'), '2')
+    await user.type(within(drawer).getByLabelText('第 1 行 开始日'), '2026-08-03')
+    await user.clear(within(drawer).getByLabelText('第 1 行 结束日'))
+    await user.type(within(drawer).getByLabelText('第 1 行 结束日'), '2026-08-20')
+
+    await user.clear(within(drawer).getByLabelText('第 1 行 开始日'))
+    await user.type(within(drawer).getByLabelText('第 1 行 开始日'), '2026-08-10')
+    expect(within(drawer).getByLabelText('第 1 行 结束日')).toHaveValue('2026-08-11')
+  })
+
+  /** 阶段不可能在公司休息日开工，静默留着那个日期会一路流进甘特 */
+  /**
+   * 前移是对的（阶段不能在公司休息日开工），但**不能不说**。
+   * 静默改掉总监填的日期，他下次还会填错，而且会怀疑这张表在乱动。
+   */
+  it('开始日撞上公司休息日时自动前移，并在行上说明', async () => {
+    const { user } = renderQuotation()
+    const drawer = await openEntry(user)
+
+    await user.type(within(drawer).getByLabelText('第 1 行 人天'), '1')
+    await user.type(within(drawer).getByLabelText('第 1 行 开始日'), '2026-08-05')
+
+    expect(within(drawer).getByLabelText('第 1 行 开始日')).toHaveValue('2026-08-06')
+    expect(within(drawer).getByText(/08-05 非工作日，已前移/)).toBeInTheDocument()
+  })
+
+  it('开始日本来就是工作日时不显示前移提示', async () => {
+    const { user } = renderQuotation()
+    const drawer = await openEntry(user)
+
+    await user.type(within(drawer).getByLabelText('第 1 行 人天'), '1')
+    await user.type(within(drawer).getByLabelText('第 1 行 开始日'), '2026-08-03')
+
+    expect(within(drawer).queryByText(/非工作日，已前移/)).toBeNull()
   })
 })

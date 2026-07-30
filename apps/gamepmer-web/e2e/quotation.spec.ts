@@ -432,3 +432,61 @@ test('放弃变更 → 阶段当场解冻，解冻面板整块消失', async ({ 
   await page.goto('/#/projects')
   await expect(page.getByLabel('项目排期甘特').getByText('等待变更报价')).toHaveCount(0)
 })
+
+/**
+ * 节点按人天自动推。
+ *
+ * 手工数工作日纯粹是浪费，而且很容易把周末或公司休息日算进去。
+ * 但便利不能吃掉人的微调——手改过之后再改人天不该被覆盖。
+ */
+test('选开始日 → 结束日按人天自动算，跨过公司休息日', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: /全部进行中/ }).click()
+  await page.getByLabel('报价案件').getByText(/Q-030/).click()
+  await page.getByRole('button', { name: '录入总监报价' }).click()
+
+  const drawer = page.getByLabel('录入报价')
+  await drawer.getByRole('button', { name: '新增一行' }).click()
+  await drawer.getByLabel('第 1 行 人天').fill('3')
+  // 2026-08-04 周二，8/5 是公司休息日
+  await drawer.getByLabel('第 1 行 开始日').fill('2026-08-04')
+
+  await expect(drawer.getByLabel('第 1 行 结束日')).toHaveValue('2026-08-07')
+  await expect(drawer.locator('.gp-row-flag').first()).toContainText('完整')
+})
+
+test('手改结束日之后改人天不覆盖，并给出按人天重算', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: /全部进行中/ }).click()
+  await page.getByLabel('报价案件').getByText(/Q-030/).click()
+  await page.getByRole('button', { name: '录入总监报价' }).click()
+
+  const drawer = page.getByLabel('录入报价')
+  await drawer.getByRole('button', { name: '新增一行' }).click()
+  await drawer.getByLabel('第 1 行 人天').fill('2')
+  await drawer.getByLabel('第 1 行 开始日').fill('2026-08-03')
+  await drawer.getByLabel('第 1 行 结束日').fill('2026-08-06')
+
+  await drawer.getByLabel('第 1 行 人天').fill('4')
+  await expect(drawer.getByLabel('第 1 行 结束日')).toHaveValue('2026-08-06')
+
+  // 重算用的是**新的**人天（4），并跨过 8/5 休息日：08-03 → 08-04 → 08-06 → 08-07
+  await drawer.getByRole('button', { name: '第 1 行 按人天重算节点' }).click()
+  await expect(drawer.getByLabel('第 1 行 结束日')).toHaveValue('2026-08-07')
+})
+
+test('开始日撞上公司休息日时自动前移到下一个工作日', async ({ page }) => {
+  await page.goto('/#/quotation')
+  await page.getByRole('button', { name: /全部进行中/ }).click()
+  await page.getByLabel('报价案件').getByText(/Q-030/).click()
+  await page.getByRole('button', { name: '录入总监报价' }).click()
+
+  const drawer = page.getByLabel('录入报价')
+  await drawer.getByRole('button', { name: '新增一行' }).click()
+  await drawer.getByLabel('第 1 行 人天').fill('1')
+  await drawer.getByLabel('第 1 行 开始日').fill('2026-08-05')
+
+  await expect(drawer.getByLabel('第 1 行 开始日')).toHaveValue('2026-08-06')
+  // 前移必须说出来：静默改掉总监填的日期，他下次还会填错
+  await expect(drawer.getByText(/08-05 非工作日，已前移/)).toBeVisible()
+})
