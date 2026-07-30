@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { RouteKey } from '../../app/navigation'
 import {
   QUOTE_KIND_LABEL,
@@ -56,7 +56,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   const [via, setVia] = useState('Outlook')
   const [entryOpen, setEntryOpen] = useState(false)
   // 从顶栏「新增需求」跳过来时直接把录入面板打开——跳过来还要再找一次按钮就没意义了
-  const [newCaseOpen, setNewCaseOpen] = useState(() => window.location.hash.includes('new'))
+  const [newCaseOpen, setNewCaseOpen] = useState(false)
   // 点待立案的行时，用它预填录入面板——PM 不用把项目、资产、标题再抄一遍
   const [prefillId, setPrefillId] = useState<string | undefined>()
 
@@ -64,6 +64,13 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
     setPrefillId(requestId)
     setNewCaseOpen(true)
   }
+
+  // 顶栏的意图消费一次就清掉，否则关掉面板下一次渲染又被打开
+  useEffect(() => {
+    if (!workspace.quoteEntryIntent) return
+    setNewCaseOpen(true)
+    store.clearQuoteEntryIntent()
+  }, [workspace.quoteEntryIntent, store])
 
   const workQueue = useMemo(() => quoteTodoList(demo), [demo])
   const buckets = useMemo(() => {
@@ -736,8 +743,13 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                   {selected.clientRepliedAt?.slice(5, 16).replace('T', ' ')} 收到答复
                   {selected.clientReplyNote && <>：{selected.clientReplyNote}</>}
                   <br />
-                  受影响阶段<strong>还冻着</strong>。降价重报就继续谈；确定不做了就放弃，
-                  放弃的那一刻阶段解冻、恢复原计划。
+                  受影响阶段<strong>还冻着</strong>，三条路：
+                  <br />
+                  <strong>降价重报</strong>——继续谈，阶段保持冻结。
+                  <br />
+                  <strong>放弃变更</strong>——这个变更不做了、项目还在，阶段当场解冻恢复原计划。
+                  <br />
+                  <strong>确认不接入</strong>——整单活没接到，案件收尾并可删除。
                 </p>
               </div>
               <label className="gp-note-field">
@@ -766,6 +778,41 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                   onClick={withNoteReset(() => store.abandonCase(selected.id, note))}
                 >
                   放弃变更 · 解冻阶段
+                </button>
+                {/*
+                  第三条路：这单没接到。与「放弃变更」的区别是——
+                  放弃是这个变更不做了、项目还在；不接入是整单活没接到。
+                */}
+                <button
+                  type="button"
+                  className="gp-btn"
+                  disabled={!note.trim()}
+                  title={note.trim() ? undefined : '确认不接入要写明原因'}
+                  onClick={withNoteReset(() => store.markNotEngaged(selected.id, note))}
+                >
+                  确认不接入 · 可删除
+                </button>
+              </div>
+            </>
+          )}
+
+          {selected.status === 'NotEngaged' && (
+            <>
+              <div className="gp-block-box">
+                <h3>确认不接入</h3>
+                <p>
+                  这单没接到，案件已收尾。列表里留着它没有意义，可以删掉——
+                  <strong>删除只删案件与报价版本，审计一条不动</strong>：
+                  丢了审计就没法解释这单为什么没接到。
+                </p>
+              </div>
+              <div className="gp-detail-actions">
+                <button
+                  type="button"
+                  className="gp-btn"
+                  onClick={() => store.deleteQuoteCase(selected.id)}
+                >
+                  删除这张案件
                 </button>
               </div>
             </>

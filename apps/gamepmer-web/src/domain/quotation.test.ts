@@ -9,7 +9,9 @@ import {
   availableActions,
   abandonCase,
   createQuoteCase,
+  deleteQuoteCase,
   frozenSummary,
+  markNotEngaged,
   pendingChangeRequests,
   quoteTodoList,
   quoteWaitingOn,
@@ -990,7 +992,7 @@ describe('客户不接受之后还有路可走', () => {
   it('客户未接受不是终点，仍然给得出下一步', () => {
     const state = declined(createDemoState())
     expect(TERMINAL_QUOTE_STATUSES).not.toContain('Rejected')
-    expect(availableActions(state, CASE)).toEqual(['requote', 'abandon'])
+    expect(availableActions(state, CASE)).toEqual(['requote', 'abandon', 'not-engaged'])
     expect(quoteWaitingOn(state, CASE)?.mine).toBe(true)
   })
 
@@ -1101,5 +1103,119 @@ describe('客户不接受之后还有路可走', () => {
 
     expect(seen.has('Rejected')).toBe(true)
     expect(seen.has('Abandoned')).toBe(true)
+  })
+})
+
+/**
+ * 确认不接入，以及删除。
+ *
+ * 与「放弃变更」的区别：放弃是这个变更不做了、项目还在；
+ * 不接入是**这单活没接到**。首次报价被否掉时项目根本还没建出来，
+ * 留着它只是占列表——所以这一态额外允许删除。
+ */
+describe('确认不接入的单子可以删掉', () => {
+  const CASE = 'Q-030'
+
+  function declined(state: DemoState): DemoState {
+    // Q-030 还在总监报价中，先补一版报价再走到客户未接受
+    let next = submitQuoteVersion(state, CASE, {
+      lines: [
+        {
+          id: `${CASE}/L01`,
+          assetId: 'SCENE-01',
+          stageCode: '2D_SKETCH',
+          title: '概念图草图',
+          note: '12 张',
+          personDays: 6,
+          unitPrice: 1800,
+          plannedStart: '2026-08-10',
+          plannedFinish: '2026-08-18',
+        },
+      ],
+      scheduleImpactWorkdays: 6,
+      submittedBy: 'Yuki',
+      actor: 'Yuki',
+      now: NOW,
+    })
+    next = reviewQuote(next, CASE, { decision: 'approve', actor: 'Leo', now: NOW, note: '同意' })
+    next = sendToClient(next, CASE, { actor: 'Leo（BD）', now: NOW, via: 'Outlook' })
+    return recordClientReply(next, CASE, 'decline', {
+      actor: 'Leo（BD）',
+      now: NOW,
+      via: 'Outlook',
+      note: '预算不够',
+    })
+  }
+
+  it('客户未接受时三条路都给得出来', () => {
+    const state = declined(createDemoState())
+    expect(availableActions(state, CASE)).toEqual(['requote', 'abandon', 'not-engaged'])
+  })
+
+  it('确认不接入要写原因，写了才进终态', () => {
+    const state = declined(createDemoState())
+    expect(() => markNotEngaged(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定' })).toThrow(
+      QuoteBlocked,
+    )
+
+    const next = markNotEngaged(state, CASE, {
+      actor: ACTOR,
+      now: NOW,
+      via: '内部决定',
+      note: '客户预算只有一半，这单不接',
+    })
+    expect(findCase(next, CASE).status).toBe('NotEngaged')
+    expect(TERMINAL_QUOTE_STATUSES).toContain('NotEngaged')
+  })
+
+  it('只有确认不接入的案件能删，其余一律拒绝', () => {
+    const state = declined(createDemoState())
+    expect(() => deleteQuoteCase(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定' })).toThrow(
+      QuoteBlocked,
+    )
+  })
+
+  it('删除移除案件与它的报价版本', () => {
+    let state = declined(createDemoState())
+    state = markNotEngaged(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定', note: '不接' })
+    expect(state.quoteVersions.some((entry) => entry.caseId === CASE)).toBe(true)
+
+    const next = deleteQuoteCase(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定' })
+    expect(next.quoteCases.some((entry) => entry.id === CASE)).toBe(false)
+    expect(next.quoteVersions.some((entry) => entry.caseId === CASE)).toBe(false)
+  })
+
+  /**
+   * 删除删的是待办清单里的占位，不是历史。
+   * 丢了审计就没法解释这单为什么没接到——那正是以后复盘要看的东西。
+   */
+  it('审计一条不动，还多一条说明删了什么', () => {
+    let state = declined(createDemoState())
+    state = markNotEngaged(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定', note: '不接' })
+    const before = state.auditEvents.length
+
+    const next = deleteQuoteCase(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定' })
+    expect(next.auditEvents.length).toBe(before + 1)
+    // 原来那些审计还在，包括「客户未接受」和「确认不接入」
+    expect(next.auditEvents.filter((entry) => entry.targetId === CASE).length).toBeGreaterThan(1)
+    expect(next.auditEvents.at(-1)?.action).toContain('删除')
+  })
+
+  it('删除不动排期、不动项目', () => {
+    let state = declined(createDemoState())
+    state = markNotEngaged(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定', note: '不接' })
+    const before = scheduleFingerprint(state)
+
+    const next = deleteQuoteCase(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定' })
+    expect(scheduleFingerprint(next)).toBe(before)
+    expect(next.projects).toEqual(state.projects)
+  })
+
+  it('删掉之后它从待办清单里消失', () => {
+    let state = declined(createDemoState())
+    state = markNotEngaged(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定', note: '不接' })
+    state = deleteQuoteCase(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定' })
+
+    expect(quoteTodoList(state).some((row) => row.id === CASE)).toBe(false)
   })
 })

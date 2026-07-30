@@ -35,6 +35,8 @@ import {
 import {
   abandonCase as abandonQuoteCase,
   createQuoteCase as createNewQuoteCase,
+  deleteQuoteCase as removeQuoteCase,
+  markNotEngaged as markQuoteNotEngaged,
   requoteCase as requoteQuoteCase,
   type CreateQuoteCaseInput,
   recordClientReply as recordQuoteClientReply,
@@ -78,6 +80,11 @@ export interface WorkspaceState {
   inboxTab: InboxTab
   selectedQuoteCaseId?: string
   quoteTab: QuoteTab
+  /**
+   * 顶栏「新增需求」跳过来时置为 true，报价页据此直接把录入面板打开。
+   * 跳过去还要自己再找一次按钮，那个入口就等于没接上。
+   */
+  quoteEntryIntent?: boolean
   selectedCloseoutCaseId?: string
   closeoutTab: CloseoutTab
   selectedPathProject?: string
@@ -137,6 +144,8 @@ export interface WorkspaceStore {
   ingestCandidate(request: IngestRequest): void
   selectQuoteCase(caseId: string): void
   setQuoteTab(tab: QuoteTab): void
+  startQuoteEntry(): void
+  clearQuoteEntryIntent(): void
   submitQuote(caseId: string, lines: QuoteLine[], scheduleImpactWorkdays: number): void
   reviewQuote(caseId: string, decision: 'approve' | 'reject', note: string): void
   createQuoteCase(input: Omit<CreateQuoteCaseInput, 'actor' | 'now'>): void
@@ -144,6 +153,8 @@ export interface WorkspaceStore {
   recordClientReply(caseId: string, decision: 'accept' | 'decline', via: string, note: string): void
   requoteCase(caseId: string, note: string): void
   abandonCase(caseId: string, note: string): void
+  markNotEngaged(caseId: string, note: string): void
+  deleteQuoteCase(caseId: string): void
   sendKickoff(caseId: string, via: string): void
   selectCloseoutCase(caseId: string): void
   setCloseoutTab(tab: CloseoutTab): void
@@ -432,6 +443,15 @@ export function createWorkspaceStore(
       state = { ...state, demo, selectedQuoteCaseId: caseId }
       emit()
     },
+    startQuoteEntry() {
+      state = { ...state, quoteEntryIntent: true }
+      emit()
+    },
+    clearQuoteEntryIntent() {
+      if (!state.quoteEntryIntent) return
+      state = { ...state, quoteEntryIntent: undefined }
+      emit()
+    },
     createQuoteCase(input) {
       const demo = createNewQuoteCase(state.demo, { ...input, actor: 'Brandon', now: clock.now() })
       const created = demo.quoteCases.at(-1)!
@@ -477,6 +497,28 @@ export function createWorkspaceStore(
       })
       repository.save(demo)
       state = { ...state, demo, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    markNotEngaged(caseId, note) {
+      const demo = markQuoteNotEngaged(state.demo, caseId, {
+        actor: 'Brandon',
+        now: clock.now(),
+        via: '内部决定',
+        note,
+      })
+      repository.save(demo)
+      state = { ...state, demo, selectedQuoteCaseId: caseId }
+      emit()
+    },
+    deleteQuoteCase(caseId) {
+      const demo = removeQuoteCase(state.demo, caseId, {
+        actor: 'Brandon',
+        now: clock.now(),
+        via: '内部决定',
+      })
+      repository.save(demo)
+      // 删掉的案件不能继续选中，否则详情区指向一个不存在的 id
+      state = { ...state, demo, selectedQuoteCaseId: undefined }
       emit()
     },
     sendKickoff(caseId, via) {

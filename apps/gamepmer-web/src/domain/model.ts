@@ -386,6 +386,7 @@ export type QuoteKind = 'initial' | 'change'
  *          → SentToClient → ClientAccepted → KickoffSent
  *                        ↘ Rejected（客户不接受）→ DirectorQuoting（重新报价）
  *                                              ↘ Abandoned（放弃变更 → 解冻）
+ *                                              ↘ NotEngaged（确认不接入 → 可删除）
  * ```
  *
  * **`Rejected` 不是终点。** 客户嫌贵不等于这件事结束了：要么降价重报，要么放弃。
@@ -414,6 +415,11 @@ export type QuoteCaseStatus =
   | 'Rejected'
   /** 放弃这个变更。受影响阶段在这一刻解冻，恢复原计划 */
   | 'Abandoned'
+  /**
+   * 确认不接这单。终态，且**允许删除**——没接到的单子长期占着列表没有意义。
+   * 删除只删案件与报价版本，审计事件保留：丢了审计就没法解释这单为什么没接到。
+   */
+  | 'NotEngaged'
 
 export interface QuoteLine {
   id: string

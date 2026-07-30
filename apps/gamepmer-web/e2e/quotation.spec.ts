@@ -230,7 +230,8 @@ test('顶栏「新增需求」去报价与变更，不是去收件箱', async ({
   await page.goto('/#/tasks')
   await page.getByRole('button', { name: '新增需求' }).click()
   await expect(page).toHaveURL(/#\/quotation/)
-  await expect(page.getByRole('button', { name: '录入新需求' })).toBeVisible()
+  // 跳过去的同时把录入面板打开——只换个页等于这个入口没接上
+  await expect(page.getByLabel('录入新需求')).toBeVisible()
 })
 
 test('直接录一条首次需求 → 停在总监报价中，且没有建项目', async ({ page }) => {

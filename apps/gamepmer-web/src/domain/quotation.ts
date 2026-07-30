@@ -182,6 +182,8 @@ export type QuoteAction =
   | 'kickoff'
   | 'requote'
   | 'abandon'
+  | 'not-engaged'
+  | 'delete'
 
 export function availableActions(state: DemoState, caseId: string): QuoteAction[] {
   const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
@@ -198,13 +200,19 @@ export function availableActions(state: DemoState, caseId: string): QuoteAction[
   if (quoteCase.status === 'SentToClient') actions.push('client-reply')
   if (quoteCase.status === 'ClientAccepted') actions.push('kickoff')
   // 客户嫌贵不等于这件事结束了：要么降价重报，要么放弃
-  if (quoteCase.status === 'Rejected') actions.push('requote', 'abandon')
+  if (quoteCase.status === 'Rejected') actions.push('requote', 'abandon', 'not-engaged')
+  // 没接到的单子长期占着列表没有意义，所以这一态额外允许删除
+  if (quoteCase.status === 'NotEngaged') actions.push('delete')
   return actions
 }
 
 /** 终态：没有后续动作是对的，不算断点。 */
 /** 真正走到头的两个。`Rejected` 不在其中——它还等着 PM 决定重报还是放弃 */
-export const TERMINAL_QUOTE_STATUSES: QuoteCase['status'][] = ['KickoffSent', 'Abandoned']
+export const TERMINAL_QUOTE_STATUSES: QuoteCase['status'][] = [
+  'KickoffSent',
+  'Abandoned',
+  'NotEngaged',
+]
 
 // ---------------------------------------------------------------- 待办投影
 
@@ -475,6 +483,7 @@ const WAITING_BY_STATUS: Record<QuoteCase['status'], WaitingOn | undefined> = {
   },
   KickoffSent: undefined,
   Abandoned: undefined,
+  NotEngaged: undefined,
 }
 
 /**
@@ -1027,6 +1036,114 @@ export function abandonCase(state: DemoState, caseId: string, input: ClientStepI
   }
 }
 
+/**
+ * 确认不接这单。
+ *
+ * 与「放弃变更」的区别：放弃是**这个变更不做了、项目还在**；
+ * 不接入是**这单活没接到**。首次报价被客户否掉时项目根本还没建出来，
+ * 没有东西可解冻，留着它只是占列表——所以这一态额外允许删除。
+ *
+ * 保险起见照样摘一遍冻结标记：万一是追加报价走到这里，不能把阶段留在冻结态。
+ */
+export function markNotEngaged(
+  state: DemoState,
+  caseId: string,
+  input: ClientStepInput,
+): DemoState {
+  const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
+  if (!quoteCase) throw new QuoteBlocked([`找不到报价案件 ${caseId}`])
+  if (quoteCase.status !== 'Rejected') {
+    throw new QuoteBlocked([
+      `${QUOTE_STATUS_LABEL[quoteCase.status]}：只有客户未接受的案件才谈得上不接入`,
+    ])
+  }
+  if (!input.note?.trim()) {
+    throw new QuoteBlocked(['确认不接入要写明原因——下次同一个客户来问，这条是依据'])
+  }
+
+  const audit: AuditEvent = {
+    id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
+    at: input.now,
+    actor: input.actor,
+    action: '确认不接入这单',
+    targetKind: 'QuoteCase',
+    targetId: caseId,
+    before: 'Rejected',
+    after: 'NotEngaged',
+    reason: input.note.trim(),
+  }
+
+  return {
+    ...state,
+    quoteCases: state.quoteCases.map((entry) =>
+      entry.id !== caseId ? entry : { ...entry, status: 'NotEngaged' as const },
+    ),
+    projects: state.projects.map((project) =>
+      project.code !== quoteCase.projectCode
+        ? project
+        : {
+            ...project,
+            assets: project.assets.map((asset) => ({
+              ...asset,
+              stages: asset.stages.map((stage) =>
+                stage.flags.includes('WaitingChangeQuote') &&
+                quoteCase.affectedAssetIds.includes(asset.id)
+                  ? { ...stage, flags: stage.flags.filter((flag) => flag !== 'WaitingChangeQuote') }
+                  : stage,
+              ),
+            })),
+          },
+    ),
+    auditEvents: [...state.auditEvents, audit],
+  }
+}
+
+/**
+ * 删除一张确认不接入的案件。
+ *
+ * **只删案件本体和它的报价版本，审计事件一条不动。**
+ * 丢了审计就没法解释这单为什么没接到——那正是以后复盘要看的东西。
+ * 所以「删除」删的是待办清单里的占位，不是历史。
+ */
+export function deleteQuoteCase(
+  state: DemoState,
+  caseId: string,
+  input: ClientStepInput,
+): DemoState {
+  const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
+  if (!quoteCase) throw new QuoteBlocked([`找不到报价案件 ${caseId}`])
+  if (quoteCase.status !== 'NotEngaged') {
+    throw new QuoteBlocked([
+      `只有「${QUOTE_STATUS_LABEL.NotEngaged}」的案件可以删除；` +
+        `当前是「${QUOTE_STATUS_LABEL[quoteCase.status]}」`,
+    ])
+  }
+
+  const audit: AuditEvent = {
+    id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
+    at: input.now,
+    actor: input.actor,
+    action: '删除未接入的报价案件',
+    targetKind: 'QuoteCase',
+    targetId: caseId,
+    before: `${quoteCase.projectCode} · ${quoteCase.title}`,
+    reason: '案件与报价版本已移除；本条审计保留，用于说明这单为什么没接到',
+  }
+
+  return {
+    ...state,
+    quoteCases: state.quoteCases.filter((entry) => entry.id !== caseId),
+    quoteVersions: state.quoteVersions.filter((entry) => entry.caseId !== caseId),
+    // 变更单不删，改标为已放弃：它连着反馈项，删了反馈线上就断一环
+    changeRequests: state.changeRequests.map((entry) =>
+      entry.quoteCaseId !== caseId && entry.id !== quoteCase.changeRequestId
+        ? entry
+        : { ...entry, status: 'Abandoned' as const, quoteCaseId: undefined },
+    ),
+    auditEvents: [...state.auditEvents, audit],
+  }
+}
+
 export interface KickoffInput {
   actor: string
   now: string
@@ -1218,6 +1335,7 @@ export const QUOTE_STATUS_LABEL: Record<QuoteCase['status'], string> = {
   KickoffSent: '已开工',
   Rejected: '客户未接受 · 待决定',
   Abandoned: '已放弃变更',
+  NotEngaged: '确认不接入 · 可删除',
 }
 
 export const QUOTE_KIND_LABEL: Record<QuoteCase['kind'], string> = {

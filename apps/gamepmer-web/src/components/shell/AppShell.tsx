@@ -12,6 +12,8 @@ interface AppShellProps {
   pendingMessages: number
   pendingMails: number
   onResetDemo: () => void
+  /** 跳过去的同时把录入面板打开——否则这个入口等于只换了个页 */
+  onStartQuoteEntry: () => void
   children: ReactNode
 }
 
@@ -23,6 +25,7 @@ export function AppShell({
   pendingMessages,
   pendingMails,
   onResetDemo,
+  onStartQuoteEntry,
   children,
 }: AppShellProps) {
   return (
@@ -89,7 +92,10 @@ export function AppShell({
             <button
               type="button"
               className="gp-btn gp-btn-primary"
-              onClick={() => onNavigate('quotation')}
+              onClick={() => {
+                onStartQuoteEntry()
+                onNavigate('quotation')
+              }}
               title="BD 新需求或追加报价从这里立案，交总监出人天与节点"
             >
               新增需求

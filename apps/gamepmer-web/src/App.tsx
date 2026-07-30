@@ -68,6 +68,7 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
       pendingMessages={pendingMessages}
       pendingMails={pendingMails}
       onResetDemo={store.resetDemo}
+      onStartQuoteEntry={store.startQuoteEntry}
     >
       {route === 'tasks' && (
         <HomePage
