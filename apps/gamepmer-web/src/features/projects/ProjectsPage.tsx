@@ -178,6 +178,11 @@ export function ProjectsPage({ workspace, store, onNavigate }: ProjectsPageProps
           onOpenFeedback={() => onNavigate('feedback')}
           onAdvance={store.advanceStage}
           onOpenTriage={() => onNavigate('feedback')}
+          onOpenQuote={(caseId) => {
+            store.selectQuoteCase(caseId)
+            onNavigate('quotation')
+          }}
+          onSelectStage={store.selectStage}
         />
       </aside>
     </div>

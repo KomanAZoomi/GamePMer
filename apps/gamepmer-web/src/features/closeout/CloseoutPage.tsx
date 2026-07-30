@@ -262,6 +262,24 @@ export function CloseoutPage({ workspace, store, onNavigate }: CloseoutPageProps
                     <li key={issue}>{issue}</li>
                   ))}
                 </ul>
+                {/*
+                  「还有 N 个阶段未验收」是最常见的一条，而它只能在项目排期里解开。
+                  只给理由不给去处，PM 还得自己翻到那个项目。
+                */}
+                {issues.some((issue) => issue.includes('阶段未验收')) && (
+                  <div className="gp-detail-actions">
+                    <button
+                      type="button"
+                      className="gp-btn gp-btn-sm"
+                      onClick={() => {
+                        store.selectProject(selected.projectCode)
+                        onNavigate('projects')
+                      }}
+                    >
+                      去 {selected.projectCode} 推进阶段
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

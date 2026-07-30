@@ -9,6 +9,7 @@ import {
   advanceStage,
   availableStageActions,
   findStageById,
+  stageBlockJumps,
   stageBlockingIssues,
 } from './stageFlow'
 
@@ -443,5 +444,57 @@ describe('反馈项能走完，不再停在返修中', () => {
     const next = advanceStage(state, STAGE, 'submit-to-client', { actor: ACTOR, now: NOW })
     const after = next.feedbackBatches.flatMap((b) => b.items).map((i) => [i.id, i.status])
     expect(after).toEqual(before)
+  })
+})
+
+/**
+ * 「阻塞处必须有去处」的总闸。
+ *
+ * 用户的原话是「有阻塞可以进行相关转跳」。只给理由不给去处，
+ * PM 还得自己在十个模块里找那张卡着的单子。
+ */
+describe('每个卡住的阶段都指得出该去哪', () => {
+  it('凡是动不了的阶段，要么有动作，要么有去处', () => {
+    const state = createDemoState()
+    for (const project of state.projects) {
+      for (const asset of project.assets) {
+        for (const row of asset.stages) {
+          if (row.status === 'Approved') continue
+          if (availableStageActions(state, row.id).length > 0) continue
+
+          const jumps = stageBlockJumps(state, row.id)
+          expect(jumps.length, `${row.id} 动不了，却没给任何去处`).toBeGreaterThan(0)
+          for (const jump of jumps) {
+            expect(jump.label).toBeTruthy()
+            expect(jump.targetId).toBeTruthy()
+          }
+        }
+      }
+    }
+  })
+
+  it('冻结的阶段指向那张能解冻它的报价案件', () => {
+    const state = createDemoState()
+    const frozen = state.projects
+      .flatMap((p) => p.assets)
+      .flatMap((a) => a.stages)
+      .find((s) => s.flags.includes('WaitingChangeQuote'))!
+
+    const jumps = stageBlockJumps(state, frozen.id)
+    const quote = jumps.find((jump) => jump.kind === 'quote')!
+    expect(quote.targetId).toBe('CQ-004')
+  })
+
+  it('前置没验收的阶段指向前一阶段', () => {
+    const state = createDemoState()
+    const jumps = stageBlockJumps(state, 'MECH-01/3D_LOW')
+    expect(jumps.some((jump) => jump.kind === 'stage' && jump.targetId === 'MECH-01/3D_HIGH')).toBe(
+      true,
+    )
+  })
+
+  it('能动的阶段不需要去处——那不是阻塞', () => {
+    const state = createDemoState()
+    expect(availableStageActions(state, 'PROP-02/3D_MID')).toContain('start')
   })
 })

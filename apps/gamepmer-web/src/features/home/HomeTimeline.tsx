@@ -165,7 +165,7 @@ export function HomeTimeline({ state, today, onOpenSchedule }: HomeTimelineProps
           已验收
         </span>
         <span className="gp-legend-note">
-          悬停任一条查看负责人与人天；完整基准/实际对比在项目甘特（C2）中。
+          悬停任一条查看负责人与人天；完整基准/实际对比在项目甘特里。
         </span>
       </footer>
     </section>

@@ -125,3 +125,31 @@ test('十项导航全部进得去，没有一个是占位页', async ({ page }) 
     await expect(page.getByText(/尚未实现/)).toHaveCount(0)
   }
 })
+
+/**
+ * 界面上不出现内部标识。
+ *
+ * 「切片 5 交付」曾经作为过期阻断理由出现过，检查点编号（C2 / C4）
+ * 也一样是给写代码的人看的。这条扫全部路由，把这类泄漏一并守住。
+ */
+test('十个页面都不出现检查点编号或切片编号', async ({ page }) => {
+  const routes = [
+    'tasks',
+    'projects',
+    'inbox',
+    'schedule',
+    'feedback',
+    'quotation',
+    'closeout',
+    'files',
+    'analytics',
+    'settings',
+  ]
+
+  for (const route of routes) {
+    await page.goto(`/#/${route}`)
+    await expect(page.locator('h1').first()).toBeVisible()
+    const body = await page.locator('body').innerText()
+    expect(body, `${route} 页泄漏了内部编号`).not.toMatch(/（C\d+）|切片 \d/)
+  }
+})

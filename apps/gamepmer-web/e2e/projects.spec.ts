@@ -188,3 +188,42 @@ test('返修记下客户原话 → 反馈中心多出一条待分流', async ({ 
   await expect(page.getByText('灯柱顶部的发光面积再大一圈').first()).toBeVisible()
   expect(before).toBeGreaterThanOrEqual(0)
 })
+
+/**
+ * 阻塞处要能跳到能解开它的地方。
+ *
+ * 只给理由不给去处，PM 还得自己在十个模块里找那张卡着的单子。
+ */
+test('冻结的阶段直接给出「去推进追加报价」', async ({ page }) => {
+  await page.goto('/#/projects')
+  const gantt = page.getByLabel('项目排期甘特')
+  await gantt.getByRole('button', { name: /烘焙/ }).first().click()
+
+  const inspector = page.getByLabel('阶段详情')
+  await inspector.getByRole('button', { name: /推进追加报价/ }).click()
+
+  await expect(page).toHaveURL(/#\/quotation/)
+  await expect(page.getByLabel('报价详情').getByText(/CQ-004/).first()).toBeVisible()
+})
+
+test('前置没验收时给出「去看前一阶段」，点了就选中它', async ({ page }) => {
+  await page.goto('/#/projects')
+  const gantt = page.getByLabel('项目排期甘特')
+  await gantt.getByRole('button', { name: /低模.*Chen/ }).click()
+
+  const inspector = page.getByLabel('阶段详情')
+  await inspector.getByRole('button', { name: /去看「高模」/ }).click()
+
+  await expect(inspector.getByText('MECH-01 / 3D_HIGH')).toBeVisible()
+})
+
+test('结项卡在「阶段未验收」时能直接跳去推进阶段', async ({ page }) => {
+  await page.goto('/#/closeout')
+  await page.getByLabel('结项项目').getByText(/NST_A_3D_B24/).click()
+
+  const main = page.getByLabel('结项门禁')
+  await main.getByRole('button', { name: /推进阶段/ }).click()
+
+  await expect(page).toHaveURL(/#\/projects/)
+  await expect(page.getByText('NST_A_3D_B24').first()).toBeVisible()
+})

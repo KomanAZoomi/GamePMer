@@ -5,6 +5,7 @@ import {
   STAGE_ACTION_LABEL,
   availableStageActions,
   naturalAction,
+  stageBlockJumps,
   stageBlockingIssues,
   type StageAction,
 } from '../../domain/stageFlow'
@@ -19,6 +20,8 @@ interface StageInspectorProps {
   onOpenFeedback: () => void
   onAdvance: (stageId: string, action: StageAction, note?: string) => void
   onOpenTriage: () => void
+  onOpenQuote: (caseId: string) => void
+  onSelectStage: (stageId: string) => void
 }
 
 const REASON_LABELS: Record<string, string> = {
@@ -37,6 +40,8 @@ export function StageInspector({
   onOpenFeedback,
   onAdvance,
   onOpenTriage,
+  onOpenQuote,
+  onSelectStage,
 }: StageInspectorProps) {
   // hooks 必须无条件调用，所以放在早退之前
   const [reworking, setReworking] = useState(false)
@@ -68,6 +73,7 @@ export function StageInspector({
   // 那是在背状态机，不是在回答 PM 的问题
   const next = naturalAction(stage)
   const blockedReasons = next ? stageBlockingIssues(state, stage.id, next) : []
+  const jumps = blockedReasons.length > 0 ? stageBlockJumps(state, stage.id) : []
 
   const feedback = state.feedbackBatches
     .flatMap((batch) => batch.items.map((item) => ({ batch, item })))
@@ -233,11 +239,30 @@ export function StageInspector({
               </div>
             )
           ) : (
-            <ul className="gp-stage-flow-blocked">
-              {blockedReasons.map((reason) => (
-                <li key={reason}>{reason}</li>
-              ))}
-            </ul>
+            <>
+              <ul className="gp-stage-flow-blocked">
+                {blockedReasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+              {/* 说清为什么动不了只是一半，另一半是「那我该去哪」 */}
+              {jumps.length > 0 && (
+                <div className="gp-detail-actions">
+                  {jumps.map((jump) => (
+                    <button
+                      key={jump.targetId}
+                      type="button"
+                      className="gp-btn gp-btn-sm"
+                      onClick={() =>
+                        jump.kind === 'quote' ? onOpenQuote(jump.targetId) : onSelectStage(jump.targetId)
+                      }
+                    >
+                      {jump.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
           <p className="gp-assistant-note">
             推进只写实际发生的日期，<strong>不改计划、不改基准</strong>——
@@ -255,7 +280,7 @@ export function StageInspector({
             </p>
           ))}
           <p className="gp-assistant-note">
-            反馈的范围判定与排期重排在反馈中心完成（C4），本页只展示事实。
+            反馈的范围判定与排期重排在反馈中心完成，本页只展示事实。
           </p>
           <div className="gp-detail-actions">
             <button type="button" className="gp-btn gp-btn-quiet" onClick={onOpenFeedback}>

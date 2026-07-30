@@ -165,6 +165,50 @@ export function naturalAction(stage: StagePlan): StageAction | undefined {
   }
 }
 
+/**
+ * 阻塞处的去处。
+ *
+ * 说清「为什么动不了」只是一半，另一半是「那我该去哪」。
+ * 只给理由不给去处，PM 还得自己在十个模块里找那张卡着的单子。
+ */
+export interface StageBlockJump {
+  label: string
+  kind: 'stage' | 'quote'
+  targetId: string
+}
+
+export function stageBlockJumps(state: DemoState, stageId: string): StageBlockJump[] {
+  const stage = findStageById(state, stageId)
+  if (!stage) return []
+
+  const jumps: StageBlockJump[] = []
+
+  if (stage.flags.includes('WaitingChangeQuote')) {
+    // 冻结一定来自某条判为范围外的反馈，顺着它找到那张报价案件
+    const request = state.changeRequests.find((entry) => {
+      const item = state.feedbackBatches
+        .flatMap((batch) => batch.items)
+        .find((row) => row.id === entry.sourceFeedbackItemId)
+      return item?.stageId === stage.id
+    })
+    const quoteCase = request
+      ? state.quoteCases.find(
+          (entry) => entry.changeRequestId === request.id || entry.id === request.id,
+        )
+      : undefined
+    if (quoteCase) {
+      jumps.push({ label: `去 ${quoteCase.id} 推进追加报价`, kind: 'quote', targetId: quoteCase.id })
+    }
+  }
+
+  const previous = previousStage(state, stage)
+  if (stage.status === 'NotStarted' && previous && previous.status !== 'Approved') {
+    jumps.push({ label: `去看「${previous.name}」`, kind: 'stage', targetId: previous.id })
+  }
+
+  return jumps
+}
+
 export interface AdvanceInput {
   actor: string
   now: string
