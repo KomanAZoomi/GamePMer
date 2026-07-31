@@ -906,3 +906,70 @@
   font-size: var(--text-2xs);
   line-height: 1.4;
 }
+
+/* 作废：常驻但收起。它是低频且不可逆的动作，摆在主按钮区会误触，
+   藏进菜单又会让人以为「删不掉」——折叠是这两者之间唯一诚实的位置。 */
+.gp-scrap {
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-scrap > summary {
+  padding: 9px 12px;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+  list-style: none;
+}
+
+.gp-scrap > summary::-webkit-details-marker {
+  display: none;
+}
+
+.gp-scrap > summary::before {
+  content: '▸ ';
+  color: var(--text-faint);
+}
+
+.gp-scrap[open] > summary::before {
+  content: '▾ ';
+}
+
+.gp-scrap[open] > summary {
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.gp-scrap p {
+  padding: 10px 12px 0;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-scrap .gp-note-field {
+  padding: 8px 12px 0;
+}
+
+.gp-scrap > .gp-btn {
+  margin: 8px 12px 12px;
+}
+
+/* 空页签：说清别处还有多少件，并给一个能点过去的按钮 */
+.gp-case-list .gp-empty {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: var(--space-4);
+}
+
+.gp-case-list .gp-empty p {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-case-list .gp-empty strong {
+  color: var(--text-primary);
+}

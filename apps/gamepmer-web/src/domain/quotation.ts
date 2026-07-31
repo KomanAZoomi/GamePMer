@@ -213,9 +213,17 @@ export function availableActions(state: DemoState, caseId: string): QuoteAction[
   // 指着一堆并不存在的阶段说话。
   if (quoteCase.status === 'Rejected') {
     actions.push('requote')
-    actions.push(quoteCase.kind === 'change' ? 'abandon' : 'not-engaged')
+    if (quoteCase.kind === 'change') actions.push('abandon')
   }
-  // 没接到的单子长期占着列表没有意义，所以这一态额外允许删除
+  /**
+   * 作废：**开工之前的任何阶段都给**。
+   *
+   * 以前只在「客户未接受」时才有，于是一张立错编号、停在总监报价中的空案件
+   * 想删掉，得先录一版报价、走复核、报给客户、再让客户否掉——
+   * 为了删一张空单把整条流程演一遍。立错案是最常见的操作，不该这么贵。
+   */
+  if (!TERMINAL_QUOTE_STATUSES.includes(quoteCase.status)) actions.push('not-engaged')
+  // 作废掉的单子长期占着列表没有意义，所以这一态额外允许删除
   if (quoteCase.status === 'NotEngaged') actions.push('delete')
   return actions
 }
@@ -1108,23 +1116,28 @@ export function markNotEngaged(
 ): DemoState {
   const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
   if (!quoteCase) throw new QuoteBlocked([`找不到报价案件 ${caseId}`])
-  if (quoteCase.status !== 'Rejected') {
+  // 开工之后就不是一张报价单了，那是正式项目，撤销要走结项而不是作废
+  if (quoteCase.status === 'KickoffSent') {
     throw new QuoteBlocked([
-      `${QUOTE_STATUS_LABEL[quoteCase.status]}：只有客户未接受的案件才谈得上不接入`,
+      `${QUOTE_STATUS_LABEL.KickoffSent}：已经建项的活不能当报价单作废，要撤请走结项`,
     ])
   }
+  if (TERMINAL_QUOTE_STATUSES.includes(quoteCase.status)) {
+    throw new QuoteBlocked([`${QUOTE_STATUS_LABEL[quoteCase.status]}：这张案件已经收尾了`])
+  }
   if (!input.note?.trim()) {
-    throw new QuoteBlocked(['确认不接入要写明原因——下次同一个客户来问，这条是依据'])
+    throw new QuoteBlocked(['作废要写明原因——下次同一个客户来问，这条是依据'])
   }
 
   const audit: AuditEvent = {
     id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
     at: input.now,
     actor: input.actor,
-    action: '确认不接入这单',
+    action: '作废报价案件',
     targetKind: 'QuoteCase',
     targetId: caseId,
-    before: 'Rejected',
+    // 从哪个状态作废的要如实记——「立错了当场撤」和「客户否了才撤」是两件事
+    before: quoteCase.status,
     after: 'NotEngaged',
     reason: input.note.trim(),
   }

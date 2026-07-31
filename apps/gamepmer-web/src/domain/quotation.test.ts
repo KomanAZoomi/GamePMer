@@ -992,8 +992,9 @@ describe('客户不接受之后还有路可走', () => {
   it('客户未接受不是终点，仍然给得出下一步', () => {
     const state = declined(createDemoState())
     expect(TERMINAL_QUOTE_STATUSES).not.toContain('Rejected')
-    // 追加报价：不做了就是放弃这个变更，项目还在，受影响阶段要解冻
-    expect(availableActions(state, CASE)).toEqual(['requote', 'abandon'])
+    // 追加报价：不做了就是放弃这个变更（项目还在，阶段要解冻）；
+    // 作废是第三条路——整张案件不要了，编号还回去
+    expect(availableActions(state, CASE)).toEqual(['requote', 'abandon', 'not-engaged'])
     expect(quoteWaitingOn(state, CASE)?.mine).toBe(true)
   })
 
@@ -1152,6 +1153,7 @@ describe('确认不接入的单子可以删掉', () => {
     const state = declined(createDemoState())
     // Q-030 是首次报价：项目还没建，没有阶段可解冻，「放弃变更」这句话不成立
     expect(availableActions(state, CASE)).toEqual(['requote', 'not-engaged'])
+    expect(availableActions(state, CASE)).not.toContain('abandon')
   })
 
   it('确认不接入要写原因，写了才进终态', () => {
@@ -1361,5 +1363,91 @@ describe('首次报价被否掉之后', () => {
       requirement: '重开',
     })
     expect(retry.quoteCases.at(-1)!.projectCode).toBe(CODE)
+  })
+})
+
+/**
+ * 立错了、或者这单根本没谈成，要能当场作废并删掉，把批次编号还回去。
+ *
+ * 现场：DZ_X6_2D_B01 / B02 停在「总监报价中」，PM 想彻底删掉重开，
+ * 结果没有任何入口——唯一的删除路径要求先走完
+ * 录报价 → 复核 → 报客户 → 客户未接受 → 确认不接这单，
+ * 为了删一张空案件把整条流程演一遍，荒唐。
+ */
+describe('未开工的案件随时可以作废并删除', () => {
+  const BASE = { actor: ACTOR, now: NOW, via: '内部决定' }
+
+  /** 立一张全新的、停在「总监报价中」的首次报价。 */
+  function fresh(): { state: DemoState; caseId: string } {
+    const state = createQuoteCase(createDemoState(), {
+      actor: ACTOR,
+      now: NOW,
+      kind: 'initial',
+      client: 'Dazzle Interactive',
+      projectCode: 'DZX_X6_2D_B01',
+      title: '立绘第一批',
+      requirement: '客户口头需求，待总监报价。',
+    })
+    return { state, caseId: state.quoteCases.at(-1)!.id }
+  }
+
+  it('停在总监报价中也能作废——不必先把整条客户流程演一遍', () => {
+    const { state, caseId } = fresh()
+    expect(findCase(state, caseId).status).toBe('DirectorQuoting')
+    expect(availableActions(state, caseId)).toContain('not-engaged')
+
+    const next = markNotEngaged(state, caseId, { ...BASE, note: '编号打错了，重开一张' })
+    expect(findCase(next, caseId).status).toBe('NotEngaged')
+  })
+
+  it('作废要写原因，且原因与原状态都进审计', () => {
+    const { state, caseId } = fresh()
+    expect(() => markNotEngaged(state, caseId, { ...BASE })).toThrow(QuoteBlocked)
+
+    const next = markNotEngaged(state, caseId, { ...BASE, note: '客户没谈成' })
+    const audit = next.auditEvents.at(-1)!
+    expect(audit.targetId).toBe(caseId)
+    expect(audit.before).toBe('DirectorQuoting')
+    expect(audit.after).toBe('NotEngaged')
+    expect(audit.reason).toContain('客户没谈成')
+  })
+
+  it('作废后可以删除，删完编号空出来能重新立案', () => {
+    const { state, caseId } = fresh()
+    let next = markNotEngaged(state, caseId, { ...BASE, note: '编号打错了' })
+    next = deleteQuoteCase(next, caseId, BASE)
+
+    expect(next.quoteCases.some((entry) => entry.id === caseId)).toBe(false)
+    expect(next.quoteVersions.some((entry) => entry.caseId === caseId)).toBe(false)
+    // 审计留着——删掉案件不等于抹掉这件事发生过
+    expect(next.auditEvents.some((entry) => entry.targetId === caseId)).toBe(true)
+
+    const retry = createQuoteCase(next, {
+      actor: ACTOR,
+      now: NOW,
+      kind: 'initial',
+      client: 'Dazzle Interactive',
+      projectCode: 'DZX_X6_2D_B01',
+      title: '立绘第一批（重开）',
+      requirement: '重新立案。',
+    })
+    expect(retry.quoteCases.at(-1)!.projectCode).toBe('DZX_X6_2D_B01')
+  })
+
+  it('已开工的不能作废——那已经是正式项目，不是一张报价单', () => {
+    const state = createDemoState()
+    const started = state.quoteCases.find((entry) => entry.status === 'KickoffSent')
+    if (!started) return
+    expect(availableActions(state, started.id)).not.toContain('not-engaged')
+    expect(() => markNotEngaged(state, started.id, { ...BASE, note: '想撤' })).toThrow(QuoteBlocked)
+  })
+
+  it('每一个未开工状态都给得出作废入口，不留一个删不掉的状态', () => {
+    const state = createDemoState()
+    for (const quoteCase of state.quoteCases) {
+      const actions = availableActions(state, quoteCase.id)
+      if (TERMINAL_QUOTE_STATUSES.includes(quoteCase.status)) continue
+      expect(actions, `${quoteCase.id}（${quoteCase.status}）没有作废入口`).toContain('not-engaged')
+    }
   })
 })

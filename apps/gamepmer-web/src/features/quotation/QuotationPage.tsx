@@ -196,6 +196,8 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   // 只要还没开工，总监就该能提交报价——包括被退回之后。
   // 少了这个入口，「退回总监修改」就是死胡同。
   const canQuote = selected.status !== 'KickoffSent' && selected.status !== 'Rejected'
+  // 开工之前随时可以作废；已开工的是正式项目，撤销要走结项
+  const canScrap = !TERMINAL_QUOTE_STATUSES.includes(selected.status)
   const project = demo.projects.find((entry) => entry.code === selected.projectCode)
   const frozen = frozenSummary(demo)
   // 只在「处理中」页签下露出——它们本来就是还没处理完的东西
@@ -357,12 +359,49 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
             <h2>{TABS.find((tab) => tab.key === quoteTab)?.label}</h2>
             <span className="gp-count">{listed.length}</span>
           </header>
+          {/*
+            空页签不能只留一句话。「待我处理 0」而别处还压着 2 张时，
+            读到的是「没有案件」，实际是「案件在隔壁」——
+            所以把别处的件数说出来，并给一个能点过去的按钮。
+          */}
           {listed.length === 0 && (
-            <p className="gp-empty">
-              {quoteTab === 'mine'
-                ? '没有等你动手的事。切到「全部进行中」看还在别人手上的。'
-                : '这个页签下暂时没有案件。'}
-            </p>
+            <div className="gp-empty">
+              {quoteTab === 'mine' ? (
+                <>
+                  <p>没有等你动手的事。</p>
+                  {buckets.active.length > 0 && (
+                    <>
+                      <p>
+                        另有 <strong>{buckets.active.length}</strong> 件在别人手上（总监报价、组长复核或等客户回话）。
+                      </p>
+                      <button
+                        type="button"
+                        className="gp-btn"
+                        onClick={() => store.setQuoteTab('active')}
+                      >
+                        看全部进行中 {buckets.active.length} 件
+                      </button>
+                    </>
+                  )}
+                  {buckets.active.length === 0 && buckets.done.length > 0 && (
+                    <>
+                      <p>
+                        已完成里还有 <strong>{buckets.done.length}</strong> 件历史案件。
+                      </p>
+                      <button
+                        type="button"
+                        className="gp-btn"
+                        onClick={() => store.setQuoteTab('done')}
+                      >
+                        看已完成 {buckets.done.length} 件
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : (
+                <p>这个页签下暂时没有案件。</p>
+              )}
+            </div>
           )}
 
           {/*
@@ -881,12 +920,51 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
             </>
           )}
 
+          {/*
+            作废：开工之前的任何阶段都能点。
+            以前只在「客户未接受」时才有，于是一张立错编号、停在总监报价中的空案件
+            想删掉得先录报价、走复核、报客户、再让客户否掉——为了删一张空单演一遍全流程。
+            立错案是最常见的操作，不该这么贵。
+          */}
+          {canScrap && (
+            <details className="gp-scrap">
+              <summary>作废这张案件</summary>
+              <p>
+                立错编号、重复立案，或者这单根本没谈成——作废后案件收尾，
+                批次编号 <strong>{selected.projectCode}</strong> 当场空出来，可以重新立案。
+                作废<strong>不删</strong>任何东西，删除是下一步的独立动作。
+              </p>
+              <label className="gp-note-field">
+                <span>作废原因（必填，进审计）</span>
+                <textarea
+                  className="gp-input"
+                  rows={2}
+                  placeholder="例如：批次编号打错了，重开一张"
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                />
+              </label>
+              <button
+                type="button"
+                className="gp-btn"
+                disabled={!note.trim()}
+                title={note.trim() ? undefined : '作废要写明原因'}
+                onClick={withNoteReset(() => store.markNotEngaged(selected.id, note))}
+              >
+                作废并释放编号
+              </button>
+            </details>
+          )}
+
           {selected.status === 'NotEngaged' && (
             <>
               <div className="gp-block-box">
-                <h3>确认不接入</h3>
+                <h3>已作废</h3>
                 <p>
-                  这单没接到，案件已收尾。列表里留着它没有意义，可以删掉——
+                  案件已收尾，批次编号 <strong>{selected.projectCode}</strong> 已经空出来，
+                  现在就能用它重新立案。
+                  <br />
+                  列表里留着它没有意义，可以彻底删掉——
                   <strong>删除只删案件与报价版本，审计一条不动</strong>：
                   丢了审计就没法解释这单为什么没接到。
                 </p>
@@ -894,10 +972,17 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
               <div className="gp-detail-actions">
                 <button
                   type="button"
-                  className="gp-btn"
+                  className="gp-btn gp-btn-danger"
                   onClick={() => store.deleteQuoteCase(selected.id)}
                 >
-                  删除这张案件
+                  彻底删除这张案件
+                </button>
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-primary"
+                  onClick={() => setNewCaseOpen(true)}
+                >
+                  用同一编号重新立案
                 </button>
               </div>
             </>

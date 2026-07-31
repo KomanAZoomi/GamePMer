@@ -190,3 +190,84 @@ describe('空态要告诉人下一步点哪里', () => {
     expect(within(list).getByText(/立绘第二批/)).toBeInTheDocument()
   })
 })
+
+/**
+ * 立错的批次要能彻底删掉重来。
+ *
+ * 现场：DZ_X6_2D_B01 / B02 停在「总监报价中」，PM 想删掉重开，
+ * 结果整页没有任何入口——唯一的删除路径要求先把客户流程演完。
+ */
+describe('作废并删除一个立错的批次', () => {
+  async function withOneCase() {
+    const ctx = renderBlank()
+    const nav = screen.getByRole('navigation', { name: '全局导航' })
+    await ctx.user.click(within(nav).getByRole('button', { name: /报价与变更/ }))
+    act(() =>
+      ctx.store.createQuoteCase({
+        kind: 'initial',
+        client: 'Dazzle Interactive',
+        projectCode: 'DZX_X6_2D_B01',
+        title: '立绘第一批',
+        requirement: '客户口头需求，待总监报价。',
+      }),
+    )
+    return ctx
+  }
+
+  it('停在总监报价中就能作废——不必先走完客户流程', async () => {
+    const { user, store } = await withOneCase()
+
+    await user.click(screen.getByText('作废这张案件'))
+    await user.type(screen.getByRole('textbox', { name: /作废原因/ }), '批次编号打错了')
+    await user.click(screen.getByRole('button', { name: '作废并释放编号' }))
+
+    expect(store.getState().demo.quoteCases[0].status).toBe('NotEngaged')
+    expect(screen.getByText('已作废')).toBeInTheDocument()
+  })
+
+  it('作废后能彻底删除，案件从列表消失但审计留着', async () => {
+    const { user, store } = await withOneCase()
+    const caseId = store.getState().demo.quoteCases[0].id
+
+    await user.click(screen.getByText('作废这张案件'))
+    await user.type(screen.getByRole('textbox', { name: /作废原因/ }), '批次编号打错了')
+    await user.click(screen.getByRole('button', { name: '作废并释放编号' }))
+    await user.click(screen.getByRole('button', { name: '彻底删除这张案件' }))
+
+    expect(store.getState().demo.quoteCases).toHaveLength(0)
+    expect(
+      store.getState().demo.auditEvents.some((entry) => entry.targetId === caseId),
+    ).toBe(true)
+  })
+
+  it('删完之后同一个批次编号可以重新立案', async () => {
+    const { user, store } = await withOneCase()
+
+    await user.click(screen.getByText('作废这张案件'))
+    await user.type(screen.getByRole('textbox', { name: /作废原因/ }), '批次编号打错了')
+    await user.click(screen.getByRole('button', { name: '作废并释放编号' }))
+    await user.click(screen.getByRole('button', { name: '彻底删除这张案件' }))
+
+    act(() =>
+      store.createQuoteCase({
+        kind: 'initial',
+        client: 'Dazzle Interactive',
+        projectCode: 'DZX_X6_2D_B01',
+        title: '立绘第一批（重开）',
+        requirement: '重新立案。',
+      }),
+    )
+    expect(store.getState().demo.quoteCases).toHaveLength(1)
+    expect(store.getState().demo.quoteCases[0].projectCode).toBe('DZX_X6_2D_B01')
+  })
+
+  it('「待我处理」为空时说清别处还压着几件，并给一个点得过去的按钮', async () => {
+    const { user, store } = await withOneCase()
+    act(() => store.setQuoteTab('mine'))
+
+    const list = screen.getByLabelText('报价案件')
+    expect(within(list).getByText(/另有/)).toBeInTheDocument()
+    await user.click(within(list).getByRole('button', { name: /看全部进行中/ }))
+    expect(within(screen.getByLabelText('报价案件')).getByText(/立绘第一批/)).toBeInTheDocument()
+  })
+})
