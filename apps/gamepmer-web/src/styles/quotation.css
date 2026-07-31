@@ -973,3 +973,74 @@
 .gp-case-list .gp-empty strong {
   color: var(--text-primary);
 }
+
+/* 废案分组：收起来，但一眼能看到有几件、且能直接删 */
+.gp-scrapped-group {
+  margin: 0 var(--space-3) var(--space-3);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-scrapped-group > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+  list-style: none;
+}
+
+.gp-scrapped-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.gp-scrapped-group > summary::before {
+  content: '▸';
+  color: var(--text-faint);
+}
+
+.gp-scrapped-group[open] > summary::before {
+  content: '▾';
+}
+
+.gp-scrapped-group > summary em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--text-faint);
+}
+
+.gp-scrapped-group .gp-case-items {
+  padding: 0 8px 8px;
+}
+
+.gp-scrapped-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.gp-case.is-scrapped {
+  gap: 2px;
+  padding: 7px 9px;
+  background: #fff;
+  opacity: 0.85;
+}
+
+.gp-case.is-scrapped .gp-case-title {
+  font-size: var(--text-2xs);
+}
+
+.gp-scrapped-delete {
+  border-color: var(--danger-border);
+  color: var(--danger-ink);
+  background: #fff;
+}
+
+.gp-scrapped-delete:hover {
+  background: var(--danger-soft);
+}

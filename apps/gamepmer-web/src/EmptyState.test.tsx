@@ -290,3 +290,66 @@ describe('作废并删除一个立错的批次', () => {
     expect(screen.getByRole('button', { name: '彻底删除这张案件' })).toBeEnabled()
   })
 })
+
+/**
+ * 废案默认折叠，且能就地删除。
+ *
+ * 用户的顾虑是「批次 01 被废案占据，影响新需求进来」——
+ * 实际上废案早就不占编号了，但列表里堆着确实碍眼，
+ * 所以收进折叠块，并在每一行直接给删除。
+ */
+describe('已作废的案件收进折叠块', () => {
+  async function scrapOne() {
+    const ctx = renderBlank()
+    const nav = screen.getByRole('navigation', { name: '全局导航' })
+    await ctx.user.click(within(nav).getByRole('button', { name: /报价与变更/ }))
+    act(() =>
+      ctx.store.createQuoteCase({
+        kind: 'initial',
+        client: 'Dazzle Interactive',
+        projectCode: 'DZX_X6_2D_B01',
+        title: '立绘第一批',
+        requirement: '客户口头需求。',
+      }),
+    )
+    await ctx.user.click(screen.getByText('作废这张案件'))
+    await ctx.user.type(screen.getByRole('textbox', { name: /作废原因/ }), '报价没谈好，中止')
+    await ctx.user.click(screen.getByRole('button', { name: '作废并释放编号' }))
+    act(() => ctx.store.setQuoteTab('done'))
+    return ctx
+  }
+
+  it('废案不混在主列表里，收在「已作废 N 件」下面', async () => {
+    await scrapOne()
+    expect(screen.getByText(/已作废 1 件/)).toBeInTheDocument()
+  })
+
+  it('折叠块里每一行直接能删，不用先选中再去右侧找按钮', async () => {
+    const { user, store } = await scrapOne()
+
+    await user.click(screen.getByText(/已作废 1 件/))
+    await user.click(screen.getByRole('button', { name: '删除' }))
+
+    expect(store.getState().demo.quoteCases).toHaveLength(0)
+    // 审计留着——删案件不等于抹掉这件事发生过
+    expect(store.getState().demo.auditEvents.length).toBeGreaterThan(0)
+  })
+
+  it('废案在的时候，同一个批次编号照样能立新案——它本来就不占编号', async () => {
+    const { store } = await scrapOne()
+    expect(store.getState().demo.quoteCases[0].status).toBe('NotEngaged')
+
+    act(() =>
+      store.createQuoteCase({
+        kind: 'initial',
+        client: 'Dazzle Interactive',
+        projectCode: 'DZX_X6_2D_B01',
+        title: '立绘第一批（重开）',
+        requirement: '重新立案。',
+      }),
+    )
+    const cases = store.getState().demo.quoteCases
+    expect(cases).toHaveLength(2)
+    expect(cases.filter((entry) => entry.status === 'DirectorQuoting')).toHaveLength(1)
+  })
+})

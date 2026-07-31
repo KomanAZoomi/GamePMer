@@ -4,6 +4,7 @@ import {
   QUOTE_KIND_LABEL,
   frozenSummary,
   pendingChangeRequests,
+  DEAD_QUOTE_STATUSES,
   QUOTE_STATUS_LABEL,
   TERMINAL_QUOTE_STATUSES,
   activeVersion,
@@ -198,6 +199,18 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   const canQuote = selected.status !== 'KickoffSent' && selected.status !== 'Rejected'
   // 开工之前随时可以作废；已开工的是正式项目，撤销要走结项
   const canScrap = !TERMINAL_QUOTE_STATUSES.includes(selected.status)
+
+  /**
+   * 废案从主列表里摘出来单独折叠。
+   *
+   * 「已完成」里混着两类东西：已开工的是真历史，翻它是为了查这单当初报了多少；
+   * 作废/放弃/不接入的是没成的单子，留着只为算命中率，不该占同样的视觉分量。
+   * 其余页签不分组——那里本来就没有废案。
+   */
+  const isScrapped = (row: QuoteTodo) =>
+    row.quoteCase !== undefined && DEAD_QUOTE_STATUSES.includes(row.quoteCase.status)
+  const shownRows = listed.filter((row) => !isScrapped(row))
+  const scrappedRows = listed.filter(isScrapped)
   const project = demo.projects.find((entry) => entry.code === selected.projectCode)
   const frozen = frozenSummary(demo)
   // 只在「处理中」页签下露出——它们本来就是还没处理完的东西
@@ -399,7 +412,7 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
             而真正等 PM 动手的两步跑到了「客户环节」，那个名字读不出「该我做」。
           */}
           <ul className="gp-case-items">
-            {listed.map((row) => {
+            {shownRows.map((row) => {
               const isPending = row.kind === 'change-request'
               const entryVersion = row.quoteCase ? activeVersion(demo, row.quoteCase.id) : undefined
               const frozen = row.pending?.frozenStages ?? []
@@ -445,6 +458,49 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
               )
             })}
           </ul>
+
+          {/*
+            废案默认折叠。
+            它们既不该消失（谈过没谈成是报价命中率的原始数据），
+            也不该和「已开工」的真历史混在一起占位置——所以收起来，要看时再展开。
+            每一行直接带删除：录错了的单子不该逼人先选中、再去右侧面板找按钮。
+          */}
+          {scrappedRows.length > 0 && (
+            <details className="gp-scrapped-group">
+              <summary>
+                已作废 {scrappedRows.length} 件
+                <em>不占批次编号，可直接重新立案</em>
+              </summary>
+              <ul className="gp-case-items">
+                {scrappedRows.map((row) => (
+                  <li key={row.id} className="gp-scrapped-row">
+                    <button
+                      type="button"
+                      className={`gp-case is-scrapped${row.id === selected.id ? ' is-active' : ''}`}
+                      onClick={() => store.selectQuoteCase(row.id)}
+                    >
+                      <strong className="gp-case-title">
+                        {row.id} · {row.title}
+                      </strong>
+                      <span className="gp-case-meta">
+                        {row.projectCode} · {QUOTE_STATUS_LABEL[row.quoteCase!.status]}
+                      </span>
+                    </button>
+                    {row.quoteCase!.status === 'NotEngaged' && (
+                      <button
+                        type="button"
+                        className="gp-btn gp-btn-sm gp-scrapped-delete"
+                        title={`彻底删除 ${row.id}（审计保留）`}
+                        onClick={() => store.deleteQuoteCase(row.id)}
+                      >
+                        删除
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </aside>
 
         <section className="gp-card gp-quote-main" aria-label="报价单">
