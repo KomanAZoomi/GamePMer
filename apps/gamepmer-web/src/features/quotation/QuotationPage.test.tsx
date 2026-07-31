@@ -769,3 +769,78 @@ describe('首次报价被客户否掉之后', () => {
     ).toHaveLength(2)
   })
 })
+
+/**
+ * 页签必须收全：任何一张案件都得在某个页签里找得到。
+ *
+ * 现场是两张「总监报价中」的案件在报价页看不到，只能在文件与归档里看到批次编号——
+ * 真因是空态早返回夹在 Hook 中间导致整页崩掉（见 EmptyState 用例），
+ * 但顺带查出分桶本身也漏：放弃与确认不接入两个终态谁都不收。
+ */
+describe('三个页签把案件收全', () => {
+  function tabCount(label: string): number {
+    const text = screen.getByRole('button', { name: new RegExp(label) }).textContent ?? ''
+    return Number(text.replace(/\D/g, '')) || 0
+  }
+
+  it('每一张案件至少落在一个页签里', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+
+    const all = store.getState().demo.quoteCases
+    const seen = new Set<string>()
+    for (const label of ['待我处理', '全部进行中', '已完成']) {
+      await user.click(screen.getByRole('button', { name: new RegExp(label) }))
+      const list = screen.getByLabelText('报价案件')
+      for (const entry of all) {
+        if (within(list).queryByText(new RegExp(entry.id))) seen.add(entry.id)
+      }
+    }
+    expect([...seen].sort()).toEqual(all.map((entry) => entry.id).sort())
+  })
+
+  it('放弃与确认不接入归到「已完成」，不再从列表里消失', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+
+    const doneBefore = tabCount('已完成')
+
+    // CQ-004 是追加报价：客户否掉后放弃这个变更
+    store.submitQuote(
+      'CQ-004',
+      store.getState().demo.quoteVersions.find((v) => v.caseId === 'CQ-004')!.lines,
+      3,
+    )
+    store.reviewQuote('CQ-004', 'approve', '同意')
+    store.sendToClient('CQ-004', 'Outlook')
+    store.recordClientReply('CQ-004', 'decline', 'Outlook', '价格高了')
+    store.abandonCase('CQ-004', '客户预算不足，这一版不做')
+
+    expect(caseOf('CQ-004').status).toBe('Abandoned')
+
+    await user.click(screen.getByRole('button', { name: /已完成/ }))
+    const list = screen.getByLabelText('报价案件')
+    expect(within(list).getByText(/CQ-004/)).toBeInTheDocument()
+    expect(tabCount('已完成')).toBe(doneBefore + 1)
+  })
+
+  it('「客户未接受」留在待我处理，不混进已完成——它还等着你决定', async () => {
+    const { user } = renderQuotation()
+    await goto(user)
+
+    store.submitQuote(
+      'CQ-004',
+      store.getState().demo.quoteVersions.find((v) => v.caseId === 'CQ-004')!.lines,
+      3,
+    )
+    store.reviewQuote('CQ-004', 'approve', '同意')
+    store.sendToClient('CQ-004', 'Outlook')
+    store.recordClientReply('CQ-004', 'decline', 'Outlook', '价格高了')
+
+    await user.click(screen.getByRole('button', { name: /已完成/ }))
+    expect(within(screen.getByLabelText('报价案件')).queryByText(/CQ-004/)).toBeNull()
+
+    await user.click(screen.getByRole('button', { name: /待我处理/ }))
+    expect(within(screen.getByLabelText('报价案件')).getByText(/CQ-004/)).toBeInTheDocument()
+  })
+})

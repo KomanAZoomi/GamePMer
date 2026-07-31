@@ -5,6 +5,7 @@ import {
   frozenSummary,
   pendingChangeRequests,
   QUOTE_STATUS_LABEL,
+  TERMINAL_QUOTE_STATUSES,
   activeVersion,
   kickoffBlockingIssues,
   personOf,
@@ -80,14 +81,30 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
       // 按**责任在谁**分，不按状态区间——后者会在案件推过某一段之后整桶变空
       mine: workQueue.filter((row) => row.mine),
       active: workQueue,
+      // 「已完成」= 真正走到头的三个终态。
+      //
+      // 以前这里是 KickoffSent | Rejected，两头都不对：
+      // `Rejected` 还等着 PM 决定重报还是收尾，它在「待我处理」里，不该同时算已完成；
+      // 而放弃与确认不接入是真终态，却因为不在这份名单里、又没有 WaitingOn 进不了「进行中」，
+      // 于是三个页签一个都不收——案件凭空从列表消失，只能在文件与归档看到它的批次编号。
       done: byNewest
-        .filter((entry) => entry.status === 'KickoffSent' || entry.status === 'Rejected')
+        .filter((entry) => TERMINAL_QUOTE_STATUSES.includes(entry.status))
         .map<QuoteTodo>((quoteCase) => ({
           id: quoteCase.id,
           kind: 'quote-case',
           title: quoteCase.title,
           projectCode: quoteCase.projectCode,
-          waiting: { actor: 'me', label: '已完结', next: '', mine: false },
+          waiting: {
+            actor: 'me',
+            label:
+              quoteCase.status === 'KickoffSent'
+                ? '已开工'
+                : quoteCase.status === 'Abandoned'
+                  ? '已放弃'
+                  : '未接入',
+            next: '',
+            mine: false,
+          },
           mine: false,
           next: '',
           quoteCase,
@@ -96,6 +113,14 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   }, [demo, workQueue])
 
   const todos = useMemo(() => reviewTodos(demo), [demo])
+  // 判为范围外但还没立案的变更单。阶段已经冻上了，列表里必须有一行能点——
+  // 否则「资产冻结中 1」就是个数得出来、点不进去的死数字。
+  //
+  // 位置很讲究：**必须在下面那个空态早返回之前**。Hook 不能跨条件分支，
+  // 放在早返回之后的话，案件数从 0 变 1 的那一次渲染会比上一次多跑一个 Hook，
+  // React 直接抛「Rendered more hooks than during the previous render」，
+  // 整个应用白屏——立案成功了，页面却没了。
+  const pending = useMemo(() => pendingChangeRequests(demo), [demo])
   const listed = buckets[quoteTab]
   const selected: QuoteCase | undefined =
     demo.quoteCases.find((entry) => entry.id === selectedQuoteCaseId) ??
@@ -173,9 +198,6 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
   const canQuote = selected.status !== 'KickoffSent' && selected.status !== 'Rejected'
   const project = demo.projects.find((entry) => entry.code === selected.projectCode)
   const frozen = frozenSummary(demo)
-  // 判为范围外但还没立案的变更单。阶段已经冻上了，列表里必须有一行能点——
-  // 否则「资产冻结中 1」就是个数得出来、点不进去的死数字
-  const pending = useMemo(() => pendingChangeRequests(demo), [demo])
   // 只在「处理中」页签下露出——它们本来就是还没处理完的东西
   const pendingHere = quoteTab === 'active' ? pending : []
   // 开工邮件草稿就在这一页起草，也就该在这一页看到——不要让 PM 跑去反馈中心找

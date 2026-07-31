@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -135,5 +135,58 @@ describe('空态要告诉人下一步点哪里', () => {
     const { user } = renderBlank()
     await user.click(screen.getAllByRole('button', { name: /新增需求/ })[0])
     expect(screen.getByLabelText(/需求标题/)).toBeInTheDocument()
+  })
+
+  /**
+   * 空态早返回踩过一次 Hook 规则：`useMemo` 落在早返回之后，
+   * 案件数从 0 变 1 的那一次渲染多跑了一个 Hook，React 抛
+   * 「Rendered more hooks than during the previous render」，整个应用白屏——
+   * 立案成功了，页面却没了，只能在别的页面看到那张案件。
+   *
+   * 这条守的是「空 → 非空」这个跃迁本身，不是某一个 useMemo 的位置。
+   */
+  it('从 0 张到 1 张的那一次渲染不会崩——空态早返回不能夹在 Hook 中间', async () => {
+    const { user, store } = renderBlank()
+    const nav = screen.getByRole('navigation', { name: '全局导航' })
+    await user.click(within(nav).getByRole('button', { name: /报价与变更/ }))
+
+    act(() =>
+      store.createQuoteCase({
+        kind: 'initial',
+        client: 'Dazzle Interactive',
+        projectCode: 'DZX_X6_2D_B01',
+        title: '立绘第一批',
+        requirement: '客户口头需求，待总监报价。',
+      }),
+    )
+
+    // 页面还在，而且新案件立刻出现在列表里
+    expect(screen.getByRole('heading', { level: 1, name: '报价与变更' })).toBeInTheDocument()
+    expect(within(screen.getByLabelText('报价案件')).getByText(/立绘第一批/)).toBeInTheDocument()
+  })
+
+  it('第二张、第三张接着立也不崩，且都在列表里', async () => {
+    const { user, store } = renderBlank()
+    const nav = screen.getByRole('navigation', { name: '全局导航' })
+    await user.click(within(nav).getByRole('button', { name: /报价与变更/ }))
+
+    for (const [code, title] of [
+      ['DZX_X6_2D_B01', '立绘第一批'],
+      ['DZX_X6_2D_B02', '立绘第二批'],
+    ]) {
+      act(() =>
+        store.createQuoteCase({
+          kind: 'initial',
+          client: 'Dazzle Interactive',
+          projectCode: code,
+          title,
+          requirement: '客户口头需求，待总监报价。',
+        }),
+      )
+    }
+
+    const list = screen.getByLabelText('报价案件')
+    expect(within(list).getByText(/立绘第一批/)).toBeInTheDocument()
+    expect(within(list).getByText(/立绘第二批/)).toBeInTheDocument()
   })
 })
