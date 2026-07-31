@@ -172,6 +172,8 @@ export interface WorkspaceStore {
   saveApiKey(providerId: string, key: string): void
   disposeInsight(input: Omit<DisposeInsightInput, 'actor' | 'now'>): void
   resetDemo(): void
+  /** 清空业务数据，保留制作组、工作日历与成员——没有它们工作台没法用 */
+  clearBusinessData(): void
 }
 
 const DEFAULT_PROJECT = 'NST_A_3D_B24'
@@ -605,6 +607,10 @@ export function createWorkspaceStore(
     },
     resetDemo() {
       state = initialState(repository.reset(), clock.today())
+      emit()
+    },
+    clearBusinessData() {
+      state = initialState(repository.clear(), clock.today())
       emit()
     },
   }

@@ -523,3 +523,25 @@
     grid-template-columns: 172px minmax(0, 1fr) 286px;
   }
 }
+
+/* 清空业务数据：不可撤销，措辞和按钮都要让人先停一下 */
+.gp-clear-warn {
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+}
+
+.gp-btn-danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+.gp-btn-danger:hover {
+  filter: brightness(1.06);
+}

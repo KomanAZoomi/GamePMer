@@ -1400,3 +1400,40 @@ export function createDemoState(): DemoState {
     insightDispositions: [],
   } satisfies DemoState)
 }
+
+/**
+ * 清空业务数据，交出一个可以自己录入的空工作台。
+ *
+ * **保留组织配置**（工作日历、制作组、成员与角色），因为界面上还没有创建它们的入口：
+ * 全清之后报价行挑不到制作组、复核找不到人，工作台会变成一个点不动的空壳。
+ * 这一条是当前实现的真实限制，不是设计意图——组织配置的录入界面补上之后，
+ * 这里应当同时提供「连组织配置一起清」的选项。
+ *
+ * 演示用的项目、资产、阶段、报价、候选、反馈、修订、结项、路径、通知和审计全部清掉。
+ */
+export function createBlankState(): DemoState {
+  const demo = createDemoState()
+  return {
+    schemaVersion: DEMO_SCHEMA_VERSION,
+
+    // ——— 保留：组织配置，没有它们工作台无法使用 ———
+    calendars: demo.calendars,
+    productionGroups: demo.productionGroups,
+    people: demo.people,
+
+    // ——— 清空：全部业务数据 ———
+    projects: [],
+    sourceRecords: [],
+    candidates: [],
+    quoteCases: [],
+    quoteVersions: [],
+    closeoutCases: [],
+    projectPaths: [],
+    feedbackBatches: [],
+    revisions: [],
+    notificationDrafts: [],
+    auditEvents: [],
+    changeRequests: [],
+    insightDispositions: [],
+  }
+}

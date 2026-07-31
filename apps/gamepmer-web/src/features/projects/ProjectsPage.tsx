@@ -21,6 +21,31 @@ const PROJECT_STATUS_LABELS = {
 export function ProjectsPage({ workspace, store, onNavigate }: ProjectsPageProps) {
   const { demo, today, selectedProjectCode, selectedStageId, axisScale } = workspace
   const project = demo.projects.find((item) => item.code === selectedProjectCode) ?? demo.projects[0]
+
+  // 清空业务数据后这里一个项目都没有。原来直接读 project.calendarId 会整页崩掉，
+  // 而项目是**报价开工之后**才产生的——空态是正常起点，不是异常。
+  if (!project) {
+    return (
+      <div className="gp-placeholder">
+        <div className="gp-card gp-placeholder-card">
+          <h1>项目总览</h1>
+          <p>
+            当前没有任何项目。项目不是手工新建出来的，它是<strong>报价走完开工</strong>之后产生的：
+            先到「报价与变更」立案，录人天与节点，经组长/BD 复核，PM 发出开工邮件，项目才进入制作。
+          </p>
+          <div className="gp-detail-actions">
+            <button type="button" className="gp-btn gp-btn-primary" onClick={() => onNavigate('quotation')}>
+              去报价与变更立案
+            </button>
+            <button type="button" className="gp-btn" onClick={() => onNavigate('inbox')}>
+              先从候选收件箱导入需求
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const calendar = demo.calendars.find((item) => item.id === project.calendarId) ?? EMPTY_CALENDAR
 
   const stages = project.assets.flatMap((asset) => asset.stages)

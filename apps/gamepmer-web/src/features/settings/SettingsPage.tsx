@@ -44,6 +44,8 @@ export function SettingsPage({ workspace, store, onNavigate }: SettingsPageProps
   const [section, setSection] = useState<Section>('llm')
   const [providerId, setProviderId] = useState('anthropic')
   const [keyDraft, setKeyDraft] = useState('')
+  // 清空不可撤销，所以走两步：先亮出要清多少条，再确认
+  const [confirmClear, setConfirmClear] = useState(false)
   const [editingKey, setEditingKey] = useState(false)
 
   const provider = LLM_PROVIDERS.find((entry) => entry.id === providerId) ?? LLM_PROVIDERS[0]
@@ -521,6 +523,40 @@ export function SettingsPage({ workspace, store, onNavigate }: SettingsPageProps
                 <button type="button" className="gp-btn gp-btn-primary" onClick={store.resetDemo}>
                   恢复示例数据
                 </button>
+              </div>
+
+              <div className="gp-rule-block">
+                <h3>清空业务数据</h3>
+                <p>
+                  把演示用的项目、报价、候选、反馈、修订、结项、路径、通知和审计全部清掉，
+                  换成录自己的真实业务。清空<strong>会保留</strong>制作组、工作日历和成员——
+                  界面上还没有创建它们的入口，一起清掉工作台就没法用了。
+                </p>
+                <p className="gp-clear-warn">
+                  数据存在这台浏览器的 localStorage 里，<strong>清空不可撤销</strong>，
+                  也没有导出备份。需要留底的话先自己截图或导出。
+                </p>
+                {confirmClear ? (
+                  <div className="gp-detail-actions">
+                    <button type="button" className="gp-btn" onClick={() => setConfirmClear(false)}>
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      className="gp-btn gp-btn-danger"
+                      onClick={() => {
+                        store.clearBusinessData()
+                        setConfirmClear(false)
+                      }}
+                    >
+                      确认清空 {dataScale(demo).reduce((sum, entry) => sum + entry.count, 0)} 条业务数据
+                    </button>
+                  </div>
+                ) : (
+                  <button type="button" className="gp-btn" onClick={() => setConfirmClear(true)}>
+                    清空业务数据…
+                  </button>
+                )}
               </div>
               <div className="gp-key-danger">
                 当前是演示环境，没有任何真实凭证，也<strong>不要拿真实客户或公司数据测试</strong>。

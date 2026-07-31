@@ -102,13 +102,55 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
     listed.find((row) => row.quoteCase)?.quoteCase ??
     demo.quoteCases[0]
 
+  // 一个案件都没有时不能只放一句说明就走人：这一页是整条业务线的**起点**，
+  // 清空数据后 PM 要在这里录第一条真实需求。早返回把立案面板一起挡在外面，
+  // 等于空工作台里根本没有任何入口——空态给死路和点了没反应的按钮是同一种失败。
   if (!selected) {
     return (
-      <div className="gp-placeholder">
-        <div className="gp-card gp-placeholder-card">
-          <h1>报价与变更</h1>
-          <p>当前没有报价案件。恢复示例数据后可查看首次报价 Q-021 与追加报价 CQ-004。</p>
-        </div>
+      <div className="gp-quotation">
+        <header className="gp-page-head">
+          <div>
+            <h1>报价与变更</h1>
+            <p>{today} · 还没有任何报价案件 · 新活和追加都从这里立案</p>
+          </div>
+        </header>
+
+        {newCaseOpen ? (
+          <div className="gp-card gp-quote-entry-card">
+            <NewCaseDrawer
+              demo={demo}
+              today={today}
+              onCancel={() => setNewCaseOpen(false)}
+              onSubmit={(input) => {
+                store.createQuoteCase(input)
+                setNewCaseOpen(false)
+              }}
+            />
+          </div>
+        ) : (
+          <div className="gp-card gp-placeholder-card">
+            <p>
+              业务线从<strong>需求</strong>开始：BD 谈下一条新活或一笔追加，先在这里立案，
+              再交 2D/3D 总监录人天与节点，经组长/BD 复核，最后由 PM 发出开工邮件——
+              <strong>项目是开工那一刻才产生的</strong>，不是手工新建出来的。
+            </p>
+            <div className="gp-detail-actions">
+              <button
+                type="button"
+                className="gp-btn gp-btn-primary"
+                onClick={() => setNewCaseOpen(true)}
+              >
+                立案第一条需求
+              </button>
+              <button type="button" className="gp-btn" onClick={() => onNavigate('inbox')}>
+                从候选收件箱导入需求
+              </button>
+              <button type="button" className="gp-btn" onClick={store.resetDemo}>
+                恢复示例数据
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }

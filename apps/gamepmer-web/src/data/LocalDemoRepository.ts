@@ -1,6 +1,6 @@
 import { DEMO_SCHEMA_VERSION } from '../domain/model'
 import type { DemoState } from '../domain/model'
-import { createDemoState } from './seed'
+import { createBlankState, createDemoState } from './seed'
 
 /**
  * Repository 是 UI 与存储之间的唯一边界。
@@ -12,6 +12,8 @@ export interface DemoRepository {
   load(): DemoState
   save(state: DemoState): void
   reset(): DemoState
+  /** 清空业务数据，保留组织配置。用于把演示数据换成自己的真实业务。 */
+  clear(): DemoState
 }
 
 export const DEMO_STORAGE_KEY = `gamepmer.web-demo.v${DEMO_SCHEMA_VERSION}`
@@ -78,6 +80,13 @@ export class LocalDemoRepository implements DemoRepository {
   reset(): DemoState {
     this.storage.removeItem(DEMO_STORAGE_KEY)
     return createDemoState()
+  }
+
+  clear(): DemoState {
+    const blank = createBlankState()
+    // 空状态必须落盘：不落盘的话刷新一次又回到示例数据，等于没清
+    this.save(blank)
+    return blank
   }
 }
 

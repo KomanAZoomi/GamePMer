@@ -26,8 +26,17 @@ export function HomePage({ workspace, view, onSelect, onNavigate }: HomePageProp
           <div>
             <h1>任务管理</h1>
             <p>
-              {today} · 共 {demo.projects.length} 个在管项目 ·
-              待办由项目、资产、阶段和反馈的正式状态投影生成
+              {demo.projects.length === 0 ? (
+                <>
+                  {today} · 还没有任何项目 ·
+                  待办是正式状态的投影，没有项目就没有待办——先去「报价与变更」立案
+                </>
+              ) : (
+                <>
+                  {today} · 共 {demo.projects.length} 个在管项目 ·
+                  待办由项目、资产、阶段和反馈的正式状态投影生成
+                </>
+              )}
             </p>
           </div>
           <div className="gp-chip-row">
