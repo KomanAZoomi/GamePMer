@@ -124,9 +124,14 @@ export function kickoffBlockingIssues(state: DemoState, caseId: string): string[
 
   const issues: string[] = []
   if (quoteCase.status === 'KickoffSent') issues.push('开工邮件已经发过了，不能重复发送')
-  if (quoteCase.status === 'Rejected') issues.push('客户未接受该报价，案件已终止')
+  if (quoteCase.status === 'Rejected') issues.push('客户未接受该报价，先决定重报还是不接')
   if (quoteCase.status === 'Approved') issues.push('复核通过了，但还没报给客户')
   if (quoteCase.status === 'SentToClient') issues.push('还在等客户确认，客户没点头不能开工')
+  // 这两条以前漏了，后果不是「按钮多显示一个」：一张已经放弃的报价
+  // 走到这里会**零阻断**，于是 sendKickoff 照常建项、照常写排期——
+  // 一单没接到的活凭空变成正式项目。
+  if (quoteCase.status === 'Abandoned') issues.push('该变更已放弃，不能再开工')
+  if (quoteCase.status === 'NotEngaged') issues.push('这单已确认不接入，不能开工')
 
   const version = activeVersion(state, caseId)
   if (!version) {
@@ -199,8 +204,17 @@ export function availableActions(state: DemoState, caseId: string): QuoteAction[
   if (quoteCase.status === 'Approved') actions.push('send-to-client')
   if (quoteCase.status === 'SentToClient') actions.push('client-reply')
   if (quoteCase.status === 'ClientAccepted') actions.push('kickoff')
-  // 客户嫌贵不等于这件事结束了：要么降价重报，要么放弃
-  if (quoteCase.status === 'Rejected') actions.push('requote', 'abandon', 'not-engaged')
+  // 客户嫌贵不等于这件事结束了：要么降价重报，要么就此打住。
+  //
+  // 「打住」对两种案件是**不同的事**，不能共用一个动作：
+  // 追加报价放弃的是这个变更，项目还在，受影响阶段要在这一刻解冻；
+  // 首次报价被否掉时项目根本还没建出来，没有阶段可解冻——那是「这单没接到」。
+  // 以前两者都给 abandon，于是首次报价点下去看到的是「已解冻受影响阶段」，
+  // 指着一堆并不存在的阶段说话。
+  if (quoteCase.status === 'Rejected') {
+    actions.push('requote')
+    actions.push(quoteCase.kind === 'change' ? 'abandon' : 'not-engaged')
+  }
   // 没接到的单子长期占着列表没有意义，所以这一态额外允许删除
   if (quoteCase.status === 'NotEngaged') actions.push('delete')
   return actions
@@ -213,6 +227,15 @@ export const TERMINAL_QUOTE_STATUSES: QuoteCase['status'][] = [
   'Abandoned',
   'NotEngaged',
 ]
+
+/**
+ * 「这单没成」的两个终态。
+ *
+ * 与 `TERMINAL_QUOTE_STATUSES` 的区别是少了 `KickoffSent`——开工了是成了，
+ * 那个批次编号已经变成正式项目，当然还占着。这里指的是**没做成**，
+ * 编号该还回去给下一次报价用。
+ */
+export const DEAD_QUOTE_STATUSES: QuoteCase['status'][] = ['Abandoned', 'NotEngaged']
 
 // ---------------------------------------------------------------- 待办投影
 
@@ -475,10 +498,11 @@ const WAITING_BY_STATUS: Record<QuoteCase['status'], WaitingOn | undefined> = {
   Approved: { actor: 'me', label: '等报客户', next: 'BD 把报价报给客户', mine: true },
   SentToClient: { actor: 'client', label: '等客户', next: '等客户回话，可催一次', mine: false },
   ClientAccepted: { actor: 'me', label: '等我', next: '发出开工通知（首次报价会同时建项）', mine: true },
+  // 这一条的下一步随案件类型不同，见 quoteWaitingOn 里的改写
   Rejected: {
     actor: 'me',
     label: '等我',
-    next: '客户嫌贵：降价重报，或者放弃这个变更（放弃即解冻受影响阶段）',
+    next: '客户嫌贵：降价重报，或者就此收尾',
     mine: true,
   },
   KickoffSent: undefined,
@@ -496,7 +520,22 @@ const WAITING_BY_STATUS: Record<QuoteCase['status'], WaitingOn | undefined> = {
 export function quoteWaitingOn(state: DemoState, caseId: string): WaitingOn | undefined {
   const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
   if (!quoteCase) return undefined
-  return WAITING_BY_STATUS[quoteCase.status]
+  const waiting = WAITING_BY_STATUS[quoteCase.status]
+  if (!waiting) return undefined
+
+  // 客户否掉之后的下一步，两种案件不一样：追加报价放弃的是这个变更、要解冻阶段；
+  // 首次报价连项目都没建，只有「这单没接到」。列表里的提示也得跟着分开说，
+  // 否则详情面板已经改对了，左侧仍在教人去点一个并不存在的按钮。
+  if (quoteCase.status === 'Rejected') {
+    return {
+      ...waiting,
+      next:
+        quoteCase.kind === 'change'
+          ? '客户嫌贵：降价重报，或者放弃这个变更（放弃即解冻受影响阶段）'
+          : '客户嫌贵：降价重报，或者确认不接这单（收尾后编号可重用）',
+    }
+  }
+  return waiting
 }
 
 export interface QuoteTodo {
@@ -650,7 +689,17 @@ export function createQuoteCaseIssues(state: DemoState, input: CreateQuoteCaseIn
       issues.push(`批次编号「${code}」不符合规范 ${BATCH_CODE_RULE}，例如 ${BATCH_CODE_EXAMPLE}`)
     } else if (project) {
       issues.push(`${code} 已经是正式项目了，追加需求请录成追加报价，不要新开首次报价`)
-    } else if (state.quoteCases.some((entry) => entry.projectCode === code && entry.kind === 'initial')) {
+    } else if (
+      state.quoteCases.some(
+        (entry) =>
+          entry.projectCode === code &&
+          entry.kind === 'initial' &&
+          // 已经走到终态的单子不再占着编号。客户嫌贵没接成、后来又回头谈，
+          // 这时必须能用同一个批次编号重开一张——一张死掉的单子永久霸占编号，
+          // 只会逼着人去编一个 B01A 之类的假编号，编号从此对不上公司的实际批次。
+          !DEAD_QUOTE_STATUSES.includes(entry.status),
+      )
+    ) {
       issues.push(`${code} 已经有一张首次报价案件了，不要重复立案`)
     }
     if (!input.client?.trim()) issues.push('客户不能为空')
@@ -980,6 +1029,13 @@ export function abandonCase(state: DemoState, caseId: string, input: ClientStepI
   if (quoteCase.status !== 'Rejected') {
     throw new QuoteBlocked([
       `${QUOTE_STATUS_LABEL[quoteCase.status]}：只有客户未接受的案件才谈得上放弃`,
+    ])
+  }
+  // 首次报价没有项目、没有阶段、没有变更单，「放弃变更」这句话在它身上不成立。
+  // 走到这里说明有人绕过 availableActions 直接调了——挡住，并指明该走哪个动作。
+  if (quoteCase.kind !== 'change') {
+    throw new QuoteBlocked([
+      '首次报价还没有项目和阶段，没有东西可解冻——不接这单请走「确认不接这单」',
     ])
   }
   if (!input.note?.trim()) {

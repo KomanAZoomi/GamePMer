@@ -28,8 +28,18 @@ export function ApprovalTrack({ quoteCase, version, reviewerName, reviewerRoles 
   const reviewed = version?.review?.decision === 'approve'
   const sent = Boolean(quoteCase.sentToClientAt)
   const replied = Boolean(quoteCase.clientRepliedAt)
-  const accepted = replied && quoteCase.status !== 'Rejected'
   const started = quoteCase.status === 'KickoffSent'
+
+  /**
+   * 这单已经黄了。
+   *
+   * 以前只排除了 `Rejected`，于是放弃或确认不接入之后 `accepted` 仍然是 true，
+   * 06 被画成「当前步」，页面指着一条永远走不通的路让人去发开工邮件。
+   * 链条画什么，实际就得能走什么——画一步走不了的，就是在骗人。
+   */
+  const dead = quoteCase.status === 'Abandoned' || quoteCase.status === 'NotEngaged'
+  const deadLabel = quoteCase.status === 'Abandoned' ? '已放弃变更' : '已确认不接入'
+  const accepted = replied && quoteCase.status !== 'Rejected' && !dead
 
   const steps: Array<{ no: string; title: string; detail: string; state: StepState; merge?: string }> = [
     {
@@ -83,15 +93,24 @@ export function ApprovalTrack({ quoteCase, version, reviewerName, reviewerRoles 
     },
     {
       no: '06',
-      title: quoteCase.kind === 'change' ? 'PM 发出变更开工邮件' : 'PM 发出正式开工邮件',
+      title: dead
+        ? '案件到此为止'
+        : quoteCase.kind === 'change'
+          ? 'PM 发出变更开工邮件'
+          : 'PM 发出正式开工邮件',
       detail: started
         ? `${quoteCase.kickoffSentBy} 于 ${quoteCase.kickoffSentAt?.slice(5, 16).replace('T', ' ')} 声明发出`
-        : accepted
+        : dead
           ? quoteCase.kind === 'initial'
-            ? '发出后才正式建项，排期此刻还没有'
-            : '排期尚未变更——发出后才生效'
-          : '客户确认后开放',
-      state: started ? 'done' : accepted ? 'current' : 'blocked',
+            ? `${deadLabel}：这单没接到，项目从未建立，也没有排期`
+            : `${deadLabel}：受影响阶段已解冻，项目按原计划继续`
+          : accepted
+            ? quoteCase.kind === 'initial'
+              ? '发出后才正式建项，排期此刻还没有'
+              : '排期尚未变更——发出后才生效'
+            : '客户确认后开放',
+      // 走到头了就画成 done，不留一个永远等在那里的当前步
+      state: started || dead ? 'done' : accepted ? 'current' : 'blocked',
     },
   ]
 

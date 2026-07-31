@@ -685,3 +685,87 @@ describe('录入报价时节点按人天自动算', () => {
     expect(within(drawer).queryByText(/非工作日，已前移/)).toBeNull()
   })
 })
+
+/**
+ * 验收现场：`DZ_X6_2D_B01` 报出去、客户嫌贵、PM 放弃之后，
+ * 编号再也立不了案，页面还指着 06「PM 发出正式开工邮件」让人往下走。
+ */
+describe('首次报价被客户否掉之后', () => {
+  /**
+   * 把 Q-030（首次报价，停在总监报价中）推到「客户未接受」。
+   *
+   * 前四步用 store 直推：这几步的界面契约各有专门用例守着，
+   * 这一组要验的是**被否掉之后**页面给出什么，不必把录入表单再点一遍。
+   */
+  async function declineInitial(user: ReturnType<typeof userEvent.setup>) {
+    await goto(user)
+    store.submitQuote(
+      'Q-030',
+      [
+        {
+          id: 'Q-030/L01',
+          assetId: 'SCENE-01',
+          stageCode: '2D_SKETCH',
+          title: '概念图草图',
+          note: '12 张',
+          personDays: 6,
+          unitPrice: 1800,
+          plannedStart: '2026-08-10',
+          plannedFinish: '2026-08-18',
+        },
+      ],
+      6,
+    )
+    store.reviewQuote('Q-030', 'approve', '同意')
+    store.sendToClient('Q-030', 'Outlook')
+    store.recordClientReply('Q-030', 'decline', 'Outlook', '客户觉得高')
+
+    await showAll(user)
+    const list = screen.getByLabelText('报价案件')
+    await user.click(within(list).getByText(/Q-030/))
+  }
+
+  it('给的是「确认不接这单」，不是「放弃变更 · 解冻阶段」', async () => {
+    const { user } = renderQuotation()
+    await declineInitial(user)
+
+    expect(screen.getByRole('button', { name: /确认不接这单/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /放弃变更/ })).toBeNull()
+    // 首次报价没有项目，说明里不该出现解冻阶段这类不存在的动作
+    expect(screen.getByText(/项目还没建/)).toBeInTheDocument()
+  })
+
+  it('收尾之后审批链把 06 画成走完，而不是永远等在那里', async () => {
+    const { user } = renderQuotation()
+    await declineInitial(user)
+
+    await user.type(screen.getByRole('textbox', { name: /决定与原因/ }), '客户觉得高')
+    await user.click(screen.getByRole('button', { name: /确认不接这单/ }))
+
+    const track = screen.getByText('首次报价审批链').closest('.gp-approval')!
+    expect(within(track as HTMLElement).getByText('案件到此为止')).toBeInTheDocument()
+    expect(within(track as HTMLElement).getByText(/这单没接到，项目从未建立/)).toBeInTheDocument()
+    expect(within(track as HTMLElement).queryByText(/发出后才正式建项/)).toBeNull()
+  })
+
+  it('收尾之后同一个批次编号可以重新立案', async () => {
+    const { user } = renderQuotation()
+    await declineInitial(user)
+
+    await user.type(screen.getByRole('textbox', { name: /决定与原因/ }), '客户觉得高')
+    await user.click(screen.getByRole('button', { name: /确认不接这单/ }))
+
+    const code = caseOf('Q-030').projectCode
+    store.createQuoteCase({
+      kind: 'initial',
+      client: 'Halcyon Games',
+      projectCode: code,
+      title: '场景概念图 12 张（降价重开）',
+      requirement: '客户回头再谈，按新价重开一张。',
+    })
+
+    expect(
+      store.getState().demo.quoteCases.filter((entry) => entry.projectCode === code),
+    ).toHaveLength(2)
+  })
+})

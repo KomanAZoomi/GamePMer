@@ -781,20 +781,40 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
           */}
           {selected.status === 'Rejected' && (
             <>
+              {/*
+                两种案件走到这里，能选的路**不一样**，不能画成同一套三选一：
+                追加报价背后有个在跑的项目，阶段正冻着，所以「放弃变更」要解冻；
+                首次报价连项目都还没建，没有阶段可解冻，「放弃变更」这句话不成立——
+                它只有「这单没接到」。以前两种共用一套按钮，首次报价点下去
+                看到的是「已解冻受影响阶段」，指着一堆并不存在的阶段说话。
+              */}
               <div className="gp-block-box">
                 <h3>客户未接受</h3>
-                <p>
-                  {selected.clientRepliedAt?.slice(5, 16).replace('T', ' ')} 收到答复
-                  {selected.clientReplyNote && <>：{selected.clientReplyNote}</>}
-                  <br />
-                  受影响阶段<strong>还冻着</strong>，三条路：
-                  <br />
-                  <strong>降价重报</strong>——继续谈，阶段保持冻结。
-                  <br />
-                  <strong>放弃变更</strong>——这个变更不做了、项目还在，阶段当场解冻恢复原计划。
-                  <br />
-                  <strong>确认不接入</strong>——整单活没接到，案件收尾并可删除。
-                </p>
+                {selected.kind === 'change' ? (
+                  <p>
+                    {selected.clientRepliedAt?.slice(5, 16).replace('T', ' ')} 收到答复
+                    {selected.clientReplyNote && <>：{selected.clientReplyNote}</>}
+                    <br />
+                    受影响阶段<strong>还冻着</strong>，两条路：
+                    <br />
+                    <strong>降价重报</strong>——继续谈，阶段保持冻结。
+                    <br />
+                    <strong>放弃变更</strong>——这个变更不做了、项目还在，阶段当场解冻恢复原计划。
+                  </p>
+                ) : (
+                  <p>
+                    {selected.clientRepliedAt?.slice(5, 16).replace('T', ' ')} 收到答复
+                    {selected.clientReplyNote && <>：{selected.clientReplyNote}</>}
+                    <br />
+                    这是首次报价，<strong>项目还没建</strong>，没有阶段被冻结，两条路：
+                    <br />
+                    <strong>降价重报</strong>——继续谈，回到总监出人天。
+                    <br />
+                    <strong>确认不接这单</strong>——这单活没接到，案件收尾并可删除；
+                    删掉之后批次编号 <strong>{selected.projectCode}</strong> 就空出来了，
+                    客户回头再谈可以用同一个编号重开。
+                  </p>
+                )}
               </div>
               <label className="gp-note-field">
                 <span>决定与原因（放弃时必填）</span>
@@ -814,28 +834,27 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                 >
                   降价重报 · 退回总监
                 </button>
-                <button
-                  type="button"
-                  className="gp-btn"
-                  disabled={!note.trim()}
-                  title={note.trim() ? undefined : '放弃变更要写明原因'}
-                  onClick={withNoteReset(() => store.abandonCase(selected.id, note))}
-                >
-                  放弃变更 · 解冻阶段
-                </button>
-                {/*
-                  第三条路：这单没接到。与「放弃变更」的区别是——
-                  放弃是这个变更不做了、项目还在；不接入是整单活没接到。
-                */}
-                <button
-                  type="button"
-                  className="gp-btn"
-                  disabled={!note.trim()}
-                  title={note.trim() ? undefined : '确认不接入要写明原因'}
-                  onClick={withNoteReset(() => store.markNotEngaged(selected.id, note))}
-                >
-                  确认不接入 · 可删除
-                </button>
+                {selected.kind === 'change' ? (
+                  <button
+                    type="button"
+                    className="gp-btn"
+                    disabled={!note.trim()}
+                    title={note.trim() ? undefined : '放弃变更要写明原因'}
+                    onClick={withNoteReset(() => store.abandonCase(selected.id, note))}
+                  >
+                    放弃变更 · 解冻阶段
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="gp-btn"
+                    disabled={!note.trim()}
+                    title={note.trim() ? undefined : '确认不接这单要写明原因'}
+                    onClick={withNoteReset(() => store.markNotEngaged(selected.id, note))}
+                  >
+                    确认不接这单 · 可删除
+                  </button>
+                )}
               </div>
             </>
           )}

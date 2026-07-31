@@ -992,7 +992,8 @@ describe('客户不接受之后还有路可走', () => {
   it('客户未接受不是终点，仍然给得出下一步', () => {
     const state = declined(createDemoState())
     expect(TERMINAL_QUOTE_STATUSES).not.toContain('Rejected')
-    expect(availableActions(state, CASE)).toEqual(['requote', 'abandon', 'not-engaged'])
+    // 追加报价：不做了就是放弃这个变更，项目还在，受影响阶段要解冻
+    expect(availableActions(state, CASE)).toEqual(['requote', 'abandon'])
     expect(quoteWaitingOn(state, CASE)?.mine).toBe(true)
   })
 
@@ -1147,9 +1148,10 @@ describe('确认不接入的单子可以删掉', () => {
     })
   }
 
-  it('客户未接受时三条路都给得出来', () => {
+  it('首次报价被否掉时给的是重报与不接入，不给「放弃变更」', () => {
     const state = declined(createDemoState())
-    expect(availableActions(state, CASE)).toEqual(['requote', 'abandon', 'not-engaged'])
+    // Q-030 是首次报价：项目还没建，没有阶段可解冻，「放弃变更」这句话不成立
+    expect(availableActions(state, CASE)).toEqual(['requote', 'not-engaged'])
   })
 
   it('确认不接入要写原因，写了才进终态', () => {
@@ -1217,5 +1219,147 @@ describe('确认不接入的单子可以删掉', () => {
     state = deleteQuoteCase(state, CASE, { actor: ACTOR, now: NOW, via: '内部决定' })
 
     expect(quoteTodoList(state).some((row) => row.id === CASE)).toBe(false)
+  })
+})
+
+/**
+ * 验收时发现的一整串问题，都出在**首次报价被客户否掉之后**。
+ *
+ * 现场：`DZ_X6_2D_B01` 报出去，客户嫌贵，PM 放弃。然后
+ * 1. 同一个批次编号再也立不了案——一张已经死掉的单子永久占着编号；
+ * 2. 首次报价点的是「放弃变更 · 解冻阶段」，可它连项目都还没建，没有阶段可解冻；
+ * 3. 审批链照旧把 06「PM 发出正式开工邮件」画成当前步，指着一条走不通的路。
+ */
+describe('首次报价被否掉之后', () => {
+  const BASE = { actor: ACTOR, now: NOW }
+  const CODE = 'DZX_A_2D_B01'
+
+  /** 把一张首次报价一路推到「客户未接受」。 */
+  function rejectedInitial(): { state: DemoState; caseId: string } {
+    let state = createDemoState()
+    state = createQuoteCase(state, {
+      ...BASE,
+      kind: 'initial',
+      client: 'Dazzle Interactive',
+      projectCode: CODE,
+      title: '2D 立绘 6 张',
+      requirement: 'BD 转述：6 张立绘，草图到完成稿。',
+    })
+    const caseId = state.quoteCases.at(-1)!.id
+
+    state = submitQuoteVersion(state, caseId, {
+      lines: [
+        {
+          id: 'L-1',
+          assetId: 'CHAR-A',
+          stageCode: '2D_SKETCH',
+          title: '草图',
+          note: '6 张',
+          personDays: 3,
+          unitPrice: 2000,
+          plannedStart: '2026-08-03',
+          plannedFinish: '2026-08-05',
+        },
+      ],
+      scheduleImpactWorkdays: 3,
+      submittedBy: 'Yuki',
+      ...BASE,
+    })
+    const reviewerId = state.quoteCases.find((entry) => entry.id === caseId)!.reviewerPersonId
+    state = reviewQuote(state, caseId, { ...BASE, decision: 'approve', note: '同意' })
+    void reviewerId
+    state = sendToClient(state, caseId, { ...BASE, via: 'Outlook' })
+    state = recordClientReply(state, caseId, 'decline', {
+      ...BASE,
+      via: 'Outlook',
+      note: '客户觉得高',
+    })
+    return { state, caseId }
+  }
+
+  it('已放弃的案件不再占着批次编号，同编号可以重新立案', () => {
+    const { state, caseId } = rejectedInitial()
+    const abandoned = markNotEngaged(state, caseId, { ...BASE, via: '内部决定', note: '客户嫌贵，不接' })
+
+    const retry = createQuoteCase(abandoned, {
+      ...BASE,
+      kind: 'initial',
+      client: 'Dazzle Interactive',
+      projectCode: CODE,
+      title: '2D 立绘 6 张（降价重报）',
+      requirement: '客户回头再谈，按新价重开一张。',
+    })
+
+    expect(retry.quoteCases.filter((entry) => entry.projectCode === CODE)).toHaveLength(2)
+    expect(retry.quoteCases.at(-1)!.status).toBe('DirectorQuoting')
+  })
+
+  it('还活着的案件仍然挡住重复立案——这条不能一起放开', () => {
+    const { state } = rejectedInitial()
+    // Rejected 不是终态：PM 还没决定重报还是放弃，编号仍被占着
+    expect(() =>
+      createQuoteCase(state, {
+        ...BASE,
+        kind: 'initial',
+        client: 'Dazzle Interactive',
+        projectCode: CODE,
+        title: '又开一张',
+        requirement: '又开一张',
+      }),
+    ).toThrow(/已经有一张首次报价案件/)
+  })
+
+  it('首次报价不提供「放弃变更」——它没有项目，也没有阶段可解冻', () => {
+    const { state, caseId } = rejectedInitial()
+    const actions = availableActions(state, caseId)
+
+    expect(actions).toContain('requote')
+    expect(actions).toContain('not-engaged')
+    expect(actions).not.toContain('abandon')
+  })
+
+  it('硬调放弃变更会被挡住，并说清该走哪个动作', () => {
+    const { state, caseId } = rejectedInitial()
+    expect(() => abandonCase(state, caseId, { ...BASE, via: '内部决定', note: '不做了' })).toThrow(
+      /确认不接这单/,
+    )
+  })
+
+  it('确认不接这单之后，案件走到终态且可删除', () => {
+    const { state, caseId } = rejectedInitial()
+    const next = markNotEngaged(state, caseId, { ...BASE, via: '内部决定', note: '客户嫌贵' })
+    const quoteCase = next.quoteCases.find((entry) => entry.id === caseId)!
+
+    expect(quoteCase.status).toBe('NotEngaged')
+    expect(TERMINAL_QUOTE_STATUSES).toContain(quoteCase.status)
+    expect(availableActions(next, caseId)).toContain('delete')
+    // 没接到的单子不该再出现在待办里
+    expect(quoteTodoList(next).some((row) => row.id === caseId)).toBe(false)
+  })
+
+  it('终态案件没有任何后续动作，开工被明确拒绝', () => {
+    const { state, caseId } = rejectedInitial()
+    const next = markNotEngaged(state, caseId, { ...BASE, via: '内部决定', note: '客户嫌贵' })
+
+    expect(availableActions(next, caseId)).not.toContain('kickoff')
+    expect(kickoffBlockingIssues(next, caseId).length).toBeGreaterThan(0)
+    expect(() => sendKickoff(next, caseId, { ...BASE, via: 'Outlook' })).toThrow(QuoteBlocked)
+  })
+
+  it('删掉之后编号彻底空出来', () => {
+    const { state, caseId } = rejectedInitial()
+    let next = markNotEngaged(state, caseId, { ...BASE, via: '内部决定', note: '客户嫌贵' })
+    next = deleteQuoteCase(next, caseId, { ...BASE, via: '内部决定' })
+
+    expect(next.quoteCases.some((entry) => entry.projectCode === CODE)).toBe(false)
+    const retry = createQuoteCase(next, {
+      ...BASE,
+      kind: 'initial',
+      client: 'Dazzle Interactive',
+      projectCode: CODE,
+      title: '重开',
+      requirement: '重开',
+    })
+    expect(retry.quoteCases.at(-1)!.projectCode).toBe(CODE)
   })
 })
