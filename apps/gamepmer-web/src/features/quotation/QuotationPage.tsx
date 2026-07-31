@@ -471,6 +471,16 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                 已作废 {scrappedRows.length} 件
                 <em>不占批次编号，可直接重新立案</em>
               </summary>
+              <div className="gp-scrapped-bulk">
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-sm gp-scrapped-delete"
+                  title="把这些没做成的案件一次清掉；审计全部保留"
+                  onClick={() => scrappedRows.forEach((row) => store.deleteQuoteCase(row.id))}
+                >
+                  清空这 {scrappedRows.length} 件
+                </button>
+              </div>
               <ul className="gp-case-items">
                 {scrappedRows.map((row) => (
                   <li key={row.id} className="gp-scrapped-row">
@@ -486,16 +496,14 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                         {row.projectCode} · {QUOTE_STATUS_LABEL[row.quoteCase!.status]}
                       </span>
                     </button>
-                    {row.quoteCase!.status === 'NotEngaged' && (
-                      <button
-                        type="button"
-                        className="gp-btn gp-btn-sm gp-scrapped-delete"
-                        title={`彻底删除 ${row.id}（审计保留）`}
-                        onClick={() => store.deleteQuoteCase(row.id)}
-                      >
-                        删除
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="gp-btn gp-btn-sm gp-scrapped-delete"
+                      title={`彻底删除 ${row.id}（审计保留）`}
+                      onClick={() => store.deleteQuoteCase(row.id)}
+                    >
+                      删除
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -1033,6 +1041,18 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
                 </button>
               </div>
             </>
+          )}
+
+          {selected.status === 'Abandoned' && (
+            <div className="gp-detail-actions">
+              <button
+                type="button"
+                className="gp-btn gp-btn-danger"
+                onClick={() => store.deleteQuoteCase(selected.id)}
+              >
+                彻底删除这张案件
+              </button>
+            </div>
           )}
 
           {selected.status === 'Abandoned' && (

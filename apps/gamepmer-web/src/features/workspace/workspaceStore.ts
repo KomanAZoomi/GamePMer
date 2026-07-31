@@ -45,6 +45,17 @@ import {
   sendToClient as sendQuoteToClient,
   submitQuoteVersion,
 } from '../../domain/quotation'
+import {
+  removeHoliday as removeCalendarDay,
+  removePerson as removeOrgPerson,
+  removeProductionGroup as removeOrgGroup,
+  saveHoliday as saveCalendarDay,
+  savePerson as saveOrgPerson,
+  saveProductionGroup as saveOrgGroup,
+  type CalendarDayKind,
+  type PersonDraft,
+  type ProductionGroupDraft,
+} from '../../domain/orgConfig'
 import { confirmScheduleEntry as confirmEntry } from '../../domain/scheduleEntry'
 import {
   classifyInScope,
@@ -174,6 +185,12 @@ export interface WorkspaceStore {
   resetDemo(): void
   /** 清空业务数据，保留制作组、工作日历与成员——没有它们工作台没法用 */
   clearBusinessData(): void
+  saveProductionGroup(draft: ProductionGroupDraft): void
+  removeProductionGroup(groupId: string): void
+  saveCalendarDay(date: string, kind: CalendarDayKind): void
+  removeCalendarDay(date: string, kind: CalendarDayKind): void
+  savePerson(draft: PersonDraft): void
+  removePerson(personId: string): void
 }
 
 const DEFAULT_PROJECT = 'NST_A_3D_B24'
@@ -206,6 +223,15 @@ export function createWorkspaceStore(
 
   const listeners = new Set<() => void>()
   const emit = () => listeners.forEach((listener) => listener())
+
+  const ACTOR = 'Brandon'
+  /** 落盘 + 通知。领域层返回同一个引用（无变化）时什么都不做。 */
+  const commit = (demo: DemoState) => {
+    if (demo === state.demo) return
+    repository.save(demo)
+    state = { ...state, demo }
+    emit()
+  }
 
   return {
     getState: () => state,
@@ -612,6 +638,25 @@ export function createWorkspaceStore(
     clearBusinessData() {
       state = initialState(repository.clear(), clock.today())
       emit()
+    },
+    // 组织配置的六个用例形状一样：领域层校验不过就抛，界面照实显示，不静默吞掉
+    saveProductionGroup(draft) {
+      commit(saveOrgGroup(state.demo, { draft, actor: ACTOR, now: clock.now() }))
+    },
+    removeProductionGroup(groupId) {
+      commit(removeOrgGroup(state.demo, groupId, { actor: ACTOR, now: clock.now() }))
+    },
+    saveCalendarDay(date, kind) {
+      commit(saveCalendarDay(state.demo, { date, kind, actor: ACTOR, now: clock.now() }))
+    },
+    removeCalendarDay(date, kind) {
+      commit(removeCalendarDay(state.demo, { date, kind, actor: ACTOR, now: clock.now() }))
+    },
+    savePerson(draft) {
+      commit(saveOrgPerson(state.demo, { draft, actor: ACTOR, now: clock.now() }))
+    },
+    removePerson(personId) {
+      commit(removeOrgPerson(state.demo, personId, { actor: ACTOR, now: clock.now() }))
     },
   }
 }

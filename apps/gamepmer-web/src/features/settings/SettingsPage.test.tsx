@@ -163,22 +163,27 @@ describe('连接器如实标注审批门槛', () => {
 })
 
 describe('组织与业务规则', () => {
-  it('按角色列成员，并点名兼多角的人', async () => {
+  /**
+   * 组织配置从只读表格改成了可编辑：成员表现在每人一行、角色是复选框，
+   * 所以这里改成守「角色能勾、兼职说明还在」，而不是守旧的角色汇总表。
+   */
+  it('成员表列出每个人的角色，兼多角的照样看得出来', async () => {
     const { user } = renderSettings()
     await goto(user)
-    await section(user, '成员与角色')
+    await section(user, '组织配置')
 
-    expect(screen.getByLabelText('成员与角色')).toBeInTheDocument()
-    // Leo 在角色表和兼职说明里都出现，这里看的是兼职说明那条
-    const merge = document.querySelector('.gp-merge-note') as HTMLElement
-    expect(within(merge).getByText(/Leo/)).toBeInTheDocument()
-    expect(within(merge).getByText(/只需确认一次/)).toBeInTheDocument()
+    const table = screen.getByLabelText('成员')
+    expect(within(table).getByDisplayValue('Leo')).toBeInTheDocument()
+    // 组长兼 BD：两个复选框都勾着
+    expect(screen.getByRole('checkbox', { name: 'Leo 组长' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Leo BD' })).toBeChecked()
+    expect(screen.getByText(/只需确认一次/)).toBeInTheDocument()
   })
 
   it('制作组容量写明是跨项目共享', async () => {
     const { user } = renderSettings()
     await goto(user)
-    await section(user, '成员与角色')
+    await section(user, '组织配置')
 
     expect(screen.getByText(/跨项目共享资源/)).toBeInTheDocument()
   })
@@ -240,5 +245,98 @@ describe('运维', () => {
     const main = screen.getByLabelText('设置内容')
     await user.click(within(main).getByRole('button', { name: '恢复示例数据' }))
     expect(store.getState().demo.projects.length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * 组织配置可编辑。
+ *
+ * 在此之前这三样只能来自种子数据，于是「清空演示数据、录自己的业务」走不通——
+ * 报价行挑不到自己的制作组，复核找不到自己的人。
+ */
+describe('组织配置能录自己的', () => {
+  async function openOrg() {
+    const { user } = renderSettings()
+    await goto(user)
+    await section(user, '组织配置')
+    return { user }
+  }
+
+  it('新增一个制作组，排期里立刻能用', async () => {
+    const { user } = await openOrg()
+
+    await user.type(screen.getByLabelText('新制作组名'), '2D 原画 B 组')
+    await user.type(screen.getByLabelText('新制作组组长'), '小林')
+    await user.click(screen.getByRole('button', { name: '新增制作组' }))
+
+    const created = store.getState().demo.productionGroups.at(-1)!
+    expect(created.name).toBe('2D 原画 B 组')
+    expect(created.leadName).toBe('小林')
+  })
+
+  it('还挂着阶段的组删不掉，按钮禁用并说清被谁占着', async () => {
+    await openOrg()
+    const table = screen.getByLabelText('制作组')
+    const rows = within(table).getAllByRole('row').slice(1)
+    // 种子里 3D 角色 A 组挂着 MECH-01 的阶段
+    const used = rows.find((row) => within(row).queryByDisplayValue('3D 角色 A 组'))!
+    const remove = within(used).getByRole('button', { name: '删除' })
+    expect(remove).toBeDisabled()
+    expect(remove.getAttribute('title')).toMatch(/个阶段/)
+  })
+
+  it('加一个公司休息日，日历里立刻出现', async () => {
+    const { user } = await openOrg()
+
+    await user.type(screen.getByLabelText('新增日期'), '2026-09-30')
+    await user.click(screen.getByRole('button', { name: '加入日历' }))
+
+    expect(store.getState().demo.calendars[0].holidays).toContain('2026-09-30')
+    expect(within(screen.getByLabelText('公司休息日')).getByText('2026-09-30')).toBeInTheDocument()
+  })
+
+  it('同一天既是休息日又想设成工作日时，如实报错而不是静默失败', async () => {
+    const { user } = await openOrg()
+    const existing = store.getState().demo.calendars[0].holidays[0]
+
+    await user.type(screen.getByLabelText('新增日期'), existing)
+    await user.selectOptions(screen.getByLabelText('日期类型'), 'extra')
+    await user.click(screen.getByRole('button', { name: '加入日历' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/已经是/)
+    expect(store.getState().demo.calendars[0].extraWorkdays).not.toContain(existing)
+  })
+
+  it('新增成员必须选角色，没选就报错', async () => {
+    const { user } = await openOrg()
+    const before = store.getState().demo.people.length
+
+    await user.type(screen.getByLabelText('新成员姓名'), '小方')
+    await user.click(screen.getByRole('button', { name: '新增成员' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/角色/)
+    expect(store.getState().demo.people).toHaveLength(before)
+  })
+
+  it('勾上角色就能存，兼两职的人只算一条', async () => {
+    const { user } = await openOrg()
+
+    await user.type(screen.getByLabelText('新成员姓名'), '小方')
+    await user.click(screen.getByRole('checkbox', { name: '新成员 组长' }))
+    await user.click(screen.getByRole('checkbox', { name: '新成员 BD' }))
+    await user.click(screen.getByRole('button', { name: '新增成员' }))
+
+    const created = store.getState().demo.people.at(-1)!
+    expect(created.name).toBe('小方')
+    expect(created.roles).toEqual(['组长', 'BD'])
+  })
+
+  it('还在复核未完结案件的人删不掉', async () => {
+    await openOrg()
+    const table = screen.getByLabelText('成员')
+    const row = within(table).getAllByRole('row').find((entry) => within(entry).queryByDisplayValue('Leo'))!
+    const remove = within(row).getByRole('button', { name: '删除' })
+    expect(remove).toBeDisabled()
+    expect(remove.getAttribute('title')).toMatch(/复核人/)
   })
 })

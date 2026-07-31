@@ -223,8 +223,8 @@ export function availableActions(state: DemoState, caseId: string): QuoteAction[
    * 为了删一张空单把整条流程演一遍。立错案是最常见的操作，不该这么贵。
    */
   if (!TERMINAL_QUOTE_STATUSES.includes(quoteCase.status)) actions.push('not-engaged')
-  // 作废掉的单子长期占着列表没有意义，所以这一态额外允许删除
-  if (quoteCase.status === 'NotEngaged') actions.push('delete')
+  // 没做成的单子长期占着列表没有意义，所以这两态额外允许删除
+  if (DEAD_QUOTE_STATUSES.includes(quoteCase.status)) actions.push('delete')
   return actions
 }
 
@@ -1181,10 +1181,16 @@ export function deleteQuoteCase(
 ): DemoState {
   const quoteCase = state.quoteCases.find((entry) => entry.id === caseId)
   if (!quoteCase) throw new QuoteBlocked([`找不到报价案件 ${caseId}`])
-  if (quoteCase.status !== 'NotEngaged') {
+  /**
+   * 只有**没做成**的案件可以删。
+   *
+   * 原来只认 `NotEngaged`，于是早先用「放弃变更」收尾的单子（那时首次报价也给这个动作）
+   * 永远删不掉——列表里躺着一张既没成、又清不走的案件。
+   * 已开工的仍然拒绝：那是正式项目的报价依据，结项出账要汇总它。
+   */
+  if (!DEAD_QUOTE_STATUSES.includes(quoteCase.status)) {
     throw new QuoteBlocked([
-      `只有「${QUOTE_STATUS_LABEL.NotEngaged}」的案件可以删除；` +
-        `当前是「${QUOTE_STATUS_LABEL[quoteCase.status]}」`,
+      `只有已作废或已放弃的案件可以删除；当前是「${QUOTE_STATUS_LABEL[quoteCase.status]}」`,
     ])
   }
 
@@ -1192,7 +1198,7 @@ export function deleteQuoteCase(
     id: nextId(state.auditEvents.map((entry) => entry.id), 'AE-', 3),
     at: input.now,
     actor: input.actor,
-    action: '删除未接入的报价案件',
+    action: '删除未做成的报价案件',
     targetKind: 'QuoteCase',
     targetId: caseId,
     before: `${quoteCase.projectCode} · ${quoteCase.title}`,

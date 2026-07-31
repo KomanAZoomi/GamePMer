@@ -1044,3 +1044,9 @@
 .gp-scrapped-delete:hover {
   background: var(--danger-soft);
 }
+
+.gp-scrapped-bulk {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 8px 6px;
+}

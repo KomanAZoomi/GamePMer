@@ -17,6 +17,7 @@ import {
 } from '../../domain/settings'
 import { PATH_KIND_LABEL, PATH_KIND_ORDER } from '../../domain/projectPaths'
 import type { WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
+import { OrgSection } from './OrgSection'
 
 interface SettingsPageProps {
   workspace: WorkspaceState
@@ -27,7 +28,7 @@ interface SettingsPageProps {
 type Section = 'org' | 'rules' | 'connectors' | 'llm' | 'ops'
 
 const SECTIONS: Array<{ key: Section; label: string; group: string }> = [
-  { key: 'org', label: '成员与角色', group: '组织' },
+  { key: 'org', label: '组织配置', group: '组织' },
   { key: 'rules', label: '业务规则', group: '组织' },
   { key: 'connectors', label: '连接器', group: '集成' },
   { key: 'llm', label: 'LLM 供应商', group: '集成' },
@@ -343,62 +344,7 @@ export function SettingsPage({ workspace, store, onNavigate }: SettingsPageProps
             </>
           )}
 
-          {section === 'org' && (
-            <>
-              <header className="gp-card-head">
-                <h2>
-                  成员与角色
-                  <small>一个人可以兼多职，这直接决定复核要不要合并</small>
-                </h2>
-                <span className="gp-count">{demo.people.length}</span>
-              </header>
-              <table className="gp-role-table" aria-label="成员与角色">
-                <thead>
-                  <tr>
-                    <th>角色</th>
-                    <th>成员</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {roles.map((row) => (
-                    <tr key={row.role}>
-                      <td>
-                        <strong>{row.role}</strong>
-                      </td>
-                      <td>{row.names.length > 0 ? row.names.join('、') : <span className="gp-settings-muted">暂无</span>}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="gp-merge-note">
-                <h3>兼任多角色的成员</h3>
-                {multiRole.map((row) => (
-                  <p key={row.name}>
-                    <strong>{row.name}</strong> 同时是 {row.roles.join(' 与 ')}
-                    ——报价复核时<strong>只需确认一次</strong>，但审计里两个角色都会记下来。
-                  </p>
-                ))}
-              </div>
-
-              <div className="gp-group-list">
-                <h3>制作组</h3>
-                <ul>
-                  {demo.productionGroups.map((group) => (
-                    <li key={group.id}>
-                      <strong>{group.name}</strong>
-                      <span>
-                        {group.discipline} · 组长 {group.leadName} · {group.dailyCapacity} 人天/工作日
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="gp-settings-note">
-                  制作组容量是<strong>跨项目共享资源</strong>，不挂在任何单个项目下。
-                  排期页的筛选只影响显示，不影响这里的容量数字。
-                </p>
-              </div>
-            </>
-          )}
+          {section === 'org' && <OrgSection demo={demo} store={store} />}
 
           {section === 'rules' && (
             <>

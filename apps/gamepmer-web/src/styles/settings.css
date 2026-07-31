@@ -545,3 +545,161 @@
 .gp-btn-danger:hover {
   filter: brightness(1.06);
 }
+
+/* ---------------------------------------------------------------- 组织配置 */
+
+.gp-org-error {
+  margin: var(--space-3) var(--space-4) 0;
+  padding: 10px 12px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-md);
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+  font-size: var(--text-2xs);
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+.gp-org-block {
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-faint);
+}
+
+.gp-org-block:first-of-type {
+  border-top: 0;
+}
+
+.gp-org-block h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.gp-org-block h4 {
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
+}
+
+.gp-org-table {
+  width: 100%;
+  margin-top: var(--space-3);
+  border-collapse: collapse;
+}
+
+.gp-org-table th,
+.gp-org-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-faint);
+  text-align: left;
+  font-size: var(--text-2xs);
+  vertical-align: middle;
+}
+
+.gp-org-table th {
+  color: var(--text-faint);
+  font-weight: var(--weight-bold);
+  background: var(--surface-rail);
+  white-space: nowrap;
+}
+
+.gp-org-table .gp-input {
+  min-width: 0;
+  width: 100%;
+}
+
+.gp-org-usage {
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.gp-org-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-org-add .gp-input {
+  width: auto;
+  min-width: 120px;
+}
+
+.gp-org-add .gp-input-num {
+  min-width: 84px;
+}
+
+.gp-role-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gp-role-picks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+
+.gp-day-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.gp-day-list {
+  display: grid;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 0;
+  list-style: none;
+}
+
+.gp-day-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px solid var(--border-faint);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: var(--text-2xs);
+}
+
+/* 类型下拉要装得下「3D」+ 箭头，否则被裁成「3[」 */
+.gp-org-table select.gp-input {
+  min-width: 72px;
+}
+
+.gp-org-add .gp-input[type='number'] {
+  min-width: 96px;
+}
+
+/* 新增行按列对齐，别让容量框自己掉一行 */
+.gp-org-add {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.gp-org-add > .gp-role-picks {
+  flex-wrap: nowrap;
+}
+
+@media (max-width: 1439px) {
+  .gp-org-add {
+    flex-wrap: wrap;
+  }
+}
