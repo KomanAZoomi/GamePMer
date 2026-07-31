@@ -366,40 +366,29 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
           */}
           {listed.length === 0 && (
             <div className="gp-empty">
-              {quoteTab === 'mine' ? (
-                <>
-                  <p>没有等你动手的事。</p>
-                  {buckets.active.length > 0 && (
-                    <>
-                      <p>
-                        另有 <strong>{buckets.active.length}</strong> 件在别人手上（总监报价、组长复核或等客户回话）。
-                      </p>
-                      <button
-                        type="button"
-                        className="gp-btn"
-                        onClick={() => store.setQuoteTab('active')}
-                      >
-                        看全部进行中 {buckets.active.length} 件
-                      </button>
-                    </>
-                  )}
-                  {buckets.active.length === 0 && buckets.done.length > 0 && (
-                    <>
-                      <p>
-                        已完成里还有 <strong>{buckets.done.length}</strong> 件历史案件。
-                      </p>
-                      <button
-                        type="button"
-                        className="gp-btn"
-                        onClick={() => store.setQuoteTab('done')}
-                      >
-                        看已完成 {buckets.done.length} 件
-                      </button>
-                    </>
-                  )}
-                </>
-              ) : (
-                <p>这个页签下暂时没有案件。</p>
+              <p>
+                {quoteTab === 'mine'
+                  ? '没有等你动手的事。'
+                  : quoteTab === 'active'
+                    ? '没有还在进行的案件。'
+                    : '还没有收尾的案件。'}
+              </p>
+              {/*
+                空页签只写「没有案件」是另一种骗人：案件其实在隔壁页签。
+                作废一张之后「全部进行中」清零，人会以为案件没了——
+                所以任何一个空页签都要说清别处还压着几件，并给一个点得过去的按钮。
+              */}
+              {TABS.filter((tab) => tab.key !== quoteTab && buckets[tab.key].length > 0).map(
+                (tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    className="gp-btn"
+                    onClick={() => store.setQuoteTab(tab.key)}
+                  >
+                    看{tab.label} {buckets[tab.key].length} 件
+                  </button>
+                ),
               )}
             </div>
           )}
@@ -961,12 +950,14 @@ export function QuotationPage({ workspace, store, onNavigate }: QuotationPagePro
               <div className="gp-block-box">
                 <h3>已作废</h3>
                 <p>
-                  案件已收尾，批次编号 <strong>{selected.projectCode}</strong> 已经空出来，
-                  现在就能用它重新立案。
+                  案件已收尾并<strong>移到「已完成」页签</strong>，不再占用进行中的视野。
+                  批次编号 <strong>{selected.projectCode}</strong> 已经空出来，现在就能用它重新立案。
                   <br />
-                  列表里留着它没有意义，可以彻底删掉——
-                  <strong>删除只删案件与报价版本，审计一条不动</strong>：
-                  丢了审计就没法解释这单为什么没接到。
+                  <br />
+                  谈过没谈成的单子<strong>建议留着</strong>：智能分析要靠它算报价命中率，
+                  也能说明这个客户在什么价位上退过。
+                  只有「录错了、这条根本不该存在」才需要彻底删除——
+                  <strong>删除只删案件与报价版本，审计一条不动</strong>。
                 </p>
               </div>
               <div className="gp-detail-actions">

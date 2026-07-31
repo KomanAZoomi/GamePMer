@@ -261,13 +261,32 @@ describe('作废并删除一个立错的批次', () => {
     expect(store.getState().demo.quoteCases[0].projectCode).toBe('DZX_X6_2D_B01')
   })
 
-  it('「待我处理」为空时说清别处还压着几件，并给一个点得过去的按钮', async () => {
+  it('「待我处理」为空时给一个点得过去的按钮', async () => {
     const { user, store } = await withOneCase()
     act(() => store.setQuoteTab('mine'))
 
     const list = screen.getByLabelText('报价案件')
-    expect(within(list).getByText(/另有/)).toBeInTheDocument()
-    await user.click(within(list).getByRole('button', { name: /看全部进行中/ }))
+    await user.click(within(list).getByRole('button', { name: /看全部进行中 1 件/ }))
     expect(within(screen.getByLabelText('报价案件')).getByText(/立绘第一批/)).toBeInTheDocument()
+  })
+
+  /**
+   * 作废之后「全部进行中」清零，人会以为案件没了。
+   * 空页签必须说清它去了哪儿，并且能一键跟过去。
+   */
+  it('作废后进行中清零，空页签指向已完成', async () => {
+    const { user, store } = await withOneCase()
+
+    await user.click(screen.getByText('作废这张案件'))
+    await user.type(screen.getByRole('textbox', { name: /作废原因/ }), '报价没谈好，中止')
+    await user.click(screen.getByRole('button', { name: '作废并释放编号' }))
+
+    act(() => store.setQuoteTab('active'))
+    const list = screen.getByLabelText('报价案件')
+    await user.click(within(list).getByRole('button', { name: /看已完成 1 件/ }))
+
+    expect(within(screen.getByLabelText('报价案件')).getByText(/立绘第一批/)).toBeInTheDocument()
+    // 到了已完成页签仍然能彻底删除
+    expect(screen.getByRole('button', { name: '彻底删除这张案件' })).toBeEnabled()
   })
 })
