@@ -245,16 +245,24 @@ BD 需求 → 总监报价 → 组长/BD 复核 → BD 报给客户 → 客户�
 
 ## 本地运行
 
+双击 `apps/gamepmer-web/start.cmd`，浏览器会自动打开 <http://127.0.0.1:5180/>。
+
+或者手工起：
+
 ```powershell
 cd apps/gamepmer-web
 npm.cmd install
 npm.cmd run dev -- --host 127.0.0.1 --port 5180 --strictPort
 ```
 
-打开 <http://127.0.0.1:5180/>。
+**这是开发服务器，不是常驻服务。** 关掉那个命令行窗口、重启电脑、或者让它跑在某个会话里而那个会话结束了，
+服务就停了，页面自然打不开——这不是数据丢了，数据在浏览器 localStorage 里，重新启动后照旧。
 
-两个环境上的坑：PowerShell 会优先解析 `D:\Node\npm.ps1` 并被执行策略挡住，所以用 `npm.cmd`；
-Vite 默认只监听 IPv6 时本机连不上，所以显式绑 `127.0.0.1`。
+三个环境上的坑，都写死在 `start.cmd` 里了：
+
+- PowerShell 会优先解析 `D:\Node\npm.ps1` 并被执行策略挡住，所以用 `npm.cmd`。
+- Vite 默认可能只绑 IPv6，本机反而连不上，所以显式绑 `127.0.0.1`。
+- 不加 `--strictPort` 时端口被占会**悄悄换一个**——曾经换到 5173，打开看到的是另一个应用。
 
 ## 质量门禁
 
