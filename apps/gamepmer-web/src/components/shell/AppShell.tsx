@@ -33,7 +33,6 @@ export function AppShell({
       <aside className="gp-rail">
         <div className="gp-brand">
           GamePMer
-          <span>GAME ART PM WORKSPACE</span>
         </div>
 
         <nav className="gp-nav" aria-label="全局导航">
@@ -55,8 +54,14 @@ export function AppShell({
           ))}
         </nav>
 
-        <div className="gp-rail-section">我的工作区</div>
-        <div className="gp-workspace-chip">产品美术中心</div>
+        {/*
+          「我的工作区」是分区标签，不是第 11 条导航。
+          原来它和上面十条同为一列纯文本，扫下来会当成又一个模块。
+        */}
+        <div className="gp-rail-group">
+          <div className="gp-rail-section">我的工作区</div>
+          <div className="gp-workspace-chip">产品美术中心</div>
+        </div>
 
         <div className="gp-user">
           <span className="gp-avatar" aria-hidden="true">

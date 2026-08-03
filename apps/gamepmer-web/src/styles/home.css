@@ -45,16 +45,31 @@
   gap: var(--space-2);
 }
 
+/*
+ * 指标是一条连续的带，不是五张卡片。
+ *
+ * 五个并排的盒子各画一圈边，读起来像五个互不相干的东西；
+ * 它们其实是同一个项目的五个切面。改成一条带，中间用发丝竖线分开。
+ */
 .gp-metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  overflow: hidden;
+}
+
+.gp-metrics > .gp-metric + .gp-metric {
+  border-left: 1px solid var(--border-faint);
 }
 
 .gp-metric {
   display: grid;
-  gap: 2px;
-  padding: var(--space-4) var(--space-5);
+  gap: var(--space-1);
+  padding: var(--space-5) var(--space-6);
+  border: 0;
+  border-radius: 0;
 }
 
 .gp-metric.is-risk {

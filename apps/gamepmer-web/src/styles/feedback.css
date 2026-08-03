@@ -500,17 +500,30 @@
 }
 
 /*
- * 三栏用背景分层，不用描边。
+ * 三栏用发丝竖线分栏，不用底色块。
  *
- * 描边的活是「圈出边界」，可这三栏本来就并排、本来就有间距，
- * 边界不言自明。再各画一圈，屏幕上就多出三条没有信息量的线。
+ * 底色块的问题在真实数据下才暴露：三栏卡片数量不等，底色块就高低不齐，
+ * 空的那栏留一大片色斑，看着像没加载完。竖线是等高的，与内容多少无关。
  */
 .gp-board-column {
   display: flex;
   flex-direction: column;
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--surface-muted);
+  padding: 0 var(--space-5);
+}
+
+.gp-board-column + .gp-board-column {
+  border-left: 1px solid var(--border-faint);
+}
+
+/* 强调只花在一处：等我处理这栏，栏头下压一条强调色实线 */
+.gp-board-column.is-me > header {
+  border-bottom: 2px solid var(--accent);
+}
+
+.gp-board-column > header {
+  padding-bottom: var(--space-3);
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-faint);
 }
 
 .gp-board-column > header h3 {
@@ -536,12 +549,6 @@
   font-size: var(--text-2xs);
   text-align: center;
   color: var(--text-secondary);
-}
-
-/* 等我处理这一栏是行动清单，给它最强的存在感 */
-.gp-board-column.is-me {
-  border-color: var(--accent-border);
-  background: var(--accent-softer);
 }
 
 .gp-board-column.is-me .gp-board-count {
