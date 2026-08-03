@@ -401,3 +401,35 @@ describe('阶段上的反馈全部了结之后', () => {
     expect(screen.getByRole('button', { name: /客户已验收/ })).toBeInTheDocument()
   })
 })
+
+/**
+ * 「还剩 N 条没了结」不能是死路。
+ *
+ * 反馈项没有「手工勾完成」这个动作：返修中要靠阶段推进「已提交客户」，
+ * 已重提要靠「客户已验收」。提示必须说清卡在哪、去哪办。
+ */
+describe('没了结的反馈要指出下一站', () => {
+  it('待分流的卡点指回本页', async () => {
+    await renderFeedback()
+
+    const blockers = screen.getByRole('list', { name: '反馈了结卡点' })
+    expect(within(blockers).getByText(/待分流/)).toBeInTheDocument()
+    expect(within(blockers).getByText(/就在这一页·判定范围/)).toBeInTheDocument()
+  })
+
+  it('确认排期修订后卡点变成返修中，并给出去阶段推进的入口', async () => {
+    const { user } = await renderFeedback()
+    const detail = screen.getByLabelText('反馈项详情')
+
+    await user.click(within(detail).getByRole('button', { name: '判为范围内' }))
+    await user.click(screen.getByRole('button', { name: '生成排期草案' }))
+    await user.click(
+      within(screen.getByLabelText('排期修订草案')).getByRole('button', { name: '确认重排' }),
+    )
+
+    const blockers = screen.getByRole('list', { name: '反馈了结卡点' })
+    expect(within(blockers).getByText(/返修中/)).toBeInTheDocument()
+    expect(within(blockers).getByText(/项目总览·阶段推进「已提交客户」/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '去阶段推进' })).toBeInTheDocument()
+  })
+})

@@ -3,6 +3,7 @@ import type { RouteKey } from '../../app/navigation'
 import { groupName } from '../../domain/lookup'
 import type { FeedbackBatch, FeedbackItem } from '../../domain/model'
 import {
+  FEEDBACK_NEXT_STOP,
   activeRevisionFor,
   revisionNotified,
   stageFeedbackSummary,
@@ -434,10 +435,43 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                   </button>
                 </>
               ) : (
-                <p>
-                  {stage?.name ?? selected.stageId} 上还有 <strong>{stageSummary.open}</strong>{' '}
-                  条反馈没了结，全部了结后才谈得上请客户验收这个阶段。
-                </p>
+                <>
+                  <p>
+                    {stage?.name ?? selected.stageId} 上还有 <strong>{stageSummary.open}</strong>{' '}
+                    条反馈没了结，全部了结后才谈得上请客户验收这个阶段。
+                  </p>
+                  {/*
+                    只说「还剩 1 条」是死路——反馈项不是在这里手工勾完成的，
+                    InRework / Resubmitted 的出口都在阶段推进上。这里把
+                    「卡在哪」翻译成「去哪办」。
+                  */}
+                  <ul className="gp-settle-blockers" aria-label="反馈了结卡点">
+                    {stageSummary.blocking.map(({ status, count }) => {
+                      const stop = FEEDBACK_NEXT_STOP[status as Exclude<typeof status, 'Closed'>]
+                      return (
+                        <li key={status}>
+                          <strong>
+                            {count} 条{stop.label}
+                          </strong>
+                          <span>
+                            → {stop.where === '本页' ? '就在这一页' : stop.where}·{stop.action}
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                  {stageSummary.blocking.some(
+                    ({ status }) => status === 'InRework' || status === 'Resubmitted',
+                  ) && (
+                    <button
+                      type="button"
+                      className="gp-btn"
+                      onClick={() => onNavigate('projects')}
+                    >
+                      去阶段推进
+                    </button>
+                  )}
+                </>
               )}
             </div>
           )}

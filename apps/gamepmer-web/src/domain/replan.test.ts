@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createDemoState } from '../data/seed'
 import { DEMO_TODAY } from './clock'
 import {
+  FEEDBACK_NEXT_STOP,
   ReclassifyBlocked,
   ReplanBlocked,
   classifyInScope,
@@ -15,6 +16,7 @@ import {
   stageFeedbackSummary,
 } from './replan'
 import type { DemoState, FeedbackItem } from './model'
+import { advanceStage } from './stageFlow'
 
 const AT = '2026-07-27T14:00:00+08:00'
 const ITEM = 'F-017/ITEM-01' // 缩小肩甲比例，2 个工作日，影响 MECH-01 高模
@@ -421,3 +423,65 @@ describe('一个阶段的反馈全部了结之后', () => {
     expect(summary.allSettled).toBe(true)
   })
 })
+
+/**
+ * 「还剩 1 条没了结」必须说清这条卡在哪、去哪办。
+ *
+ * 反馈项不是在反馈中心手工勾完成的：返修中要靠阶段推进「已提交客户」，
+ * 已重提要靠「客户已验收」。只报一个数字等于让 PM 自己去翻。
+ */
+describe('阶段反馈了结的卡点', () => {
+  it('把没了结的反馈按状态归类，并各自指向出口', () => {
+    const state = createDemoState()
+    const item = state.feedbackBatches[0].items[0]
+    const after = classifyInScope(state, item.id, '2026-07-27', 'PM')
+    const summary = stageFeedbackSummary(after, item.stageId)
+
+    expect(summary.allSettled).toBe(false)
+    const confirmed = summary.blocking.find((row) => row.status === 'Confirmed')
+    expect(confirmed?.count).toBe(1)
+    expect(FEEDBACK_NEXT_STOP.InRework.where).toBe('项目总览')
+    expect(FEEDBACK_NEXT_STOP.InRework.action).toContain('已提交客户')
+    expect(FEEDBACK_NEXT_STOP.Resubmitted.action).toContain('客户已验收')
+  })
+
+  it('返修完提交客户、客户验收之后才算了结——出口在阶段推进上', () => {
+    const stageId = 'MECH-01/3D_HIGH'
+    let next = fresh()
+
+    // 走完整回路：范围内 → 确认排期修订 → 返修中
+    const draft = generateReplanDraft(next, ITEM, DEMO_TODAY)
+    next = confirmReplan(next, { draft, note: '客户要求缩小肩甲', actor: 'Brandon', at: AT })
+    expect(itemOf(next, ITEM).status).toBe('InRework')
+
+    // 同阶段其余反馈判为无需修改，好把观察点收敛到这一条
+    for (const row of itemsOn(next, stageId)) {
+      if (row.status !== 'NeedsClassification') continue
+      next = classifyNoChange(next, row.id, DEMO_TODAY, 'Brandon')
+    }
+    expect(stageFeedbackSummary(next, stageId).blocking).toEqual([
+      { status: 'InRework', count: 1 },
+    ])
+
+    // 反馈中心里没有「手工勾完成」这个动作，出口在阶段推进上
+    next = advanceStage(next, stageId, 'client-rework', {
+      actor: 'Brandon',
+      now: '2026-07-28T09:00:00+08:00',
+      note: '肩甲还要再收一点',
+    })
+    next = advanceStage(next, stageId, 'hand-to-pm', { actor: 'Chen', now: '2026-07-29T18:00:00+08:00' })
+    next = advanceStage(next, stageId, 'submit-to-client', { actor: 'Brandon', now: '2026-07-30T10:00:00+08:00' })
+    expect(itemOf(next, ITEM).status).toBe('Resubmitted')
+
+    next = advanceStage(next, stageId, 'client-approve', { actor: 'Brandon', now: '2026-07-31T10:00:00+08:00' })
+    expect(itemOf(next, ITEM).status).toBe('Closed')
+  })
+})
+
+function itemsOn(state: DemoState, stageId: string) {
+  return state.feedbackBatches.flatMap((batch) => batch.items).filter((row) => row.stageId === stageId)
+}
+
+function itemOf(state: DemoState, itemId: string) {
+  return state.feedbackBatches.flatMap((batch) => batch.items).find((row) => row.id === itemId)!
+}

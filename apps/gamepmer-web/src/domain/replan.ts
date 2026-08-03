@@ -5,6 +5,7 @@ import type {
   ScheduleRevision,
   DemoState,
   FeedbackItem,
+  FeedbackItemStatus,
   IsoDate,
   Project,
   ScheduleRevisionDraft,
@@ -360,12 +361,45 @@ export function classifyNoChange(
 export function stageFeedbackSummary(
   state: DemoState,
   stageId: string,
-): { total: number; open: number; allSettled: boolean } {
+): {
+  total: number
+  open: number
+  allSettled: boolean
+  /** 没了结的那几条，各自卡在哪一步——只说「还剩 1 条」等于让人自己去翻 */
+  blocking: { status: FeedbackItemStatus; count: number }[]
+} {
   const items = state.feedbackBatches
     .flatMap((batch) => batch.items)
     .filter((item) => item.stageId === stageId)
-  const open = items.filter((item) => item.status !== 'Closed').length
-  return { total: items.length, open, allSettled: items.length > 0 && open === 0 }
+  const openItems = items.filter((item) => item.status !== 'Closed')
+
+  const counts = new Map<FeedbackItemStatus, number>()
+  for (const item of openItems) counts.set(item.status, (counts.get(item.status) ?? 0) + 1)
+
+  return {
+    total: items.length,
+    open: openItems.length,
+    allSettled: items.length > 0 && openItems.length === 0,
+    blocking: [...counts].map(([status, count]) => ({ status, count })),
+  }
+}
+
+/**
+ * 反馈项没了结时，该去哪儿把它推下去。
+ *
+ * 反馈项不是在反馈中心手工勾「完成」的——`InRework` / `Resubmitted` 的出口
+ * 都在阶段推进上，了结的证据是客户点头，不是 PM 自己点一下。
+ * 这张表把「卡在哪」翻译成「去哪办」，否则提示就是个死路。
+ */
+export const FEEDBACK_NEXT_STOP: Record<
+  Exclude<FeedbackItemStatus, 'Closed'>,
+  { label: string; where: '本页' | '项目总览' | '报价与变更'; action: string }
+> = {
+  NeedsClassification: { label: '待分流', where: '本页', action: '判定范围' },
+  Confirmed: { label: '待生成排期草案', where: '本页', action: '生成并确认排期草案' },
+  InRework: { label: '返修中', where: '项目总览', action: '阶段推进「已提交客户」' },
+  Resubmitted: { label: '已重提', where: '项目总览', action: '阶段推进「客户已验收」' },
+  WaitingChangeQuote: { label: '等待变更报价', where: '报价与变更', action: '追加报价与变更开工' },
 }
 
 /**
