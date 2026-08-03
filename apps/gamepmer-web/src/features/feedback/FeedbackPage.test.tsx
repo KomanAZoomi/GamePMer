@@ -429,7 +429,86 @@ describe('没了结的反馈要指出下一站', () => {
 
     const blockers = screen.getByRole('list', { name: '反馈了结卡点' })
     expect(within(blockers).getByText(/返修中/)).toBeInTheDocument()
-    expect(within(blockers).getByText(/项目总览·阶段推进「已提交客户」/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '去阶段推进' })).toBeInTheDocument()
+    expect(within(blockers).getByText(/阶段推进「已提交客户」/)).toBeInTheDocument()
+  })
+})
+
+/**
+ * 反馈卡片上要能把这条反馈推下去。
+ *
+ * 判为范围内、确认排期修订之后，反馈项停在「返修中」。PM 想说一句
+ * 「东西已经交给客户了，等二次反馈」，却得跳去项目总览找同一个阶段——
+ * 一条反馈的处理被切成两页。
+ */
+describe('在反馈卡片上推进阶段', () => {
+  async function toRework() {
+    const handle = await renderFeedback()
+    const detail = screen.getByLabelText('反馈项详情')
+    await handle.user.click(within(detail).getByRole('button', { name: '判为范围内' }))
+    await handle.user.click(screen.getByRole('button', { name: '生成排期草案' }))
+    await handle.user.click(
+      within(screen.getByLabelText('排期修订草案')).getByRole('button', { name: '确认重排' }),
+    )
+    return handle
+  }
+
+  it('返修中就能在本页交 PM、提交客户，不用跳页', async () => {
+    const { user, store } = await toRework()
+    const flow = screen.getByLabelText('推进这条反馈所在阶段')
+
+    await user.click(within(flow).getByRole('button', { name: '已交 PM' }))
+    await user.click(
+      within(screen.getByLabelText('推进这条反馈所在阶段')).getByRole('button', {
+        name: '已提交客户',
+      }),
+    )
+
+    expect(stageOf(store, 'MECH-01/3D_HIGH')?.status).toBe('AwaitingClient')
+    // 提交客户 = 已重提，等客户二次反馈
+    expect(
+      store.getState().demo.feedbackBatches.flatMap((b) => b.items).find((i) => i.id === 'F-017/ITEM-01')
+        ?.status,
+    ).toBe('Resubmitted')
+  })
+
+  it('等客户时两个出口都在：验收通过，或客户又要改', async () => {
+    const { user } = await toRework()
+    await user.click(
+      within(screen.getByLabelText('推进这条反馈所在阶段')).getByRole('button', { name: '已交 PM' }),
+    )
+    await user.click(
+      within(screen.getByLabelText('推进这条反馈所在阶段')).getByRole('button', {
+        name: '已提交客户',
+      }),
+    )
+
+    const flow = screen.getByLabelText('推进这条反馈所在阶段')
+    expect(within(flow).getByRole('button', { name: '客户已验收' })).toBeInTheDocument()
+    expect(within(flow).getByRole('button', { name: '客户要返修' })).toBeInTheDocument()
+  })
+
+  it('二次反馈当场记下，变成同一阶段上的新待分流项', async () => {
+    const { user, store } = await toRework()
+    await user.click(
+      within(screen.getByLabelText('推进这条反馈所在阶段')).getByRole('button', { name: '已交 PM' }),
+    )
+    await user.click(
+      within(screen.getByLabelText('推进这条反馈所在阶段')).getByRole('button', {
+        name: '已提交客户',
+      }),
+    )
+    await user.click(
+      within(screen.getByLabelText('推进这条反馈所在阶段')).getByRole('button', {
+        name: '客户要返修',
+      }),
+    )
+    await user.type(screen.getByLabelText('客户原话'), '肩甲还要再收一点')
+    await user.click(screen.getByRole('button', { name: '记下并去分流' }))
+
+    const fresh = store
+      .getState()
+      .demo.feedbackBatches.flatMap((batch) => batch.items)
+      .filter((item) => item.stageId === 'MECH-01/3D_HIGH' && item.status === 'NeedsClassification')
+    expect(fresh.some((item) => item.originalText === '肩甲还要再收一点')).toBe(true)
   })
 })

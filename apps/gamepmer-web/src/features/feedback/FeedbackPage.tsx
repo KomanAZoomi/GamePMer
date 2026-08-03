@@ -11,6 +11,7 @@ import {
 } from '../../domain/replan'
 import { EMPTY_CALENDAR, countWorkdays, dateRange } from '../../domain/workCalendar'
 import type { WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
+import { StageFlowActions } from '../stageflow/StageFlowActions'
 import { DraftPreview } from './DraftPreview'
 import { NotificationList } from './NotificationList'
 
@@ -426,13 +427,6 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                     条反馈已全部了结。下一步是请客户验收这个阶段——
                     <strong>验收通过后，依赖它的下一阶段才能开工</strong>。
                   </p>
-                  <button
-                    type="button"
-                    className="gp-btn gp-btn-primary"
-                    onClick={() => onNavigate('projects')}
-                  >
-                    去阶段推进 · 客户已验收
-                  </button>
                 </>
               ) : (
                 <>
@@ -460,20 +454,30 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                       )
                     })}
                   </ul>
-                  {stageSummary.blocking.some(
-                    ({ status }) => status === 'InRework' || status === 'Resubmitted',
-                  ) && (
-                    <button
-                      type="button"
-                      className="gp-btn"
-                      onClick={() => onNavigate('projects')}
-                    >
-                      去阶段推进
-                    </button>
-                  )}
                 </>
               )}
             </div>
+          )}
+
+          {/*
+            阶段推进直接放在反馈卡片上，和项目总览共用同一个组件。
+            一条反馈的处理不该被切成两页：判完范围、确认排期，接着就是
+            「交 PM → 提交客户 → 等二次反馈」，中途跳页只会让人丢掉上下文。
+          */}
+          {stage && (
+            <StageFlowActions
+              state={demo}
+              stage={stage}
+              onAdvance={store.advanceStage}
+              onOpenTriage={() => undefined}
+              title="推进这条反馈所在阶段"
+              note={
+                <p className="gp-assistant-note">
+                  推进只写实际发生的日期，<strong>不改计划、不改基准</strong>。
+                  「已提交客户」= 这条反馈已重提，接下来等客户二次反馈；客户点头才算了结。
+                </p>
+              }
+            />
           )}
 
           {(selected.status === 'Confirmed' || selected.status === 'WaitingChangeQuote') && (

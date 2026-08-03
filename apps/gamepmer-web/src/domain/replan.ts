@@ -228,6 +228,31 @@ export function confirmReplan(state: DemoState, input: ConfirmReplanInput): Demo
     item.status = 'InRework'
     const target = asset.stages.find((stage) => stage.id === item.stageId)
     if (target && !target.flags.includes('Rework')) target.flags.push('Rework')
+
+    /**
+     * 东西回到制作组手上，阶段就不该还挂着「等待客户」。
+     *
+     * 确认返修排期本身就是「这个我们要重做」的决定：客户已经说完话了，
+     * 现在等的是团队。停在等待客户会连着错两处——客户等待天数被继续累加，
+     * 而下一步「已交 PM」根本点不出来，返修完了没有出口。
+     *
+     * 只改状态，不碰计划、不碰基准，也不碰已经发生的提交日期。
+     */
+    if (target && (target.status === 'AwaitingClient' || target.status === 'SubmittedToClient')) {
+      const before = target.status
+      target.status = 'InProduction'
+      next.auditEvents.push({
+        id: `AE-rework-${item.id}-${input.at}`,
+        at: input.at,
+        actor: input.actor,
+        action: '返修排期确认，阶段回到制作中',
+        targetKind: 'StagePlan',
+        targetId: target.id,
+        before,
+        after: 'InProduction',
+        reason: 'client-feedback',
+      })
+    }
   }
 
   // 版本号按历史最大值递增，撤销过的号不复用——否则审计里会出现两个 v1
@@ -387,9 +412,9 @@ export function stageFeedbackSummary(
 /**
  * 反馈项没了结时，该去哪儿把它推下去。
  *
- * 反馈项不是在反馈中心手工勾「完成」的——`InRework` / `Resubmitted` 的出口
- * 都在阶段推进上，了结的证据是客户点头，不是 PM 自己点一下。
- * 这张表把「卡在哪」翻译成「去哪办」，否则提示就是个死路。
+ * 反馈项不是手工勾「完成」的——`InRework` / `Resubmitted` 的出口是阶段推进，
+ * 了结的证据是客户点头，不是 PM 自己点一下。阶段推进现在内嵌在反馈详情里，
+ * 所以这两步也留在本页；这张表把「卡在哪」翻译成「去哪办」，否则提示就是个死路。
  */
 export const FEEDBACK_NEXT_STOP: Record<
   Exclude<FeedbackItemStatus, 'Closed'>,
@@ -397,8 +422,8 @@ export const FEEDBACK_NEXT_STOP: Record<
 > = {
   NeedsClassification: { label: '待分流', where: '本页', action: '判定范围' },
   Confirmed: { label: '待生成排期草案', where: '本页', action: '生成并确认排期草案' },
-  InRework: { label: '返修中', where: '项目总览', action: '阶段推进「已提交客户」' },
-  Resubmitted: { label: '已重提', where: '项目总览', action: '阶段推进「客户已验收」' },
+  InRework: { label: '返修中', where: '本页', action: '下面的阶段推进「已提交客户」' },
+  Resubmitted: { label: '已重提', where: '本页', action: '下面的阶段推进「客户已验收」' },
   WaitingChangeQuote: { label: '等待变更报价', where: '报价与变更', action: '追加报价与变更开工' },
 }
 

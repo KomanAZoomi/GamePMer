@@ -440,7 +440,6 @@ describe('阶段反馈了结的卡点', () => {
     expect(summary.allSettled).toBe(false)
     const confirmed = summary.blocking.find((row) => row.status === 'Confirmed')
     expect(confirmed?.count).toBe(1)
-    expect(FEEDBACK_NEXT_STOP.InRework.where).toBe('项目总览')
     expect(FEEDBACK_NEXT_STOP.InRework.action).toContain('已提交客户')
     expect(FEEDBACK_NEXT_STOP.Resubmitted.action).toContain('客户已验收')
   })
@@ -463,12 +462,10 @@ describe('阶段反馈了结的卡点', () => {
       { status: 'InRework', count: 1 },
     ])
 
-    // 反馈中心里没有「手工勾完成」这个动作，出口在阶段推进上
-    next = advanceStage(next, stageId, 'client-rework', {
-      actor: 'Brandon',
-      now: '2026-07-28T09:00:00+08:00',
-      note: '肩甲还要再收一点',
-    })
+    // 确认返修排期后东西回到制作组手上，不该还挂着「等待客户」
+    expect(stageOf(next, stageId).status).toBe('InProduction')
+
+    // 反馈项没有「手工勾完成」这个动作，出口在阶段推进上
     next = advanceStage(next, stageId, 'hand-to-pm', { actor: 'Chen', now: '2026-07-29T18:00:00+08:00' })
     next = advanceStage(next, stageId, 'submit-to-client', { actor: 'Brandon', now: '2026-07-30T10:00:00+08:00' })
     expect(itemOf(next, ITEM).status).toBe('Resubmitted')
@@ -477,6 +474,13 @@ describe('阶段反馈了结的卡点', () => {
     expect(itemOf(next, ITEM).status).toBe('Closed')
   })
 })
+
+function stageOf(state: DemoState, stageId: string) {
+  return state.projects
+    .flatMap((project) => project.assets)
+    .flatMap((asset) => asset.stages)
+    .find((stage) => stage.id === stageId)!
+}
 
 function itemsOn(state: DemoState, stageId: string) {
   return state.feedbackBatches.flatMap((batch) => batch.items).filter((row) => row.stageId === stageId)
