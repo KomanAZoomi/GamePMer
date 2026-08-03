@@ -176,7 +176,13 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
             <span className="gp-count">{batch.items.length}</span>
           </header>
 
-          <table className="gp-item-table">
+          {/*
+            表格自己横向滚动。七列在 1280 的中栏里放不下，
+            靠单元格换行挤进去的结果是「MECH-01 / 3D_HIGH」拆成三行、
+            「处理状态」被切掉一半——看着乱，而且真读不到。
+          */}
+          <div className="gp-table-scroll">
+            <table className="gp-item-table">
             <thead>
               <tr>
                 <th>序号</th>
@@ -225,7 +231,8 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
 
           {draft && (
             <DraftPreview
