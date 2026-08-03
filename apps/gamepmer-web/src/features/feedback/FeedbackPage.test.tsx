@@ -334,3 +334,70 @@ describe('草案在甘特上可见', () => {
     expect(within(gantt).getByTitle(/草案（未确认）｜07-29 — 07-31/)).toBeInTheDocument()
   })
 })
+
+/**
+ * 第三条路：无需修改。
+ *
+ * 验收时指出：反馈判定完只有范围内/范围外两条路。
+ * 可现实里一批反馈常夹着「这个可以」——逼 PM 二选一，
+ * 等于往正式数据里塞一条假的返修或一张假的变更单。
+ */
+describe('判为无需修改', () => {
+  it('分流时给出三条路，不是两条', async () => {
+    await renderFeedback()
+    const detail = screen.getByLabelText('反馈项详情')
+
+    expect(within(detail).getByRole('button', { name: /无需修改/ })).toBeInTheDocument()
+    expect(within(detail).getByRole('button', { name: '判为范围内' })).toBeInTheDocument()
+    expect(within(detail).getByRole('button', { name: '判为范围外' })).toBeInTheDocument()
+  })
+
+  it('判完当场了结，不生成变更单也不动排期', async () => {
+    const { user, store } = await renderFeedback()
+    const detail = screen.getByLabelText('反馈项详情')
+    const changeRequests = store.getState().demo.changeRequests.length
+
+    await user.click(within(detail).getByRole('button', { name: /无需修改/ }))
+
+    const item = store.getState().demo.feedbackBatches[0].items[0]
+    expect(item.status).toBe('Closed')
+    expect(item.scope).toBe('no-change')
+    expect(store.getState().demo.changeRequests).toHaveLength(changeRequests)
+    expect(stageOf(store, 'MECH-01/3D_LOW')?.currentStart).toBe('2026-07-27')
+  })
+
+  it('判错了能退回待分流', async () => {
+    const { user, store } = await renderFeedback()
+    const detail = screen.getByLabelText('反馈项详情')
+
+    await user.click(within(detail).getByRole('button', { name: /无需修改/ }))
+    await user.click(within(detail).getByRole('button', { name: '重新判定' }))
+
+    expect(store.getState().demo.feedbackBatches[0].items[0].status).toBe('NeedsClassification')
+  })
+})
+
+describe('阶段上的反馈全部了结之后', () => {
+  it('还有没了结的，说清还剩几条', async () => {
+    await renderFeedback()
+
+    expect(screen.getByText(/条反馈没了结/)).toBeInTheDocument()
+  })
+
+  it('全部了结后指向客户验收——那才是流转下一阶段的动作', async () => {
+    const { user, store } = await renderFeedback()
+    const stageId = store.getState().demo.feedbackBatches[0].items[0].stageId
+    const list = screen.getByLabelText('资产级反馈项')
+
+    for (const item of store.getState().demo.feedbackBatches.flatMap((batch) => batch.items)) {
+      if (item.stageId !== stageId || item.status !== 'NeedsClassification') continue
+      await user.click(within(list).getByText(item.title))
+      await user.click(
+        within(screen.getByLabelText('反馈项详情')).getByRole('button', { name: /无需修改/ }),
+      )
+    }
+
+    expect(screen.getByText(/已全部了结/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /客户已验收/ })).toBeInTheDocument()
+  })
+})

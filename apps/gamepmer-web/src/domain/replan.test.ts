@@ -5,13 +5,16 @@ import {
   ReclassifyBlocked,
   ReplanBlocked,
   classifyInScope,
+  classifyNoChange,
   classifyOutOfScope,
   confirmReplan,
   draftBlockingIssues,
   generateReplanDraft,
   moveDraftStage,
   reclassifyFeedback,
+  stageFeedbackSummary,
 } from './replan'
+import type { DemoState, FeedbackItem } from './model'
 
 const AT = '2026-07-27T14:00:00+08:00'
 const ITEM = 'F-017/ITEM-01' // 缩小肩甲比例，2 个工作日，影响 MECH-01 高模
@@ -315,5 +318,106 @@ describe('范围分流', () => {
     const event = next.auditEvents.at(-1)
     expect(event?.action).toContain('创建变更单')
     expect(event?.after).toContain(next.changeRequests.at(-1)!.id)
+  })
+})
+
+/**
+ * 第三种判定：这条不用改。
+ *
+ * 验收时指出：反馈来了只能判范围内或范围外，没有「通过」。
+ * 可现实里一批反馈往往夹着「这个可以」「没问题」——它既不返修也不追加报价，
+ * 逼 PM 二选一，等于往正式数据里塞一条假的返修或假的变更单。
+ */
+describe('判为无需修改', () => {
+  const NOW = `${DEMO_TODAY}T15:00:00+08:00`
+  const ACTOR = 'Brandon'
+
+  function firstPending(state: DemoState) {
+    return state.feedbackBatches[0].items.find(
+      (item: FeedbackItem) => item.status === 'NeedsClassification',
+    )!
+  }
+
+  it('直接关闭该反馈项，不返修也不建变更单', () => {
+    const state = createDemoState()
+    const item = firstPending(state)
+    const changeRequestsBefore = state.changeRequests.length
+
+    const next = classifyNoChange(state, item.id, NOW, ACTOR)
+    const closed = next.feedbackBatches
+      .flatMap((batch) => batch.items)
+      .find((entry) => entry.id === item.id)!
+
+    expect(closed.scope).toBe('no-change')
+    expect(closed.status).toBe('Closed')
+    expect(next.changeRequests).toHaveLength(changeRequestsBefore)
+  })
+
+  it('不动排期：没有返修就没有要顺延的东西', () => {
+    const state = createDemoState()
+    const before = JSON.stringify(
+      state.projects
+        .flatMap((p) => p.assets)
+        .flatMap((a) => a.stages.map((s) => [s.id, s.currentStart, s.currentFinish])),
+    )
+
+    const next = classifyNoChange(state, firstPending(state).id, NOW, ACTOR)
+
+    expect(
+      JSON.stringify(
+        next.projects.flatMap((p) => p.assets).flatMap((a) => a.stages.map((s) => [s.id, s.currentStart, s.currentFinish])),
+      ),
+    ).toBe(before)
+  })
+
+  it('写审计，说明是谁在什么时候判的', () => {
+    const state = createDemoState()
+    const next = classifyNoChange(state, firstPending(state).id, NOW, ACTOR)
+    const audit = next.auditEvents.at(-1)!
+    expect(audit.actor).toBe(ACTOR)
+    expect(audit.after).toBe('Closed')
+  })
+
+  it('判错了能退回待分流——和另外两种判定一样可逆', () => {
+    const state = createDemoState()
+    const item = firstPending(state)
+    let next = classifyNoChange(state, item.id, NOW, ACTOR)
+    next = reclassifyFeedback(next, item.id, NOW, ACTOR)
+
+    const back = next.feedbackBatches
+      .flatMap((batch) => batch.items)
+      .find((entry) => entry.id === item.id)!
+    expect(back.status).toBe('NeedsClassification')
+    expect(back.scope).toBe('unclassified')
+  })
+})
+
+describe('一个阶段的反馈全部了结之后', () => {
+  const NOW = `${DEMO_TODAY}T15:00:00+08:00`
+  const ACTOR = 'Brandon'
+
+  it('还有待分流的项时，说得出还剩几条', () => {
+    const state = createDemoState()
+    const item = state.feedbackBatches[0].items.find(
+      (entry) => entry.status === 'NeedsClassification',
+    )!
+    const summary = stageFeedbackSummary(state, item.stageId)
+
+    expect(summary.open).toBeGreaterThan(0)
+    expect(summary.allSettled).toBe(false)
+  })
+
+  it('全部判为无需修改后，这个阶段就没有未了结的反馈了', () => {
+    let state = createDemoState()
+    const stageId = state.feedbackBatches[0].items[0].stageId
+    for (const item of state.feedbackBatches.flatMap((batch) => batch.items)) {
+      if (item.stageId === stageId && item.status === 'NeedsClassification') {
+        state = classifyNoChange(state, item.id, NOW, ACTOR)
+      }
+    }
+
+    const summary = stageFeedbackSummary(state, stageId)
+    expect(summary.open).toBe(0)
+    expect(summary.allSettled).toBe(true)
   })
 })

@@ -392,3 +392,50 @@
 .gp-batch-card:hover {
   border-color: var(--accent-border);
 }
+
+/* 阶段反馈了结状态：说清还剩几条，全部了结时指向客户验收 */
+.gp-stage-settle {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-stage-settle p {
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  line-height: 1.65;
+}
+
+.gp-stage-settle strong {
+  color: var(--text-secondary);
+}
+
+.gp-stage-settle.is-ready {
+  border-color: var(--accent-border);
+  background: var(--accent-softer);
+}
+
+.gp-stage-settle.is-ready p {
+  color: var(--accent-ink);
+}
+
+.gp-stage-settle.is-ready strong {
+  color: var(--accent-ink);
+}
+
+.gp-stage-settle .gp-btn {
+  margin-top: var(--space-3);
+}
+
+/* 无需修改：中性色，它既不是返修也不是变更 */
+.gp-pill.is-no-change {
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+}
+
+/* 三选一的分流：推荐动作独占一行，两个备选并排在下 */
+.gp-detail-actions .gp-btn-wide {
+  grid-column: 1 / -1;
+}

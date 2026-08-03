@@ -319,6 +319,56 @@ export function classifyInScope(state: DemoState, itemId: string, at: string, ac
 }
 
 /**
+ * 无需修改：这条客户意见不用改，当场了结。
+ *
+ * 不返修、不建变更单、不动排期——所以它**没有草案**，也不该有。
+ * 判错了照样能退回待分流（见 `reclassifyFeedback`），
+ * 因为这只是一次判断，不像返修那样已经在外面产生了后果。
+ */
+export function classifyNoChange(
+  state: DemoState,
+  itemId: string,
+  at: string,
+  actor: string,
+): DemoState {
+  const next = structuredClone(state)
+  const item = findFeedbackItem(next, itemId)
+  if (!item) throw new Error(`找不到反馈项：${itemId}`)
+
+  item.scope = 'no-change'
+  item.status = 'Closed'
+  next.auditEvents.push({
+    id: `AE-scope-${itemId}-${at}`,
+    at,
+    actor,
+    action: '判定反馈范围',
+    targetKind: 'FeedbackItem',
+    targetId: itemId,
+    before: 'unclassified',
+    after: 'Closed',
+    reason: '无需修改，当场了结',
+  })
+  return next
+}
+
+/**
+ * 一个阶段上的反馈了结情况。
+ *
+ * 「还剩几条没了结」是 PM 决定要不要请客户验收这个阶段的依据——
+ * 只说「有反馈」而不说还剩几条，等于让人自己去数。
+ */
+export function stageFeedbackSummary(
+  state: DemoState,
+  stageId: string,
+): { total: number; open: number; allSettled: boolean } {
+  const items = state.feedbackBatches
+    .flatMap((batch) => batch.items)
+    .filter((item) => item.stageId === stageId)
+  const open = items.filter((item) => item.status !== 'Closed').length
+  return { total: items.length, open, allSettled: items.length > 0 && open === 0 }
+}
+
+/**
  * 范围外新增：创建变更单，只冻结受影响资产。
  * 其余资产继续制作——把无关资产一起冻住是明确禁止的失败模式。
  */
@@ -562,7 +612,10 @@ export function reclassifyFeedback(
 ): DemoState {
   const current = findFeedbackItem(state, itemId)
   if (!current) throw new Error(`找不到反馈项：${itemId}`)
-  if (current.status === 'Resubmitted' || current.status === 'Closed') {
+  // 判为「无需修改」只是一次判断，外面没有产生任何后果，所以照样可以退回。
+  // 走完返修再关闭的那种就不行了——那时东西已经交出去、客户已经点过头。
+  const closedByJudgement = current.status === 'Closed' && current.scope === 'no-change'
+  if (!closedByJudgement && (current.status === 'Resubmitted' || current.status === 'Closed')) {
     throw new ReclassifyBlocked('该反馈已重提或关闭，不能改回待分流。')
   }
   if (current.status === 'InRework') {

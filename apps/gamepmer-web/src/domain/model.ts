@@ -215,7 +215,14 @@ export interface InboxCandidate {
 
 // ---------------------------------------------------------------- 反馈
 
-export type FeedbackScope = 'in-scope' | 'out-of-scope' | 'unclassified'
+/**
+ * 反馈项的范围判定。
+ *
+ * `no-change` 是第三条路，不是凑数：一批反馈里常夹着「这个可以」「没问题」，
+ * 它既不返修也不追加报价。只给范围内/范围外两个选项，等于逼 PM 往正式数据里
+ * 塞一条假的返修或一张假的变更单。
+ */
+export type FeedbackScope = 'in-scope' | 'out-of-scope' | 'no-change' | 'unclassified'
 
 export type FeedbackItemStatus =
   | 'NeedsClassification'

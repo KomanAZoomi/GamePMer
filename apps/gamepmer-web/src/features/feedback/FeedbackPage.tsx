@@ -2,7 +2,12 @@ import { useMemo, useState } from 'react'
 import type { RouteKey } from '../../app/navigation'
 import { groupName } from '../../domain/lookup'
 import type { FeedbackBatch, FeedbackItem } from '../../domain/model'
-import { activeRevisionFor, revisionNotified, untouchedAssets } from '../../domain/replan'
+import {
+  activeRevisionFor,
+  revisionNotified,
+  stageFeedbackSummary,
+  untouchedAssets,
+} from '../../domain/replan'
 import { EMPTY_CALENDAR, countWorkdays, dateRange } from '../../domain/workCalendar'
 import type { WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { DraftPreview } from './DraftPreview'
@@ -17,6 +22,7 @@ interface FeedbackPageProps {
 const SCOPE_LABELS: Record<FeedbackItem['scope'], string> = {
   'in-scope': '范围内返修',
   'out-of-scope': '范围外追加',
+  'no-change': '无需修改',
   unclassified: '待分流',
 }
 
@@ -61,6 +67,7 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
     [demo, draft],
   )
 
+  const stageSummary = stageFeedbackSummary(demo, selected?.stageId ?? '')
   const activeRevision = selected ? activeRevisionFor(demo, selected.id) : undefined
   const notified = activeRevision ? revisionNotified(demo, activeRevision.id) : false
 
@@ -181,7 +188,9 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                           ? 'is-plan'
                           : item.scope === 'out-of-scope'
                             ? 'is-feedback'
-                            : 'is-plain'
+                            : item.scope === 'no-change'
+                              ? 'is-no-change'
+                              : 'is-plain'
                       }`}
                     >
                       {SCOPE_LABELS[item.scope]}
@@ -332,6 +341,18 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
           <div className="gp-detail-actions gp-feedback-actions">
             {selected.status === 'NeedsClassification' ? (
               <>
+                {/*
+                  三条路，不是两条。一批反馈里常夹着「这个可以」「没问题」——
+                  它既不返修也不追加报价。只给范围内/范围外，等于逼 PM
+                  往正式数据里塞一条假的返修或一张假的变更单。
+                */}
+                <button
+                  type="button"
+                  className="gp-btn gp-btn-primary gp-btn-wide"
+                  onClick={() => store.classifyFeedback(selected.id, 'in-scope')}
+                >
+                  判为范围内
+                </button>
                 <button
                   type="button"
                   className="gp-btn"
@@ -341,10 +362,10 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                 </button>
                 <button
                   type="button"
-                  className="gp-btn gp-btn-primary"
-                  onClick={() => store.classifyFeedback(selected.id, 'in-scope')}
+                  className="gp-btn"
+                  onClick={() => store.classifyFeedback(selected.id, 'no-change')}
                 >
-                  判为范围内
+                  无需修改 · 直接了结
                 </button>
               </>
             ) : selected.status === 'Confirmed' || selected.status === 'WaitingChangeQuote' ? (
@@ -375,12 +396,51 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
                   </button>
                 )}
               </>
+            ) : selected.status === 'Closed' && selected.scope === 'no-change' ? (
+              <button
+                type="button"
+                className="gp-btn"
+                onClick={() => store.reclassifyFeedback(selected.id)}
+              >
+                重新判定
+              </button>
             ) : (
               <button type="button" className="gp-btn" onClick={() => onNavigate('projects')}>
                 查看项目甘特
               </button>
             )}
           </div>
+
+          {/*
+            阶段上的反馈全部了结之后，下一步是请客户验收这个阶段——
+            那才是「流转到下一阶段」的真正动作。以前它只藏在项目总览的阶段推进里，
+            PM 在反馈中心判完最后一条，页面却不说接下来该去哪。
+          */}
+          {stageSummary.total > 0 && (
+            <div className={`gp-stage-settle${stageSummary.allSettled ? ' is-ready' : ''}`}>
+              {stageSummary.allSettled ? (
+                <>
+                  <p>
+                    <strong>{stage?.name ?? selected.stageId}</strong> 上的 {stageSummary.total}{' '}
+                    条反馈已全部了结。下一步是请客户验收这个阶段——
+                    <strong>验收通过后，依赖它的下一阶段才能开工</strong>。
+                  </p>
+                  <button
+                    type="button"
+                    className="gp-btn gp-btn-primary"
+                    onClick={() => onNavigate('projects')}
+                  >
+                    去阶段推进 · 客户已验收
+                  </button>
+                </>
+              ) : (
+                <p>
+                  {stage?.name ?? selected.stageId} 上还有 <strong>{stageSummary.open}</strong>{' '}
+                  条反馈没了结，全部了结后才谈得上请客户验收这个阶段。
+                </p>
+              )}
+            </div>
+          )}
 
           {(selected.status === 'Confirmed' || selected.status === 'WaitingChangeQuote') && (
             <p className="gp-reclassify-note">

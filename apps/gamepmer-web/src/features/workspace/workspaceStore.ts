@@ -59,6 +59,7 @@ import {
 import { confirmScheduleEntry as confirmEntry } from '../../domain/scheduleEntry'
 import {
   classifyInScope,
+  classifyNoChange,
   classifyOutOfScope,
   confirmReplan,
   generateReplanDraft,
@@ -137,7 +138,7 @@ export interface WorkspaceStore {
     note: string,
   ): void
   selectFeedbackItem(itemId: string): void
-  classifyFeedback(itemId: string, scope: 'in-scope' | 'out-of-scope'): void
+  classifyFeedback(itemId: string, scope: 'in-scope' | 'out-of-scope' | 'no-change'): void
   reclassifyFeedback(itemId: string): void
   revokeRevision(revisionId: string): void
   markNotificationSent(notificationId: string, via: string): void
@@ -311,7 +312,9 @@ export function createWorkspaceStore(
       const demo =
         scope === 'in-scope'
           ? classifyInScope(state.demo, itemId, clock.now(), 'Brandon')
-          : classifyOutOfScope(state.demo, itemId, clock.now(), 'Brandon')
+          : scope === 'no-change'
+            ? classifyNoChange(state.demo, itemId, clock.now(), 'Brandon')
+            : classifyOutOfScope(state.demo, itemId, clock.now(), 'Brandon')
       repository.save(demo)
       state = { ...state, demo, selectedFeedbackItemId: itemId }
       emit()
