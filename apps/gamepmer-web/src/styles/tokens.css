@@ -25,8 +25,13 @@
   /* ---- 文字 ---- */
   --text-primary: #25362e;
   --text-secondary: #4c5b53;
-  --text-muted: #6f7d76;
-  --text-faint: #8b968f;
+  /*
+   * 这两档都不够。实测对比度：muted 对页底 4.00、faint 对页底 2.84——
+   * 正文要 4.5，连非正文的 3.0 都没到。正文刚从 12px 提到 14px，
+   * 字号够了颜色还是看不清，等于白提。
+   */
+  --text-muted: #5f6c64; /* 页底 5.11 */
+  --text-faint: #66736c; /* 页底 4.61 */
   --text-inverse: #ffffff;
 
   /* ---- 鼠尾草绿：正式计划 / 已确认 / 主操作 ---- */
@@ -82,10 +87,14 @@
   --track-tight: -0.015em;
 
   /* ---- 字重 ---- */
+  /*
+   * 550 和 800 在 Microsoft YaHei UI 上没有对应字面，会被合成或就近映射，
+   * 结果同一档标题在不同页面忽粗忽细。收成三档实际可用的字重。
+   */
   --weight-normal: 400;
-  --weight-medium: 550;
-  --weight-bold: 700;
-  --weight-heavy: 800;
+  --weight-medium: 600;
+  --weight-bold: 600;
+  --weight-heavy: 700;
 
   /* ---- 间距 ---- */
   --space-1: 4px;

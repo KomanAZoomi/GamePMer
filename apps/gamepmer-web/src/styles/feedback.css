@@ -12,9 +12,53 @@
   align-items: start;
 }
 
+/* 三列并排只在 1600 起才成立，且中栏必须放得下反馈项表的七列 */
 @media (min-width: 1600px) {
   .gp-feedback-body {
-    grid-template-columns: 300px minmax(0, 1fr) 380px;
+    grid-template-columns: 280px minmax(0, 1fr) 340px;
+  }
+}
+
+/*
+ * 1600 以下：把「反馈批次」放平成横向切换带。
+ *
+ * 实测 1280 下中栏只有 426px、1440 下 586px，而反馈项表格要 669px
+ * 才放得下七列——横滚不是边界情况，是默认状态，「处理状态」列默认就看不见。
+ * 批次只是个切换器，横着放不损失任何东西；表格和详情的并排关系才是要保的。
+ */
+@media (max-width: 1599px) {
+  .gp-feedback-body {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .gp-batch-list {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: stretch;
+    overflow-x: auto;
+  }
+
+  .gp-batch-list > .gp-card-head {
+    flex: 0 0 132px;
+    align-items: center;
+    border-right: 1px solid var(--border-faint);
+    border-bottom: 0;
+  }
+
+  .gp-batch-card {
+    flex: 0 0 300px;
+    border-left: 0;
+    border-top: 3px solid transparent;
+  }
+
+  .gp-batch-card + .gp-batch-card {
+    border-top: 3px solid transparent;
+    border-left: 1px solid var(--border-faint);
+  }
+
+  .gp-batch-card.is-active {
+    border-top-color: var(--text-secondary);
+    border-left-color: var(--border-faint);
   }
 }
 
@@ -36,9 +80,15 @@
   border-top: 1px solid var(--border-faint);
 }
 
+/*
+ * 选中态用中性底 + 结构标记，不借语义绿。
+ *
+ * 绿色在这套界面里是「已确认 / 已验收」。用同一个绿底表示「我现在点着它」，
+ * 一条还没判范围的反馈会长得像已经确认过——颜色在替状态说假话。
+ */
 .gp-batch-card.is-active {
-  border-left-color: var(--accent);
-  background: var(--accent-soft);
+  border-left-color: var(--text-secondary);
+  background: var(--surface-group);
 }
 
 .gp-batch-head {
@@ -60,10 +110,11 @@
   font-size: var(--text-xs);
 }
 
+/* 客户原话是这张卡上最该读清的一句，不能比周围的元信息还小 */
 .gp-batch-summary {
   margin-top: var(--space-3);
   color: var(--text-secondary);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   line-height: 1.55;
 }
 
@@ -118,7 +169,11 @@
 }
 
 .gp-item-table tbody tr.is-active {
-  background: var(--accent-soft);
+  background: var(--surface-group);
+}
+
+.gp-item-table tbody tr.is-active td:first-child {
+  box-shadow: inset 3px 0 0 var(--text-secondary);
 }
 
 .gp-item-title button {
@@ -126,7 +181,7 @@
   border: 0;
   background: none;
   color: var(--text-primary);
-  font-size: var(--text-xs);
+  font-size: inherit;
   font-weight: var(--weight-medium);
   text-align: left;
 }
@@ -304,8 +359,19 @@
 
 /* ---------------------------------------------------------------- 详情 */
 
+/*
+ * 详情栏独立滚动。
+ *
+ * 它原来用自身高度把整行撑到两千多像素，左中两栏读完之后是一大片空白，
+ * 看着像页面坏了。钉住 + 自滚之后，三列各自结束在该结束的地方。
+ */
 .gp-item-detail {
   padding: var(--space-6);
+  position: sticky;
+  top: var(--space-5);
+  max-height: calc(100vh - var(--topbar-height) - var(--space-7));
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .gp-feedback-actions {
@@ -492,11 +558,36 @@
   margin-bottom: var(--space-5);
 }
 
+/*
+ * 看板自己滚，不吞掉首屏。
+ *
+ * 实测 1280 下看板底边落在 y=973，而首屏只有 900——整个分流区在折叠线以下，
+ * 打开页面第一眼看不到今天要判的反馈。看板仍然完整存在，只是限高后自己滚。
+ */
 .gp-board-columns {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
   padding: var(--space-4);
+  max-height: min(58vh, 520px);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+
+  /*
+   * 底部渐隐：限高之后卡片会被切在中间，不给提示就看着像页面坏了。
+   * 渐隐随滚动位置消失（background-attachment: local），滚到底就不再出现。
+   */
+  background:
+    linear-gradient(var(--surface-card) 30%, rgba(255, 255, 255, 0)) top / 100% 24px no-repeat local,
+    linear-gradient(rgba(255, 255, 255, 0), var(--surface-card) 70%) bottom / 100% 24px no-repeat local;
+}
+
+/* 滚动时栏头钉住，否则滚两下就不知道哪一栏是哪一栏 */
+.gp-board-column > header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-card);
 }
 
 /*
@@ -602,7 +693,14 @@
   color: var(--text-secondary);
 }
 
-.gp-board-detail,
+/* detail 是卡片的主事实句，meta 才是附注——上一版把两者一起压成 13px 是错的 */
+.gp-board-detail {
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-muted);
+}
+
 .gp-board-meta {
   margin-top: 2px;
   font-size: var(--text-xs);
