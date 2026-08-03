@@ -13,6 +13,7 @@ import { EMPTY_CALENDAR, countWorkdays, dateRange } from '../../domain/workCalen
 import type { WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { StageFlowActions } from '../stageflow/StageFlowActions'
 import { DraftPreview } from './DraftPreview'
+import { WaitingBoardView } from './WaitingBoard'
 import { NotificationList } from './NotificationList'
 
 interface FeedbackPageProps {
@@ -77,12 +78,30 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
     (item) => item.sourceKind === 'schedule-revision',
   )
 
+  const boardView = (
+    <WaitingBoardView
+      demo={demo}
+      today={today}
+      onSelectFeedbackItem={store.selectFeedbackItem}
+      onSelectStage={store.selectStage}
+      onMarkSent={store.markNotificationSent}
+      onAdvance={store.advanceStage}
+      onNavigate={onNavigate}
+    />
+  )
+
   if (!batch || !selected) {
     return (
-      <div className="gp-placeholder">
+      <div className="gp-feedback">
+        <header className="gp-page-head">
+          <div>
+            <h1>反馈中心</h1>
+            <p>现在在等谁 · 资产提交后的反复循环 · {today}</p>
+          </div>
+        </header>
+        {boardView}
         <div className="gp-card gp-placeholder-card">
-          <h1>反馈中心</h1>
-          <p>当前没有客户反馈批次。恢复示例数据后可查看 F-017 的主路径。</p>
+          <p>当前没有客户反馈批次。看板会在资产提交后自动出现卡片。</p>
         </div>
       </div>
     )
@@ -106,6 +125,8 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
           </button>
         </div>
       </header>
+
+      {boardView}
 
       <div className="gp-feedback-body">
         <aside className="gp-card gp-batch-list" aria-label="反馈批次">

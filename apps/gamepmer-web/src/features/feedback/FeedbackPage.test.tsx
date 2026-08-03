@@ -512,3 +512,69 @@ describe('在反馈卡片上推进阶段', () => {
     expect(fresh.some((item) => item.originalText === '肩甲还要再收一点')).toBe(true)
   })
 })
+
+/**
+ * 「现在在等谁」看板。
+ *
+ * 反馈中心的主视图：资产提交后就进这条循环，卡片在三栏之间来回走，
+ * 客户验收通过才离场。看板是投影，点动作要真的推动底层状态。
+ */
+describe('在等谁看板', () => {
+  it('三栏都在，等我处理排在最左', async () => {
+    await renderFeedback()
+    const board = screen.getByLabelText('在等谁看板')
+
+    expect(within(board).getByLabelText('等我处理')).toBeInTheDocument()
+    expect(within(board).getByLabelText('等团队提交')).toBeInTheDocument()
+    expect(within(board).getByLabelText('等客户反馈')).toBeInTheDocument()
+  })
+
+  it('待分流的卡片点「去判范围」会选中那条反馈', async () => {
+    const { user, store } = await renderFeedback()
+    store.selectFeedbackItem('F-017/ITEM-04')
+
+    await user.click(
+      within(screen.getByLabelText('等我处理')).getByRole('button', { name: '去判范围' }),
+    )
+
+    expect(store.getState().selectedFeedbackItemId).toBe('F-017/ITEM-01')
+  })
+
+  it('标记反馈已发给团队后，卡片从「等我」挪到「等团队」', async () => {
+    const { user, store } = await renderFeedback()
+    const detail = screen.getByLabelText('反馈项详情')
+
+    // 先把这个阶段上的反馈判完，走到「返修通知待发出」
+    await user.click(within(detail).getByRole('button', { name: '判为范围内' }))
+    await user.click(screen.getByRole('button', { name: '生成排期草案' }))
+    await user.click(
+      within(screen.getByLabelText('排期修订草案')).getByRole('button', { name: '确认重排' }),
+    )
+    for (const title of ['新增腰部挂件', '胸甲纹理走向调整']) {
+      await user.click(within(screen.getByLabelText('资产级反馈项')).getByText(title))
+      await user.click(
+        within(screen.getByLabelText('反馈项详情')).getByRole('button', { name: /无需修改/ }),
+      )
+    }
+
+    const me = screen.getByLabelText('等我处理')
+    expect(within(me).getByText('返修通知待发出')).toBeInTheDocument()
+
+    await user.click(within(me).getByRole('button', { name: '反馈已发给团队' }))
+
+    // 组长和艺术总监两封都要标记，只标一封卡片会赖着不走
+    expect(
+      store.getState().demo.notificationDrafts.filter((n) => n.sourceKind === 'schedule-revision'),
+    ).toSatisfy((drafts: { status: string }[]) => drafts.every((d) => d.status === 'markedSent'))
+    expect(within(screen.getByLabelText('等团队提交')).getByText('团队返修中')).toBeInTheDocument()
+    expect(within(screen.getByLabelText('等我处理')).queryByText('返修通知待发出')).toBeNull()
+  })
+
+  it('全部资产验收的项目在看板底部指向结项中心', async () => {
+    await renderFeedback()
+    const board = screen.getByLabelText('在等谁看板')
+
+    expect(within(board).getByText(/全部资产已验收/)).toBeInTheDocument()
+    expect(within(board).getByRole('button', { name: '去结项中心' })).toBeInTheDocument()
+  })
+})
