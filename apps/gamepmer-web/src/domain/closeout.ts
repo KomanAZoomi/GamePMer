@@ -39,12 +39,139 @@ export const CLOSEOUT_GATE_ORDER: CloseoutGateCode[] = [
   'billing-notified',
 ]
 
+/**
+ * 五道门的完整说明。
+ *
+ * 唯一一份。以前标题在这里、说明和证据要求在种子数据里，
+ * 于是运行时新开的结项案件根本没法拼出同样的门禁。
+ */
+export const GATE_SPEC: Record<
+  CloseoutGateCode,
+  { title: string; description: string; requires: string }
+> = {
+  'assets-approved': {
+    title: '全部资产验收',
+    description: '2D/3D 阶段与返修任务全部关闭。',
+    requires: '由阶段状态自动推导，不能手工打勾',
+  },
+  'final-package': {
+    title: '总监整理最终包',
+    description: '交付文件、源文件、贴图和 LOD 清单齐全。',
+    requires: '最终包路径 + 总监确认',
+  },
+  'client-final': {
+    title: '客户最终确认',
+    description: '最终提交已通过邮件确认，无未关闭反馈。',
+    requires: '客户的正式邮件回执',
+  },
+  'it-backup': {
+    title: 'IT 剪切备份',
+    description: '由 IT 执行剪切与归档，工作台只登记路径。',
+    requires: 'IT 的正式邮件回执',
+  },
+  'billing-notified': {
+    title: '通知 BD 出账',
+    description: '报价、交付清单与全部证据齐备后通知 BD。',
+    requires: '出账通知邮件草稿已发出',
+  },
+}
+
 export const GATE_TITLE: Record<CloseoutGateCode, string> = {
-  'assets-approved': '全部资产验收',
-  'final-package': '总监整理最终包',
-  'client-final': '客户最终确认',
-  'it-backup': 'IT 剪切备份',
-  'billing-notified': '通知 BD 出账',
+  'assets-approved': GATE_SPEC['assets-approved'].title,
+  'final-package': GATE_SPEC['final-package'].title,
+  'client-final': GATE_SPEC['client-final'].title,
+  'it-backup': GATE_SPEC['it-backup'].title,
+  'billing-notified': GATE_SPEC['billing-notified'].title,
+}
+
+/** 一张空白的门禁清单。开结项时用，谁都还没完成 */
+export function blankGates(): CloseoutGate[] {
+  return CLOSEOUT_GATE_ORDER.map((code) => ({
+    code,
+    title: GATE_SPEC[code].title,
+    description: GATE_SPEC[code].description,
+    requires: GATE_SPEC[code].requires,
+    evidence: [],
+  }))
+}
+
+/**
+ * 全部资产已验收、但还没开结项案件的项目。
+ *
+ * 这是「看板说可以进结项，结项中心却是空的」的那个断点：
+ * `CloseoutCase` 以前只在种子数据里存在，运行时没有任何地方能新建，
+ * 于是自己录进来的项目做完了也永远进不了结项。
+ */
+export function closeoutReadyProjects(
+  state: DemoState,
+): { projectCode: string; client: string; stageCount: number }[] {
+  return state.projects
+    .filter((project) => {
+      if (state.closeoutCases.some((entry) => entry.projectCode === project.code)) return false
+      return assetsApproved(state, project.code).done
+    })
+    .map((project) => ({
+      projectCode: project.code,
+      client: project.client,
+      stageCount: project.assets.flatMap((asset) => asset.stages).length,
+    }))
+}
+
+/**
+ * 开启结项。
+ *
+ * 开的只是那张门禁清单，不代表任何一道门通过了——第一道「全部资产验收」
+ * 仍然由阶段状态推导，后面四道仍然要正式证据，串行不可跳。
+ */
+export function openCloseout(
+  state: DemoState,
+  projectCode: string,
+  at: string,
+  actor: string,
+): DemoState {
+  const project = state.projects.find((entry) => entry.code === projectCode)
+  if (!project) throw new CloseoutBlocked([`找不到项目 ${projectCode}`])
+  if (state.closeoutCases.some((entry) => entry.projectCode === projectCode)) {
+    throw new CloseoutBlocked([`${projectCode} 已经有结项案件了，不要重复开`])
+  }
+
+  const { done, pending } = assetsApproved(state, projectCode)
+  if (!done) {
+    throw new CloseoutBlocked([
+      pending > 0
+        ? `还有 ${pending} 个阶段没通过客户验收，现在开结项等于给自己发一张假的完成证明`
+        : `${projectCode} 还没有任何阶段，无从结项`,
+    ])
+  }
+
+  const seq = String(state.closeoutCases.length + 1).padStart(3, '0')
+  const item: CloseoutCase = {
+    id: `CO-${seq}`,
+    projectCode,
+    client: project.client,
+    status: 'AwaitingFinalPackage',
+    openedAt: at,
+    finalPackageOwner: project.artDirectorName,
+    gates: blankGates(),
+  }
+
+  return {
+    ...state,
+    closeoutCases: [...state.closeoutCases, item],
+    auditEvents: [
+      ...state.auditEvents,
+      {
+        id: `AE-${item.id}-open`,
+        at,
+        actor,
+        action: '开启结项',
+        targetKind: 'CloseoutCase',
+        targetId: item.id,
+        after: 'AwaitingFinalPackage',
+        reason: '全部资产已通过客户验收',
+      },
+    ],
+  }
 }
 
 /** 哪几道门禁必须要正式邮件。截图和口头确认过不了这几关。 */

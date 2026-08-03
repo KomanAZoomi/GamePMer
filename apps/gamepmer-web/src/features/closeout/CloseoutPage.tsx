@@ -7,6 +7,7 @@ import {
   assetsApproved,
   billingPackage,
   closeoutCase,
+  closeoutReadyProjects,
   currentGate,
   gateBlockingIssues,
   gateState,
@@ -58,19 +59,71 @@ export function CloseoutPage({ workspace, store, onNavigate }: CloseoutPageProps
     }
   }, [demo.closeoutCases])
 
+  /**
+   * 全部资产验收完、但还没开结项案件的项目。
+   *
+   * 这里以前是个断点：反馈中心说「可以进结项」，点进来却是「当前没有结项案件」，
+   * 因为 CloseoutCase 只在种子数据里存在，运行时没有任何地方能新建。
+   */
+  const ready = closeoutReadyProjects(demo)
+
   const listed = buckets[closeoutTab]
   const selected =
     demo.closeoutCases.find((entry) => entry.id === selectedCloseoutCaseId) ??
     listed[0] ??
     demo.closeoutCases[0]
 
+  const readyPanel = ready.length > 0 && (
+    <section className="gp-card gp-closeout-ready" aria-label="可开启结项">
+      <header className="gp-card-head">
+        <h2>
+          可开启结项
+          <span className="gp-deck-sub">
+            全部阶段已通过客户验收。开启的只是那张门禁清单，不代表任何一道门通过了
+          </span>
+        </h2>
+        <span className="gp-count">{ready.length}</span>
+      </header>
+      <ul>
+        {ready.map((entry) => (
+          <li key={entry.projectCode}>
+            <div>
+              <strong>{entry.projectCode}</strong>
+              <span>
+                {entry.client} · {entry.stageCount} 个阶段全部验收
+              </span>
+            </div>
+            <button
+              type="button"
+              className="gp-btn gp-btn-primary gp-btn-sm"
+              onClick={() => store.openCloseout(entry.projectCode)}
+            >
+              开启结项
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+
   if (!selected) {
     return (
-      <div className="gp-placeholder">
-        <div className="gp-card gp-placeholder-card">
-          <h1>结项中心</h1>
-          <p>当前没有结项案件。恢复示例数据后可查看 AUR_A_3D_B11 的主路径。</p>
-        </div>
+      <div className="gp-closeout">
+        <header className="gp-page-head">
+          <div>
+            <h1>结项中心</h1>
+            <p>最终包 · 客户确认 · IT 备份 · 出账 · 五道门串行，证据不能手工绕过</p>
+          </div>
+        </header>
+        {readyPanel}
+        {ready.length === 0 && (
+          <div className="gp-card gp-placeholder-card">
+            <p>
+              当前没有结项案件，也没有可开启结项的项目。
+              一个项目的阶段全部通过客户验收后，这里会出现「开启结项」。
+            </p>
+          </div>
+        )}
       </div>
     )
   }
@@ -130,6 +183,8 @@ export function CloseoutPage({ workspace, store, onNavigate }: CloseoutPageProps
           ))}
         </div>
       </header>
+
+      {readyPanel}
 
       <div className="gp-metrics gp-metrics-5">
         <div className="gp-metric">

@@ -6,12 +6,15 @@ import {
   CLOSEOUT_GATE_ORDER,
   CloseoutBlocked,
   archiveCase,
+  assetsApproved,
   billingPackage,
   closeoutCase,
+  closeoutReadyProjects,
   completeGate,
   currentGate,
   gateBlockingIssues,
   gateState,
+  openCloseout,
   reopenGate,
 } from './closeout'
 import type { CloseoutGateCode, DemoState, EvidenceRef } from './model'
@@ -374,5 +377,68 @@ describe('门禁可以退回重做', () => {
     const event = rolled.auditEvents.at(-1)
     expect(event?.action).toContain('退回结项门禁')
     expect(event?.reason).toContain('LOD')
+  })
+})
+
+/**
+ * 「看板说可以进结项，结项中心却是空的」。
+ *
+ * CloseoutCase 以前只在种子数据里存在，运行时没有任何地方能新建——
+ * 自己录进来的项目做完了也永远进不了结项，是条死路。
+ */
+describe('开启结项', () => {
+  function allApproved(): DemoState {
+    const state = createDemoState()
+    const project = state.projects[1]
+    for (const asset of project.assets) {
+      for (const stage of asset.stages) stage.status = 'Approved'
+    }
+    return { ...state, closeoutCases: [] }
+  }
+
+  it('全部阶段验收后才出现在可开启列表里', () => {
+    const state = allApproved()
+    const ready = closeoutReadyProjects(state)
+
+    expect(ready.length).toBeGreaterThan(0)
+    for (const entry of ready) {
+      expect(assetsApproved(state, entry.projectCode).done).toBe(true)
+    }
+    // 还有阶段没验收的项目不在列表里
+    const unfinished = state.projects.filter((project) => !assetsApproved(state, project.code).done)
+    expect(unfinished.length).toBeGreaterThan(0)
+    for (const project of unfinished) {
+      expect(ready.some((entry) => entry.projectCode === project.code)).toBe(false)
+    }
+  })
+
+  it('开启后案件就在了，五道门一道都还没通过', () => {
+    const state = allApproved()
+    const target = closeoutReadyProjects(state)[0].projectCode
+    const next = openCloseout(state, target, NOW, ACTOR)
+
+    const item = next.closeoutCases.find((entry) => entry.projectCode === target)!
+    expect(item.gates).toHaveLength(CLOSEOUT_GATE_ORDER.length)
+    // 「全部资产验收」由阶段状态推导，其余四道必须有正式证据，一道都不能预先勾上
+    expect(item.gates.every((gate) => gate.completedAt === undefined)).toBe(true)
+    expect(gateState(next, item.id, 'final-package')).toBe('current')
+    expect(gateState(next, item.id, 'it-backup')).toBe('blocked')
+    expect(next.auditEvents.some((event) => event.targetId === item.id)).toBe(true)
+  })
+
+  it('开过就不能再开，否则同一个项目会有两张门禁清单', () => {
+    const state = allApproved()
+    const target = closeoutReadyProjects(state)[0].projectCode
+    const next = openCloseout(state, target, NOW, ACTOR)
+
+    expect(closeoutReadyProjects(next).some((entry) => entry.projectCode === target)).toBe(false)
+    expect(() => openCloseout(next, target, NOW, ACTOR)).toThrow(CloseoutBlocked)
+  })
+
+  it('还有阶段没验收就开结项，等于给自己发一张假的完成证明', () => {
+    const state = { ...createDemoState(), closeoutCases: [] }
+    const unfinished = state.projects.find((project) => !assetsApproved(state, project.code).done)!
+
+    expect(() => openCloseout(state, unfinished.code, NOW, ACTOR)).toThrow(/没通过客户验收/)
   })
 })

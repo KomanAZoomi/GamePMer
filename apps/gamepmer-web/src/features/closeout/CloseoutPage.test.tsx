@@ -3,7 +3,8 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { App } from '../../App'
-import { LocalDemoRepository } from '../../data/LocalDemoRepository'
+import { DEMO_STORAGE_KEY, LocalDemoRepository } from '../../data/LocalDemoRepository'
+import { createBlankState, createDemoState } from '../../data/seed'
 import { createWorkspaceStore, type WorkspaceStore } from '../workspace/workspaceStore'
 
 /**
@@ -229,5 +230,59 @@ describe('工作台不搬文件', () => {
     const { user } = renderCloseout()
     await goto(user)
     expect(screen.getByText(/工作台不执行剪切备份/)).toBeInTheDocument()
+  })
+})
+
+/**
+ * 反馈中心说「全部资产已验收，可以进结项」，点进来却是「当前没有结项案件」。
+ * 自己录进来的项目做完了永远进不了结项，是条死路。
+ */
+describe('开启结项', () => {
+  /** 造一个「全部阶段已验收、还没建结项案」的现场，写进存储再开 Store */
+  function renderWithReadyProject() {
+    const demo = createDemoState()
+    // 种子里四个项目有三个已经建了结项案，只有这个还没有
+    const target = demo.projects.find(
+      (project) => !demo.closeoutCases.some((entry) => entry.projectCode === project.code),
+    )!
+    for (const asset of target.assets) {
+      for (const stage of asset.stages) stage.status = 'Approved'
+    }
+
+    const storage = memoryStorage()
+    storage.setItem(DEMO_STORAGE_KEY, JSON.stringify(demo))
+    store = createWorkspaceStore(new LocalDemoRepository(storage))
+    const user = userEvent.setup()
+    render(<App store={store} />)
+    return { user, target }
+  }
+
+  it('全部验收的项目出现在「可开启结项」里，一键建案', async () => {
+    const { user, target } = renderWithReadyProject()
+    await goto(user)
+
+    const panel = screen.getByLabelText('可开启结项')
+    expect(within(panel).getByText(target.code)).toBeInTheDocument()
+
+    const before = store.getState().demo.closeoutCases.length
+    await user.click(within(panel).getAllByRole('button', { name: '开启结项' })[0])
+
+    expect(store.getState().demo.closeoutCases).toHaveLength(before + 1)
+    // 开的只是门禁清单，一道门都还没通过
+    const opened = store.getState().demo.closeoutCases.at(-1)!
+    expect(opened.gates.every((gate) => gate.completedAt === undefined)).toBe(true)
+    // 开过就不再出现在待开列表里
+    expect(screen.queryByLabelText('可开启结项')).toBeNull()
+  })
+
+  it('没有可结项的项目时，说清什么时候会出现，不是一句「没有案件」', async () => {
+    const storage = memoryStorage()
+    storage.setItem(DEMO_STORAGE_KEY, JSON.stringify(createBlankState()))
+    store = createWorkspaceStore(new LocalDemoRepository(storage))
+    const user = userEvent.setup()
+    render(<App store={store} />)
+    await goto(user)
+
+    expect(screen.getByText(/阶段全部通过客户验收后/)).toBeInTheDocument()
   })
 })

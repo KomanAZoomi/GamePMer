@@ -30,6 +30,7 @@ import {
 import {
   archiveCase as archiveCloseoutCase,
   completeGate as completeCloseoutGate,
+  openCloseout,
   reopenGate as reopenCloseoutGate,
 } from '../../domain/closeout'
 import {
@@ -177,6 +178,7 @@ export interface WorkspaceStore {
     note: string,
   ): void
   reopenCloseoutGate(caseId: string, code: CloseoutGateCode, reason: string): void
+  openCloseout(projectCode: string): void
   archiveCloseoutCase(caseId: string): void
   selectPathProject(projectCode: string): void
   saveProjectPath(input: Omit<SavePathInput, 'actor' | 'now'>): void
@@ -586,6 +588,13 @@ export function createWorkspaceStore(
       })
       repository.save(demo)
       state = { ...state, demo, selectedCloseoutCaseId: caseId }
+      emit()
+    },
+    openCloseout(projectCode) {
+      const demo = openCloseout(state.demo, projectCode, clock.now(), 'Brandon')
+      repository.save(demo)
+      const opened = demo.closeoutCases.find((entry) => entry.projectCode === projectCode)
+      state = { ...state, demo, selectedCloseoutCaseId: opened?.id, closeoutTab: 'active' }
       emit()
     },
     archiveCloseoutCase(caseId) {
