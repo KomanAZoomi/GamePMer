@@ -28,11 +28,14 @@
   letter-spacing: 0.02em;
 }
 
-/*
- * 品牌区曾经挂着一行 GAME ART PM WORKSPACE。
- * 那是典型的大写小字副标题：删掉不损失任何信息，留着只是让标题看起来
- * 「有设计」。产品叫什么，左边十条导航已经说清楚了。
- */
+.gp-brand span {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.08em;
+}
 
 .gp-nav {
   display: grid;
@@ -75,15 +78,8 @@
   font-weight: var(--weight-medium);
 }
 
-/* 分区之间用一条发丝线断开，标签才不会被读成又一个导航条目 */
-.gp-rail-group {
-  margin-top: var(--space-7);
-  padding-top: var(--space-5);
-  border-top: 1px solid var(--border-faint);
-}
-
 .gp-rail-section {
-  margin: 0 var(--space-4) var(--space-2);
+  margin: var(--space-6) var(--space-4) var(--space-2);
   color: var(--text-faint);
   font-size: var(--text-2xs);
   font-weight: var(--weight-heavy);

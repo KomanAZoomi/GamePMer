@@ -20,14 +20,6 @@ body {
   font-size: var(--text-sm);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
-
-  /*
-   * 这是一个排期工具：屏幕上大半是日期、工作日数、阶段编号和资产代号。
-   * 比例数字会让一列日期左右抖动，扫一眼看不出对齐关系。
-   * 等宽数字让每一列日期变成一条直边——这是功能，不是装饰。
-   */
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
 }
 
 h1,
@@ -80,27 +72,11 @@ input {
 
 /* ---------------------------------------------------------------- 通用控件 */
 
-/*
- * 卡片只保留一条发丝描边。
- *
- * 原来描边 + 圆角 + 投影三样一起上，三件事都在说「这是一块区域」，
- * 说三遍的结果就是边缘发糊。层级交给留白和背景色，不靠描边堆。
- */
 .gp-card {
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   background: var(--surface-card);
-}
-
-/*
- * 卡片里的容器不再是「卡片里的卡片」。
- *
- * 三层嵌套各带一圈 1px 描边，是这套界面显得碎的主因。
- * 内层改成背景分层 + 发丝分隔线，只在真正需要圈出边界时才留描边。
- */
-.gp-card .gp-card {
-  border: 0;
-  border-radius: 0;
+  box-shadow: var(--shadow-card);
 }
 
 .gp-card-head {
@@ -115,25 +91,10 @@ input {
 .gp-card-head h2 {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
   font-size: var(--text-md);
   font-weight: var(--weight-bold);
   color: var(--text-primary);
-  letter-spacing: var(--track-tight);
-}
-
-/*
- * 标签形态：字距 + 字重 + 颜色，三者一起才分得开。
- *
- * 这里原本想照搬 Swiss 的大写标签，但中文没有大小写，`text-transform`
- * 只会作用到 Latin，结果「序号」和「MECH-01」两种标签长得不一样。
- * 改成对中英一致生效的做法。
- */
-.gp-label,
-table thead th {
-  letter-spacing: var(--track-label);
-  font-weight: var(--weight-bold);
-  font-variant-numeric: tabular-nums;
 }
 
 .gp-count {
@@ -151,7 +112,7 @@ table thead th {
   border-radius: var(--radius-md);
   background: var(--surface-card);
   color: var(--text-secondary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--weight-medium);
   white-space: nowrap;
   transition: background 120ms ease, border-color 120ms ease;
@@ -179,7 +140,7 @@ table thead th {
   border-radius: var(--radius-pill);
   background: var(--surface-card);
   color: var(--text-muted);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 }
 
 .gp-chip:hover {
