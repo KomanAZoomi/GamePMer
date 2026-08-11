@@ -430,11 +430,9 @@ npm.cmd run dev
 - `audit/06-quotation-change.png`
 - `audit/07-closeout-backup-billing.png`
 
-当前原型服务信息：
-
-`http://localhost:57006/?key=fec8068f4015abfadc120ac250ff58fe464930d7cfa7d191abdaec7ff5c4793d`
-
-服务可能因超时失效。失效时直接查看 HTML 和截图，不要把 URL 当成长期依赖。
+原型陪伴页原本由一个带一次性令牌的本机服务提供，令牌已随公开发布移除。
+这批 HTML 和截图已在 2026-07-27 复制进 `docs/design-assets/2026-07-27-white-ui/`，
+用浏览器直接打开静态文件即可，不要把任何本机 URL 当成长期依赖。
 
 实现时可以忠实复刻结构与信息层级，但应使用真实可维护的 React 组件、设计令牌和响应式布局，不能把静态原型整体硬编码进 `App.tsx`。
 

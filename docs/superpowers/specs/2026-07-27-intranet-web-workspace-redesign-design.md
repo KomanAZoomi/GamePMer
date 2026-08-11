@@ -6,7 +6,7 @@
 - 产品形态：部署在公司内网的桌面优先 Web 工作台。
 - 目标用户：游戏美术项目经理，以及后续获得授权的组长、艺术总监、BD 和 IT 协作人员。
 - 设计基线：延续参考图的整体结构与信息密度，改为白色主题，并以真实业务对象和状态机替代纯展示型卡片。
-- 原型陪伴页：`http://localhost:57006/?key=fec8068f4015abfadc120ac250ff58fe464930d7cfa7d191abdaec7ff5c4793d`
+- 原型陪伴页：见 `docs/design-assets/2026-07-27-white-ui/prototypes/`，用浏览器直接打开静态 HTML。
 
 本文在平台与 UI 方向上取代 `2026-07-15-gamepmer-workbench-design.md` 中的 WPF 桌面应用方案，并扩展 `2026-07-17-web-demo-schedule-replan-design.md`：从单一“反馈导致重排”演示，扩展为候选信息、报价、开工、制作、客户反馈、排期修订、结项、备份和出账的完整产品设计。
 

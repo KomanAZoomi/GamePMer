@@ -243,6 +243,24 @@ BD 需求 → 总监报价 → 组长/BD 复核 → BD 报给客户 → 客户�
   有 E2E 提交真 Key 之后在整个 `localStorage` 里搜，搜不到才算过。
 - **没接入的就说没接入。** 连接器逐条标审批门槛并给替代路径；页面上不出现「即将支持」。
 
+## 视觉与主题
+
+**暗色默认 + 完整亮色**，顶栏三态切换（跟随系统 / 亮 / 暗）。两套都是完整方案，不是互相反色：
+亮色沿用原来的白色与浅暖灰基线，暗色是独立调过的一套，各自的强调色都在自己的底上成立。
+
+设计语言借鉴 [octopus-kaogong-workbench](https://github.com/zhangyushaonao/octopus-kaogong-workbench)（MIT）——
+强调色按 HSL 通道派生、面板靠渐变加顶部高光分层、全站一条缓动曲线。借的是方法，没有复制代码，
+署名见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+
+两条约束落成了自动门禁，不靠肉眼：
+
+- **文字对比度**（`e2e/contrast.spec.ts`）：10 个路由 × 2 套主题，逐元素按 WCAG AA 判（正文 4.5、大字 3.0）。
+  半透明前景先按祖先背景压平，渐变背景解析每个色标取最差的那个——第一版漏掉渐变，
+  主按钮 3.45 就是这么藏住的。修的是令牌，不是逐个组件补颜色。
+- **横向溢出**（`e2e/layout-overflow.spec.ts`）：1280 / 1440 / 1920 三档 × 10 路由 × 2 主题共 60 组，
+  页面不许出现横向滚动条。入场动画期间也要量——`transform: translateX` 曾让详情卡在 240ms 里顶出列外 8px，
+  这类瞬时溢出「networkidle 之后量一次」是抓不到的。
+
 ## 本地运行
 
 双击 `apps/gamepmer-web/start.cmd`，浏览器会自动打开 <http://127.0.0.1:5180/>。
@@ -275,6 +293,11 @@ npm.cmd run test:e2e  # Playwright 端到端（含三档视觉与键盘可达性
 
 E2E 会自动拉起 dev server（端口 5180），已在跑则复用。
 
+**内存吃紧的机器上请改跑构建产物**：dev 模式下 Vite 每个模块一个 HTTP 请求，
+两百多个测试并发时会撞上 `net::ERR_INSUFFICIENT_RESOURCES`——那是环境资源耗尽，不是产品缺陷，
+表现为随机两三条失败、单独重跑又全绿。先 `npm.cmd run build`，
+再 `npx.cmd vite preview --port 5180 --strictPort`，然后 `npx.cmd playwright test` 复用它即可。
+
 ## 已知限制
 
 - **没有后端。** 数据存在浏览器 localStorage，通过 Repository 接口隔离；
@@ -300,3 +323,13 @@ E2E 会自动拉起 dev server（端口 5180），已在跑则复用。
 - [视觉基线](docs/design-assets/2026-07-27-white-ui/) — 已确认的原型与各检查点截图
 - [M1 失败复盘](docs/retrospectives/2026-07-16-m1-vibe-coding-retrospective.md) — 本轮流程规范的由来
 - [PRD](docs/PRD.md) — 领域规则仍然有效；平台与发布章节已被上述设计说明取代
+
+## 许可证
+
+源码与文档以 [MIT](LICENSE) 发布。
+
+设计参考截图、字体和依赖各自的权利状态见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)——
+其中 `docs/design-assets/**/screenshots/*-reference-*-comparison*.jpg` 含第三方产品界面截图，
+**不在 MIT 覆盖范围内**。
+
+仓库内全部项目、客户、人员、邮件和金额均为虚构脱敏数据，不含任何真实凭证。
