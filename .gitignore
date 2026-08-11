@@ -1,20 +1,25 @@
+# 目录名一律用 `/` 开头锚定到仓库根。
+# 不锚定的 `data/` 会匹配任意层级的同名目录——它曾经把整个
+# `apps/gamepmer-web/src/data/` 忽略掉，四个源文件因此一直没入库，
+# 而 git status 是干净的，所以没人发现。写新规则前先想清楚要不要递归。
+
 # Visual Studio and .NET build output
-.vs/
-.worktrees/
+/.vs/
+/.worktrees/
 **/bin/
 **/obj/
-TestResults/
-artifacts/
+/TestResults/
+/artifacts/
 
 # Local brainstorming and design previews
-.superpowers/
+/.superpowers/
 
-# GamePMer runtime data
-data/
-backups/
-logs/
-cache/
-secrets/
+# GamePMer runtime data（只在仓库根，不要连累源码目录）
+/data/
+/backups/
+/logs/
+/cache/
+/secrets/
 *.db
 *.db-shm
 *.db-wal
