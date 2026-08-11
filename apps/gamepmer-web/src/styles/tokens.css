@@ -1,67 +1,194 @@
 /*
  * GamePMer 设计令牌
  *
- * 色值来自已确认的视觉基线：docs/design-assets/2026-07-27-white-ui/
- * 尺寸**不**来自原型：原型为了在演示页里缩放展示用了 6~10px 字号，
- * 这里按「正文不小于 14px」重新定阶梯。原型定结构与层次，不定尺寸。
+ * 双主题体系：`:root` 承载暗色取值，`html[data-theme-resolved="light"]` 承载亮色取值。
+ * 暗色是默认值——JS 未执行时也应落在暗色而不是半成品状态。
+ *
+ * 设计语言参考 octopus-kaogong-workbench（MIT, Copyright 2026 张鱼烧脑🐙）：
+ * 强调色按 HSL 通道拆分派生、面板靠渐变+顶部高光+软阴影分层、统一缓动曲线。
+ * 只移植质感与结构手法，不移植其字号阶梯——本项目正文下限仍是 14px。
+ *
+ * 命名是语义化的（surface / text / border / accent-ink），因此两套主题
+ * 共用同一批 token 名，2000+ 处引用无需随主题改动。
+ *
+ * 亮色色值来自已确认的视觉基线：docs/design-assets/2026-07-27-white-ui/
  */
 
 :root {
-  /* ---- 表层：白 + 浅暖灰分层 ---- */
-  --surface-page: #f5f7f5;
-  --surface-card: #ffffff;
-  --surface-rail: #fbfcfb;
-  --surface-muted: #f6f8f6;
-  --surface-field: #f8faf9;
-  --surface-info: #f7faf8;
-  --surface-group: #f4f7f5;
+  color-scheme: dark;
 
-  /* ---- 描边 ---- */
-  --border-strong: #d9dfdb;
-  --border-default: #dde3df;
-  --border-subtle: #e4e8e5;
-  --border-faint: #edf0ee;
+  /* ================================================================
+   * 强调色：只改 --accent-h 一个标量即可换整套配色
+   * 默认「翡翠」158° —— 与原鼠尾草绿 #42755f 同色相，保持品牌延续
+   * ================================================================ */
+  --accent-h: 158;
+  --accent-s: 76%;
+  --accent-soft-s: 54%;
+  /* 空格分量：供 rgb(var(--accent-rgb) / <alpha>) 任意透明度使用 */
+  --accent-rgb: 40 226 157;
 
-  /* ---- 文字 ---- */
-  --text-primary: #25362e;
-  --text-secondary: #4c5b53;
-  --text-muted: #6f7d76;
-  --text-faint: #8b968f;
-  --text-inverse: #ffffff;
+  --accent-50: hsl(var(--accent-h) var(--accent-soft-s) 96%);
+  --accent-100: hsl(var(--accent-h) var(--accent-soft-s) 89%);
+  --accent-200: hsl(var(--accent-h) 67% 78%);
+  --accent-300: hsl(var(--accent-h) 72% 67%);
+  --accent-400: hsl(var(--accent-h) var(--accent-s) 52%);
+  --accent-500: hsl(var(--accent-h) var(--accent-s) 43%);
+  --accent-600: hsl(var(--accent-h) 74% 35%);
+  --accent-700: hsl(var(--accent-h) 72% 27%);
+  --accent-800: hsl(var(--accent-h) 66% 20%);
+  --accent-900: hsl(var(--accent-h) 58% 13%);
+  --accent-foreground: #f3fff9;
+
+  /* ---- 表层：深色分层。数值越大越靠近观者 ---- */
+  --surface-page: #060908;
+  --surface-rail: #0b110f;
+  --surface-card: #0e1512;
+  --surface-field: #0a100e;
+  --surface-muted: #151d19;
+  --surface-info: #101815;
+  --surface-group: #121a17;
+  --surface-raised: #1a231f;
+
+  /* ---- 描边：暗色下用半透明亮色，避免死黑边 ---- */
+  --border-strong: rgb(190 214 203 / 28%);
+  --border-default: rgb(187 210 200 / 18%);
+  --border-subtle: rgb(187 210 200 / 12%);
+  --border-faint: rgb(187 210 200 / 8%);
+
+  /*
+   * ---- 文字 ----
+   *
+   * 四档全部按 WCAG AA 定值，量的是**最不利的底**——不是按 token 表上最极端的
+   * 那个表面推算，而是拿全站审计跑出来的实测值反推：暗色 #1b241f、亮色 #eff2ef。
+   * （第一版按 `--surface-muted` / `--surface-page` 推，实测仍有 4.4x 的漏网。）
+   * 括号里是对着那个底的实测对比度。
+   *
+   * `--text-faint` 取 4.8 而不是压着 4.5：这一档几乎全是 11–12px 的小字，
+   * 次像素抗锯齿会吃掉一点有效对比，卡在及格线上等于没过。
+   * 层次靠这条亮度阶梯本身拉开，不靠把最低一档调到看不清。
+   */
+  --text-primary: #f2f6f4; /* 14.61 */
+  --text-secondary: #c3ccc7; /* 9.69 */
+  --text-muted: #949f9a; /* 5.83 */
+  --text-faint: #84908a; /* 4.81 */
+  /* 填充按钮上的文字：暗色下强调色底仍然偏深，前景保持浅色 */
+  --text-inverse: var(--accent-foreground);
 
   /* ---- 鼠尾草绿：正式计划 / 已确认 / 主操作 ---- */
-  --accent: #42755f;
-  --accent-hover: #386552;
-  --accent-strong: #2f6d50;
-  --accent-ink: #285c47;
-  --accent-soft: #e7f1ec;
-  --accent-softer: #eff6f2;
-  --accent-border: #c6dacf;
+  /* --accent 承担「线条 / 标记 / 纯色块」角色：暗色下必须够亮才看得见 */
+  --accent: var(--accent-400);
+  --accent-hover: var(--accent-300);
+  --accent-strong: var(--accent-300);
+  /* --accent-fill 承担「有浅色文字压在上面的填充底」角色：必须够暗才压得住。
+   * 亮色主题下这两个角色恰好都由深绿满足，所以此处两者取值相同；
+   * 暗色下必须分开，否则近白文字会糊在亮绿底上。 */
+  --accent-fill: var(--accent-700);
+  --accent-fill-hover: var(--accent-600);
+  /*
+   * 主操作按钮：渐变让填充块有体积感，纯色在暗色下显得扁。
+   * 定色时看的是**最亮那个色标**，不是平均色——文字横跨整条渐变，
+   * 浅的那一端压不住就等于半行字不达标。原来起手用 --accent-600，
+   * 白字在那一端只有 3.45；改成 --accent-700 起手（5.48）。
+   * 悬停仍然更亮一档（29% 亮度，4.82），手感在，也没掉出 AA。
+   */
+  --accent-fill-gradient: linear-gradient(145deg, var(--accent-700), var(--accent-900));
+  --accent-fill-gradient-hover: linear-gradient(
+    145deg,
+    hsl(var(--accent-h) 73% 29%),
+    var(--accent-800)
+  );
+  /* ink = 软底上的文字色。暗色下软底是深的，所以 ink 必须反过来取浅阶 */
+  --accent-ink: var(--accent-200);
+  --accent-soft: rgb(var(--accent-rgb) / 14%);
+  --accent-softer: rgb(var(--accent-rgb) / 8%);
+  --accent-border: rgb(var(--accent-rgb) / 30%);
 
   /* ---- 琥珀：客户反馈 / 待确认草案 / 需复核 ---- */
-  --amber: #c8802f;
-  --amber-ink: #8c5a24;
-  --amber-soft: #fdf3e7;
-  --amber-border: #e6c8a4;
+  --amber: #e0a03f;
+  --amber-rgb: 224 160 63;
+  --amber-ink: #f0c789;
+  --amber-soft: rgb(224 160 63 / 14%);
+  --amber-border: rgb(224 160 63 / 32%);
+  /* 警示条与琥珀同源，单独命名以便日后分化 */
+  --warn-soft: rgb(224 160 63 / 12%);
+  --warn-ink: #edc186;
 
   /* ---- 克制红：已确认高风险 / 阻断 / 逾期（不作普通强调色）---- */
-  --danger: #b4553c;
-  --danger-ink: #8f3f2b;
-  --danger-soft: #fbeae4;
-  --danger-border: #e8c4b6;
+  --danger: #ff7d68;
+  --danger-rgb: 255 125 104;
+  --danger-ink: #ffab99;
+  --danger-soft: rgb(255 125 104 / 14%);
+  --danger-border: rgb(255 125 104 / 32%);
 
-  /* ---- 甘特条：四层日期各有专属色，且形态不同 ---- */
-  --bar-baseline: #b3bdb8;
-  --bar-current: #4b8065;
-  --bar-actual: #263b31;
-  --bar-feedback: #d1893f;
-  --bar-draft: #5b9179;
-  --bar-wait: #d8c39c;
+  /* ---- 分类色：给「客户等待 / 依赖 / 项目段 / 批次段 / IT 回执」这类
+   * **非状态**的归类用。它们不表达好坏和进度，所以刻意避开强调色、琥珀和
+   * 克制红——那三个已经被「已确认 / 待复核 / 风险」占用，混用会让人读错状态。 ---- */
+  --cat-sand: #b39a68;
+  --cat-sand-soft: rgb(216 195 156 / 16%);
+  --cat-sand-ink: #ddc9a1;
+  --cat-slate: #7d8ea3;
+  --cat-slate-soft: rgb(125 142 163 / 18%);
+  --cat-slate-ink: #b3c2d3;
+  --cat-plum: #9b7fa8;
+  --cat-plum-soft: rgb(155 127 168 / 18%);
+  --cat-plum-ink: #cbb4d4;
+  --cat-sage: #8fae9d;
+  --cat-sage-soft: rgb(143 174 157 / 18%);
+  --cat-sage-ink: #b8d2c4;
 
-  /* ---- 字号阶梯：正文 14px 起 ---- */
+  /* 复核轨当前步：比 --amber-soft 更实，用于「就是这一步」的强调 */
+  --amber-soft-strong: rgb(224 160 63 / 26%);
+  /* 表格斑马纹与极淡分隔：暗色下要加白、亮色下要加黑 */
+  --overlay-faint: rgb(255 255 255 / 3%);
+  /* 草案斜纹的间隔色：亮色下留白、暗色下留深，否则会变成一条刺眼高亮 */
+  --stripe-gap: rgb(10 16 14 / 62%);
+
+  /* ---- 甘特条：四层日期各有专属色，且形态不同 ----
+   * 颜色不是唯一状态表达：形态（实心/描边/斜纹/细线）同时编码。
+   *
+   * 每种条**成对**给底色和字色。此前条上的标签统一取 --text-inverse（近白），
+   * 于是浅底的条（已验收条用 --accent-ink，暗色下是浅绿）白字压白底，
+   * 实测只有 1.33。字色必须跟着底色走，不能全局定一个。
+   * 括号里是标签对着该底色的实测对比度，最低一档 4.8——标签是 11px，
+   * 卡在 4.5 及格线上等于没过。 */
+  --bar-baseline: #4a5854;
+  --bar-current: var(--accent-600);
+  --bar-actual: var(--accent-500);
+  --bar-feedback: #b07424;
+  --bar-draft: var(--accent-800);
+  --bar-wait: #7a663f;
+  --bar-done: var(--accent-ink);
+
+  /* 任何「纯色块 + 压在上面的文字」都从这两支里挑一支，不要各处自己写死 */
+  --fill-ink-light: var(--accent-foreground);
+  --fill-ink-dark: #08140f;
+
+  --bar-baseline-ink: var(--fill-ink-light); /* 7.28 */
+  --bar-current-ink: var(--fill-ink-dark); /* 5.31 */
+  --bar-actual-ink: var(--fill-ink-dark); /* 8.06 */
+  --bar-feedback-ink: var(--fill-ink-dark); /* 4.82 */
+  --bar-draft-ink: var(--fill-ink-light); /* 8.58 */
+  --bar-wait-ink: var(--fill-ink-light); /* 5.39 */
+  --bar-done-ink: var(--fill-ink-dark); /* 13.81 */
+  --bar-risk-ink: var(--fill-ink-dark); /* 7.51 */
+
+  /* 承载文字的琥珀/克制红实心块。不承载文字的圆点、进度条不用这一对 */
+  --amber-fill: var(--amber);
+  --danger-fill: var(--danger);
+  --ink-on-amber: var(--fill-ink-dark); /* 8.30 */
+  --ink-on-danger: var(--fill-ink-dark); /* 7.51 */
+
+  /* ================================================================
+   * 以下与主题无关：两套主题共用
+   * ================================================================ */
+
+  /* ---- 字号阶梯：正文 14px 起 ----
+   * 原型（含 kaogong）为了在演示页里缩放展示用了 6~11px 字号，
+   * 这里按「正文不小于 14px」重新定阶梯。原型定结构与层次，不定尺寸。 */
   --text-2xs: 12px; /* 仅限徽章、计数、表头标签 */
   --text-xs: 13px; /* 元信息 */
   --text-sm: 14px; /* 正文默认下限 */
+  --text-base: 15px; /* 小标题 */
   --text-md: 15px;
   --text-lg: 17px;
   --text-xl: 21px;
@@ -69,6 +196,7 @@
 
   /* ---- 字重 ---- */
   --weight-normal: 400;
+  --weight-regular: 400;
   --weight-medium: 550;
   --weight-bold: 700;
   --weight-heavy: 800;
@@ -90,17 +218,234 @@
   --radius-xl: 16px;
   --radius-pill: 999px;
 
-  /* ---- 阴影 ---- */
-  --shadow-card: 0 1px 2px rgba(41, 59, 50, 0.04);
-  --shadow-raised: 0 10px 24px rgba(41, 59, 50, 0.1);
-  --shadow-float: 0 16px 40px rgba(41, 59, 50, 0.14);
+  /* ---- 字体 ----
+   * Geist 不含汉字字形，中文会自动落到后面的系统中文字体。
+   * 这不是降级，是刻意分工：拉丁字母与数字用 Geist，汉字用系统栈，
+   * 免去为 CJK 加载 5–10MB 字体文件。 */
+  --font-sans: 'Geist Variable', 'Segoe UI', 'Microsoft YaHei UI', 'Microsoft YaHei',
+    system-ui, -apple-system, sans-serif;
+  --font-mono: 'Geist Mono Variable', Consolas, 'Cascadia Mono', ui-monospace, monospace;
+
+  /* ---- 缓动：全站位移共用一条曲线，保证手感统一 ---- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ---- 面板质感三件套：微渐变底 + 顶部 1px 受光高光 + 大范围软阴影 ---- */
+  --panel-bg: linear-gradient(145deg, #131b18 0%, #0a100e 100%);
+  --panel-inset: inset 0 1px rgb(255 255 255 / 4%);
+  /* 阴影带背景色相而不是纯黑：纯黑压在偏绿的 #060908 上会发灰发脏。
+   * 色相取自页面底色，明度压到近黑，只保留一点绿味。 */
+  --shadow-card: var(--panel-inset), 0 1px 2px rgb(3 10 7 / 46%);
+  --shadow-raised: var(--panel-inset), 0 10px 28px rgb(3 10 7 / 58%);
+  --shadow-float: var(--panel-inset), 0 20px 56px rgb(2 8 6 / 68%);
+  /* 强调色辉光：仅用于选中态和主操作，不铺满界面 */
+  --glow-accent: 0 0 24px rgb(var(--accent-rgb) / 14%);
+
+  /* ---- 层级刻度 ----
+   * 之前 CSS 里散着 2/3/4/40，StageDeck 又由 JS 注入 58–90，两套互不知情。
+   * 统一成一把尺子：数值只在这里定义，组件引用语义名。 */
+  --z-base: 1;
+  --z-raised: 2; /* 甘特条、时间轴上叠放的元素 */
+  --z-sticky: 10; /* 表头、粘顶工具条 */
+  --z-deck-card: 20; /* 阶段流层叠卡片的基线，JS 在此之上做相对偏移 */
+  --z-deck-focus: 60; /* 层叠中被聚焦的那张 */
+  --z-dropdown: 100; /* 搜索结果、下拉浮层 */
+  --z-drawer: 200; /* 抽屉与模态 */
 
   /* ---- 布局 ---- */
   --rail-width: 216px;
   --topbar-height: 60px;
   --inspector-width: 312px;
-  --min-workspace-width: 1280px;
+  /* 浏览器垂直滚动条占约 15px：按窗口 1280px 验收时不能再触发横滚。 */
+  --min-workspace-width: 1264px;
 
-  /* ---- 焦点：键盘可达性，不依赖颜色单独表意 ---- */
-  --focus-ring: 0 0 0 2px #ffffff, 0 0 0 4px var(--accent);
+  /* ---- 焦点：键盘可达性，不依赖颜色单独表意 ----
+   * 内环取页面底色形成隔离带，外环取强调色。两套主题自动适配。
+   * E2E 依赖它产出非空 box-shadow，不要改成 outline。 */
+  --focus-ring: 0 0 0 2px var(--surface-page), 0 0 0 4px var(--accent-300);
+}
+
+/* ================================================================
+ * 强调色方案：只覆盖色相通道，明暗阶梯由 :root 的公式派生
+ * ================================================================ */
+
+html[data-accent='emerald'] {
+  --accent-h: 158;
+  --accent-s: 76%;
+  --accent-soft-s: 54%;
+  --accent-rgb: 40 226 157;
+  --accent-foreground: #f3fff9;
+}
+
+html[data-accent='ocean'] {
+  --accent-h: 202;
+  --accent-s: 78%;
+  --accent-soft-s: 58%;
+  --accent-rgb: 42 169 232;
+  --accent-foreground: #f4fbff;
+}
+
+html[data-accent='iris'] {
+  --accent-h: 263;
+  --accent-s: 68%;
+  --accent-soft-s: 50%;
+  --accent-rgb: 132 94 231;
+  --accent-foreground: #fbf8ff;
+}
+
+html[data-accent='amber'] {
+  --accent-h: 36;
+  --accent-s: 84%;
+  --accent-soft-s: 62%;
+  --accent-rgb: 230 157 35;
+  --accent-300: hsl(36 80% 58%);
+  --accent-foreground: #fffaf0;
+}
+
+html[data-accent='sakura'] {
+  --accent-h: 344;
+  --accent-s: 76%;
+  --accent-soft-s: 56%;
+  --accent-rgb: 224 82 124;
+  --accent-foreground: #fff7fa;
+}
+
+/* ================================================================
+ * 亮色主题：完整重画，不是把暗色反相
+ * 色值沿用已确认的白 + 浅暖灰视觉基线
+ * ================================================================ */
+
+html[data-theme-resolved='light'] {
+  color-scheme: light;
+
+  /* ---- 表层：白 + 浅暖灰分层 ---- */
+  --surface-page: #f5f7f5;
+  --surface-card: #ffffff;
+  --surface-rail: #fbfcfb;
+  --surface-field: #f8faf9;
+  --surface-muted: #f6f8f6;
+  --surface-info: #f7faf8;
+  --surface-group: #f4f7f5;
+  --surface-raised: #ffffff;
+
+  /* ---- 描边 ---- */
+  --border-strong: #d9dfdb;
+  --border-default: #dde3df;
+  --border-subtle: #e4e8e5;
+  --border-faint: #edf0ee;
+
+  /*
+   * ---- 文字 ----
+   * 与暗色同一套定值方法，底取 `--surface-page` (#f5f7f5)。
+   * 亮色原来三档都不达标（secondary 6.66 / muted 4.00 / faint 2.84），
+   * 只把后两档拉到 AA 会让它们贴上 secondary、四档挤成三档，
+   * 所以 secondary 一起往下压，整条阶梯的 HSL 亮度重新排成 18 / 27 / 36 / 43。
+   */
+  --text-primary: #25362e; /* 11.31 */
+  --text-secondary: #3b4841; /* 8.50 */
+  --text-muted: #55605b; /* 5.80 */
+  --text-faint: #626d66; /* 4.78 */
+  --text-inverse: #ffffff;
+
+  /* ---- 鼠尾草绿 ---- */
+  --accent: hsl(var(--accent-h) 28% 36%);
+  --accent-hover: hsl(var(--accent-h) 30% 31%);
+  --accent-strong: hsl(var(--accent-h) 40% 31%);
+  /* 亮色下线条色与填充底同为深绿，两个角色不冲突 */
+  --accent-fill: var(--accent);
+  --accent-fill-hover: var(--accent-hover);
+  /* 同样按最亮色标定：原来 40% 那一端白字只有 4.35，收到 37%（4.85） */
+  --accent-fill-gradient: linear-gradient(
+    145deg,
+    hsl(var(--accent-h) 27% 37%),
+    hsl(var(--accent-h) 30% 30%)
+  );
+  --accent-fill-gradient-hover: linear-gradient(
+    145deg,
+    hsl(var(--accent-h) 29% 35%),
+    hsl(var(--accent-h) 32% 27%)
+  );
+  /* 亮色下软底是浅的，ink 取深阶 */
+  --accent-ink: hsl(var(--accent-h) 39% 26%);
+  --accent-soft: hsl(var(--accent-h) 33% 92%);
+  --accent-softer: hsl(var(--accent-h) 33% 95%);
+  --accent-border: hsl(var(--accent-h) 28% 82%);
+
+  /* ---- 琥珀 ---- */
+  --amber: #c8802f;
+  --amber-rgb: 200 128 47;
+  --amber-ink: #8c5a24;
+  --amber-soft: #fdf3e7;
+  --amber-border: #e6c8a4;
+  --warn-soft: #fdf4e7;
+  --warn-ink: #8a5a12;
+
+  /* ---- 克制红 ---- */
+  --danger: #b4553c;
+  --danger-rgb: 180 85 60;
+  --danger-ink: #8f3f2b;
+  --danger-soft: #fbeae4;
+  --danger-border: #e8c4b6;
+
+  /* ---- 分类色：沿用已确认视觉基线中的取值 ---- */
+  --cat-sand: #d8c39c;
+  --cat-sand-soft: #f2e9d8;
+  --cat-sand-ink: #6d5a34;
+  --cat-slate: #7d8ea3;
+  --cat-slate-soft: #e8eef5;
+  --cat-slate-ink: #3c5570;
+  --cat-plum: #9b7fa8;
+  --cat-plum-soft: #f2e7f0;
+  --cat-plum-ink: #6b4463;
+  --cat-sage: #8fae9d;
+  --cat-sage-soft: #e6efe9;
+  --cat-sage-ink: #3f5a4c;
+
+  --amber-soft-strong: #f3e2c8;
+  --overlay-faint: rgb(0 0 0 / 2.5%);
+  --stripe-gap: rgb(255 255 255 / 55%);
+
+  /* ---- 甘特条 ----
+   * 亮色下问题反过来：条本身偏浅，白标签压不住。同样成对定值。
+   * current / feedback / draft 三条原来两种字色都不达标，
+   * 各自沿原色相推了一档明度（改动都在 5% 以内）。 */
+  --bar-baseline: #b3bdb8;
+  --bar-current: #487b61;
+  --bar-actual: #263b31;
+  --bar-feedback: #d4904b;
+  --bar-draft: #4c7965;
+  --bar-wait: #d8c39c;
+  --bar-done: var(--accent-ink);
+
+  --fill-ink-light: var(--accent-foreground);
+  --fill-ink-dark: var(--text-primary);
+
+  --bar-baseline-ink: var(--fill-ink-dark); /* 6.62 */
+  --bar-current-ink: var(--fill-ink-light); /* 4.81 */
+  --bar-actual-ink: var(--fill-ink-light); /* 11.69 */
+  --bar-feedback-ink: var(--fill-ink-dark); /* 4.80 */
+  --bar-draft-ink: var(--fill-ink-light); /* 4.81 */
+  --bar-wait-ink: var(--fill-ink-dark); /* 7.42 */
+  --bar-done-ink: var(--fill-ink-light); /* 7.54 */
+  --bar-risk-ink: var(--fill-ink-light); /* 4.76 */
+
+  /*
+   * 亮色的 --amber 是 rgb(200 128 47)，浅字 3.11、深字 4.00，两种都压不住。
+   * 但它同时还是圆点、进度条和边框的颜色，直接调深会让那些地方变闷，
+   * 所以只给「承载文字的实心块」单独一支更深的琥珀。
+   */
+  --amber-fill: #9d6119;
+  --danger-fill: var(--danger);
+  --ink-on-amber: var(--fill-ink-light); /* 4.94 */
+  --ink-on-danger: var(--fill-ink-light); /* 4.76 */
+
+  /* ---- 面板质感：亮色下高光来自白，阴影极淡 ---- */
+  --panel-bg: linear-gradient(145deg, #ffffff 0%, #fafcfb 100%);
+  --panel-inset: inset 0 1px rgb(255 255 255 / 90%);
+  --shadow-card: 0 1px 2px rgb(41 59 50 / 4%);
+  --shadow-raised: 0 10px 24px rgb(41 59 50 / 10%);
+  --shadow-float: 0 16px 40px rgb(41 59 50 / 14%);
+  --glow-accent: 0 0 20px rgb(var(--accent-rgb) / 10%);
+
+  /* 亮色下内环用白色隔离带 */
+  --focus-ring: 0 0 0 2px var(--surface-card), 0 0 0 4px var(--accent);
 }

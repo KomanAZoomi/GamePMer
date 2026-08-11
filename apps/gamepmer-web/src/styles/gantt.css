@@ -38,12 +38,26 @@
 
 /* ---------------------------------------------------------------- 项目切换 */
 
+/*
+ * 项目切换条：等分到放不下就改成横向滚动，不要继续挤。
+ *
+ * 原来是 `grid-auto-columns: minmax(0, 1fr)` 无脑等分。四个项目时看不出问题，
+ * 加到六个，1280 下每张卡只剩 190px，卡里的「编号 + 风险标 + 名称 + 进度」
+ * 直接顶出边框 22px。而真实场景里 PM 手上远不止六个项目，
+ * 等分这条路本来就走不通。
+ *
+ * 现在给每张卡一个下限：放得下就等分铺满，放不下就滚动。
+ * 滚动条归这条轨道自己，不会把整页拖宽。
+ */
 .gp-project-switch {
   grid-area: switch;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-columns: minmax(230px, 1fr);
   gap: var(--space-3);
+  overflow-x: auto;
+  /* 卡片顶边有 3px 高亮，滚动区留一点余量免得被裁掉 */
+  padding-bottom: 2px;
 }
 
 .gp-project-tab {
@@ -491,7 +505,7 @@
 }
 
 .gp-gantt-day.is-today {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--text-inverse);
   font-weight: var(--weight-bold);
 }
@@ -512,7 +526,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  z-index: 4;
+  z-index: var(--z-raised);
   width: 2px;
   background: var(--accent-strong);
 }
@@ -544,14 +558,14 @@
 }
 
 .gp-lane-cell.is-off {
-  background: rgba(0, 0, 0, 0.025);
+  background: var(--overlay-faint);
 }
 
 /* ---- 四层条：靠 top 错位，同一阶段的四套日期上下对齐 ---- */
 
 .gp-bar {
   position: absolute;
-  z-index: 2;
+  z-index: var(--z-raised);
   border-radius: 3px;
 }
 
@@ -561,30 +575,40 @@
   background: var(--bar-baseline);
 }
 
+/*
+ * 只有 is-current 这条（15px 高）承载标签，基准与实际条是 5–6px 的细线、没有文字。
+ * 底色与字色成对来自令牌层，对比度在那里算好；改底色时必须同时看字色那一行。
+ */
 .gp-bar.is-current {
   top: 16px;
   height: 15px;
   background: var(--bar-current);
+  --bar-label-ink: var(--bar-current-ink);
 }
 
 .gp-bar.is-current.is-plan {
   background: var(--bar-baseline);
+  --bar-label-ink: var(--bar-baseline-ink);
 }
 
 .gp-bar.is-current.is-done {
-  background: var(--accent-ink);
+  background: var(--bar-done);
+  --bar-label-ink: var(--bar-done-ink);
 }
 
 .gp-bar.is-current.is-wait {
   background: var(--bar-wait);
+  --bar-label-ink: var(--bar-wait-ink);
 }
 
 .gp-bar.is-current.is-feedback {
   background: var(--bar-feedback);
+  --bar-label-ink: var(--bar-feedback-ink);
 }
 
 .gp-bar.is-current.is-risk {
   background: var(--danger);
+  --bar-label-ink: var(--bar-risk-ink);
 }
 
 .gp-bar.is-actual {
@@ -615,22 +639,17 @@
   position: absolute;
   left: var(--space-2);
   top: 0;
-  color: var(--text-inverse);
+  color: var(--bar-label-ink, var(--text-inverse));
   font-size: 11px;
   line-height: 15px;
   white-space: nowrap;
   pointer-events: none;
 }
 
-.gp-bar.is-current.is-plan .gp-bar-label,
-.gp-bar.is-current.is-wait .gp-bar-label {
-  color: var(--text-primary);
-}
-
 .gp-milestone {
   position: absolute;
   top: 15px;
-  z-index: 3;
+  z-index: var(--z-raised);
   width: 9px;
   height: 9px;
   margin-left: -4px;

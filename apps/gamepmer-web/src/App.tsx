@@ -15,6 +15,7 @@ import { AnalyticsPage } from './features/analytics/AnalyticsPage'
 import { SettingsPage } from './features/settings/SettingsPage'
 import { createWorkspaceStore, selectHomeView, type WorkspaceStore } from './features/workspace/workspaceStore'
 import type { SearchHit } from './domain/search'
+import { useAppearance } from './features/appearance/useAppearance'
 
 const defaultStore = createWorkspaceStore()
 
@@ -23,6 +24,8 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
   const [route, navigate] = useHashRoute()
   const view = selectHomeView(workspace)
   const navItem = findNavItem(route)
+  /* 外观偏好是界面级状态，不进业务 Store */
+  const appearance = useAppearance()
 
   const pendingMessages = workspace.demo.feedbackBatches.reduce(
     (total, batch) => total + batch.items.filter((item) => item.status === 'NeedsClassification').length,
@@ -69,6 +72,7 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
       pendingMails={pendingMails}
       onResetDemo={store.resetDemo}
       onStartQuoteEntry={store.startQuoteEntry}
+      appearance={appearance}
     >
       {route === 'tasks' && (
         <HomePage
@@ -99,7 +103,12 @@ export function App({ store = defaultStore }: { store?: WorkspaceStore }) {
         <AnalyticsPage workspace={workspace} store={store} onNavigate={navigate} />
       )}
       {route === 'settings' && (
-        <SettingsPage workspace={workspace} store={store} onNavigate={navigate} />
+        <SettingsPage
+          workspace={workspace}
+          store={store}
+          onNavigate={navigate}
+          appearance={appearance}
+        />
       )}
       {route !== 'tasks' &&
         route !== 'projects' &&

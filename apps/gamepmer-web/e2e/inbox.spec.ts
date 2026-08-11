@@ -1,4 +1,16 @@
 import { expect, test } from '@playwright/test'
+import { createDemoState } from '../src/data/seed'
+
+/**
+ * 新批次编号是「现有最大号 + 1」。这里跟着种子算，不写死——
+ * 种子里加一个编号更大的批次，写死的期望值就会失效，而失效的是测试不是实现。
+ */
+const NEXT_BATCH_ID = `F-${String(
+  createDemoState().feedbackBatches.reduce(
+    (max, batch) => Math.max(max, Number(batch.id.match(/^F-(\d+)/)?.[1] ?? 0)),
+    0,
+  ) + 1,
+).padStart(3, '0')}`
 
 /**
  * 候选收件箱端到端。
@@ -138,7 +150,7 @@ test('确认客户反馈候选 → 反馈中心多出一个待分流批次', asy
 
   // 从候选一路点到正式记录
   await page.getByRole('button', { name: '去反馈中心分流' }).click()
-  await expect(page.getByLabel('反馈批次').getByText('F-018', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('反馈批次').getByText(NEXT_BATCH_ID, { exact: true })).toBeVisible()
 })
 
 test('确认阶段完成候选 → 甘特上阶段推进到已交 PM', async ({ page }) => {

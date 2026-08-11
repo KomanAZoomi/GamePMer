@@ -20,12 +20,19 @@
 
 /* ---------------------------------------------------------------- 批次 */
 
+/*
+ * 这张卡是 <button>。必须显式写 background——不写的话浏览器会给它
+ * UA 默认的 buttonface，暗色下就是 rgb(107 107 107) 的中灰块，
+ * 上面的次级文字只剩 1.6 的对比度。只有选中态那条规则盖住了它，
+ * 所以未选中的批次卡一直坐在一块灰底上。
+ */
 .gp-batch-card {
   padding: var(--space-4);
   margin: var(--space-3);
   border: 1px solid var(--border-default);
   border-left: 3px solid transparent;
   border-radius: var(--radius-md);
+  background: transparent;
 }
 
 .gp-batch-card.is-active {
@@ -67,8 +74,14 @@
 
 /* ---------------------------------------------------------------- 反馈项表 */
 
+/* 1280 下这张表的 min-content 会超过容器，让它自己横向滚动，别顶爆卡片 */
+.gp-item-scroll {
+  overflow-x: auto;
+}
+
 .gp-item-table {
   width: 100%;
+  min-width: 420px;
   border-collapse: collapse;
 }
 
@@ -311,9 +324,9 @@
   background: repeating-linear-gradient(
     135deg,
     var(--amber) 0 5px,
-    rgba(255, 255, 255, 0.55) 5px 10px
+    var(--stripe-gap) 5px 10px
   );
-  z-index: 3;
+  z-index: var(--z-raised);
 }
 
 .gp-bar.is-draft .gp-bar-label {
@@ -327,7 +340,7 @@
   background: repeating-linear-gradient(
     135deg,
     var(--amber) 0 4px,
-    rgba(255, 255, 255, 0.55) 4px 8px
+    var(--stripe-gap) 4px 8px
   );
 }
 
@@ -381,9 +394,14 @@
 
 
 /* 批次卡现在可点：原来写死 is-active，看起来全选中、哪张都点不动 */
+/*
+ * 不要写 width: 100%——这张卡有 margin，百分比宽度是相对父级内容宽算的，
+ * 加上左右外边距就会溢出父级 8px。block 元素的 auto 宽度本来就会
+ * 自动扣掉 margin，这才是要的行为。
+ */
 .gp-batch-card {
   display: block;
-  width: 100%;
+  width: auto;
   text-align: left;
   font: inherit;
   cursor: pointer;
@@ -521,9 +539,9 @@
 }
 
 .gp-board-column.is-me .gp-board-count {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
-  color: #fff;
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--text-inverse);
 }
 
 .gp-board-empty {
@@ -577,8 +595,8 @@
   margin-top: var(--space-2);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
-  background: var(--warn-soft, #fdf4e7);
-  color: var(--warn-ink, #8a5a12);
+  background: var(--warn-soft);
+  color: var(--warn-ink);
   font-size: var(--text-2xs);
   line-height: 1.5;
 }

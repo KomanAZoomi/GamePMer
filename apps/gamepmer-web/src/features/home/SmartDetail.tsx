@@ -22,7 +22,12 @@ export function SmartDetail({ state, item, onOpenSource }: SmartDetailProps) {
   const stage = item.stageId ? findStage(state, item.stageId) : undefined
 
   return (
-    <section className="gp-card gp-detail" aria-label="智能详情">
+    /*
+     * key 绑到当前待办：换选中项时让 React 重建这一段，
+     * 入场动效才会重放。不加 key 的话 DOM 被复用，动效只在首次挂载时跑一次，
+     * 用户从一条待办切到另一条时右侧是硬跳变，看不出内容换了。
+     */
+    <section key={item.id} className="gp-card gp-detail" aria-label="智能详情">
       <div className="gp-detail-kicker">智能详情</div>
       <div className="gp-detail-id">
         {feedback ? `${feedback.batch.id} / ` : ''}

@@ -4,7 +4,23 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from './App'
 import { NAV_ITEMS } from './app/navigation'
 import { LocalDemoRepository, type StorageLike } from './data/LocalDemoRepository'
+import { createDemoState } from './data/seed'
+import { activeProjects } from './domain/lookup'
+import { projectWorkItems, summarizeMetrics } from './domain/workItems'
 import { createWorkspaceStore } from './features/workspace/workspaceStore'
+
+/*
+ * 期望值从种子推导，不写死。
+ * 这一组用例要守的是「页面上的数字来自种子计算」——把数字抄进断言里，
+ * 守的就变成了「种子没变过」，每加一条示例数据都要回来改，改完什么也没证明。
+ */
+const SEED = createDemoState()
+const TODAY = '2026-07-27'
+const ACTIVE_PROJECTS = activeProjects(SEED).length
+const SEED_METRICS = summarizeMetrics(SEED, TODAY)
+const SEED_ITEMS = projectWorkItems(SEED, TODAY)
+const DUE_TOMORROW = SEED_ITEMS.filter((item) => /明日到期/.test(item.reason)).length
+const PENDING_F017 = SEED_ITEMS.filter((item) => /客户反馈 F-017 待分流/.test(item.reason)).length
 
 function memoryStorage(): StorageLike {
   const map = new Map<string, string>()
@@ -67,24 +83,28 @@ describe('首页首次打开', () => {
   it('直接呈现多个项目的真实数据，不是空白页', () => {
     renderApp()
     expect(screen.getByRole('heading', { name: '任务管理' })).toBeInTheDocument()
-    expect(screen.getByText(/共 4 个在管项目/)).toBeInTheDocument()
+    // 已归档项目不算在管：种子里的 GLD_A_3D_B02 走完全程后不该再占这个数
+    expect(
+      screen.getByText(new RegExp(`共 ${ACTIVE_PROJECTS} 个在管项目`)),
+    ).toBeInTheDocument()
     expect(screen.getByLabelText('跨项目时间线')).toBeInTheDocument()
   })
 
   it('指标数字由种子数据算出，而不是写死的字符串', () => {
     renderApp()
     const board = screen.getByLabelText('任务看板')
-    const todoCount = within(board).getByText('9')
+    const todoCount = within(board).getByText(String(SEED_METRICS.todo))
     expect(todoCount).toBeInTheDocument()
   })
 
   it('每条待办都显示它为什么出现在这里', () => {
     renderApp()
     const board = screen.getByLabelText('任务看板')
-    expect(within(board).getAllByText(/客户反馈 F-017 待分流/).length).toBe(3)
+    expect(within(board).getAllByText(/客户反馈 F-017 待分流/).length).toBe(PENDING_F017)
     expect(within(board).getByText(/可能延期/)).toBeInTheDocument()
-    // 7/28 到期的三个阶段各自生成 T-1 提醒
-    expect(within(board).getAllByText(/明日到期/).length).toBe(3)
+    // 次日到期且尚未收到完成邮件的阶段各自生成一条 T-1 提醒
+    expect(DUE_TOMORROW).toBeGreaterThan(0)
+    expect(within(board).getAllByText(/明日到期/).length).toBe(DUE_TOMORROW)
     expect(within(board).getByText(/等待客户验收已/)).toBeInTheDocument()
     expect(within(board).getByText(/全部资产已验收/)).toBeInTheDocument()
   })
@@ -141,6 +161,8 @@ describe('示例数据', () => {
   it('提供一键恢复入口', async () => {
     const { user } = renderApp()
     await user.click(screen.getByRole('button', { name: '恢复示例数据' }))
-    expect(screen.getByText(/共 4 个在管项目/)).toBeInTheDocument()
+    expect(
+      screen.getByText(new RegExp(`共 ${ACTIVE_PROJECTS} 个在管项目`)),
+    ).toBeInTheDocument()
   })
 })

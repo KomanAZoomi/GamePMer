@@ -1,4 +1,4 @@
-import { findAsset } from '../../domain/lookup'
+import { activeProjects, findAsset } from '../../domain/lookup'
 import type { RouteKey } from '../../app/navigation'
 import type { HomeView } from '../workspace/workspaceStore'
 import type { WorkspaceState } from '../workspace/workspaceStore'
@@ -33,7 +33,7 @@ export function HomePage({ workspace, view, onSelect, onNavigate }: HomePageProp
                 </>
               ) : (
                 <>
-                  {today} · 共 {demo.projects.length} 个在管项目 ·
+                  {today} · 共 {activeProjects(demo).length} 个在管项目 ·
                   待办由项目、资产、阶段和反馈的正式状态投影生成
                 </>
               )}
@@ -118,6 +118,10 @@ export function HomePage({ workspace, view, onSelect, onNavigate }: HomePageProp
   )
 }
 
+/** 倾斜幅度刻意压得很小：卡片要像被压住的实体，不是会翻转的玩具 */
+const TILT_X = 4
+const TILT_Y = 6
+
 function Metric({
   label,
   value,
@@ -129,8 +133,35 @@ function Metric({
   note: string
   tone?: 'risk'
 }) {
+  /*
+   * 指针位置只写进 CSS 变量，由样式表决定怎么用——高光位置和微倾斜都在 CSS 里。
+   * 这样 JS 不需要拼 transform 字符串，降低动态效果时也只要在 CSS 里关掉即可。
+   */
+  function trackPointer(event: React.PointerEvent<HTMLDivElement>) {
+    const card = event.currentTarget
+    const bounds = card.getBoundingClientRect()
+    const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width))
+    const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height))
+    card.style.setProperty('--pointer-x', `${x * 100}%`)
+    card.style.setProperty('--pointer-y', `${y * 100}%`)
+    card.style.setProperty('--metric-rx', `${(0.5 - y) * TILT_X}deg`)
+    card.style.setProperty('--metric-ry', `${(x - 0.5) * TILT_Y}deg`)
+  }
+
+  function resetPointer(event: React.PointerEvent<HTMLDivElement>) {
+    const card = event.currentTarget
+    card.style.removeProperty('--pointer-x')
+    card.style.removeProperty('--pointer-y')
+    card.style.setProperty('--metric-rx', '0deg')
+    card.style.setProperty('--metric-ry', '0deg')
+  }
+
   return (
-    <div className={`gp-card gp-metric${tone === 'risk' ? ' is-risk' : ''}`}>
+    <div
+      className={`gp-card gp-metric${tone === 'risk' ? ' is-risk' : ''}`}
+      onPointerMove={trackPointer}
+      onPointerLeave={resetPointer}
+    >
       <span className="gp-metric-label">{label}</span>
       <strong className="gp-metric-value">{value}</strong>
       <span className="gp-metric-note">{note}</span>

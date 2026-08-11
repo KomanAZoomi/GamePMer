@@ -113,13 +113,20 @@ test('第三段：范围外 → 追加报价 → 客户嫌贵 → 三条出路�
   await page.getByLabel(/客户怎么说的/).fill('价格高了')
   await page.getByRole('button', { name: '客户未接受 · 终止案件' }).click()
 
+  /*
+   * 三条出路。注意「放弃变更」与「确认不接这单」是互斥分支：
+   * 变更案件走前者（要解冻被冻住的阶段），首次报价才走后者。
+   * 第三条出路是「作废」——它对开工前的任何状态都开放，不必先把案件推到被否。
+   * 这条用例以前找的是一个叫「确认不接入」的按钮，那个文案在 UI 里从来不存在。
+   */
   const detail = page.getByLabel('报价详情')
   await expect(detail.getByRole('button', { name: /降价重报/ })).toBeVisible()
   await expect(detail.getByRole('button', { name: /放弃变更/ })).toBeVisible()
-  await expect(detail.getByRole('button', { name: /确认不接入/ })).toBeVisible()
+  await detail.getByText('作废这张案件').click()
+  await expect(detail.getByRole('button', { name: /作废并释放编号/ })).toBeVisible()
 })
 
-test('第四段：确认不接入 → 删除；审计保留', async ({ page }) => {
+test('第四段：作废 → 释放编号 → 彻底删除；审计保留', async ({ page }) => {
   await reset(page)
   await page.goto('/#/quotation')
   await page.getByRole('button', { name: /全部进行中/ }).click()
@@ -130,14 +137,19 @@ test('第四段：确认不接入 → 删除；审计保留', async ({ page }) =
   await page.getByLabel(/客户怎么说的/).fill('价格高了')
   await page.getByRole('button', { name: '客户未接受 · 终止案件' }).click()
 
+  /*
+   * 作废走的是 markNotEngaged：案件收尾、批次编号当场释放、移到「已完成」页签。
+   * 删除是**独立的第二步**——作废本身不删任何东西，删除也只删案件与报价版本，审计不动。
+   */
   const detail = page.getByLabel('报价详情')
-  await detail.getByLabel(/决定与原因/).fill('客户预算只有一半，这单不接')
-  await detail.getByRole('button', { name: /确认不接入/ }).click()
+  await detail.getByText('作废这张案件').click()
+  await detail.getByLabel(/作废原因/).fill('客户预算只有一半，这单不接')
+  await detail.getByRole('button', { name: /作废并释放编号/ }).click()
 
-  await expect(detail.getByRole('heading', { name: '确认不接入' })).toBeVisible()
+  await expect(detail.getByRole('heading', { name: '已作废' })).toBeVisible()
   await expect(detail.getByText(/审计一条不动/)).toBeVisible()
 
-  await detail.getByRole('button', { name: '删除这张案件' }).click()
+  await detail.getByRole('button', { name: '彻底删除这张案件' }).click()
   // 案件消失，页面没崩
   await expect(page.getByLabel('报价案件').getByText(/CQ-004/)).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '报价与变更' })).toBeVisible()

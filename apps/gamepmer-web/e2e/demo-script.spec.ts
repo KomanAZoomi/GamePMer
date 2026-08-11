@@ -1,4 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
+import { createDemoState } from '../src/data/seed'
+import { activeProjects } from '../src/domain/lookup'
+
+/** 已归档的项目不算在管，所以不能直接用 projects.length */
+const ACTIVE_PROJECTS = activeProjects(createDemoState()).length
 
 /**
  * 五分钟演示脚本的端到端验证。
@@ -19,7 +24,7 @@ test.beforeEach(async ({ page }) => {
 
 test('步骤 1-2：首页首次打开就有真实数据，且每条待办能追溯到来源', async ({ page }) => {
   await expect(page.getByRole('heading', { name: '任务管理' })).toBeVisible()
-  await expect(page.getByText(/共 4 个在管项目/)).toBeVisible()
+  await expect(page.getByText(new RegExp(`共 ${ACTIVE_PROJECTS} 个在管项目`))).toBeVisible()
 
   const board = page.getByLabel('任务看板')
   await expect(board.getByText('缩小肩甲比例')).toBeVisible()

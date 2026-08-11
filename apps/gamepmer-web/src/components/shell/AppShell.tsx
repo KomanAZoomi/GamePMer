@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { NAV_ITEMS, type RouteKey } from '../../app/navigation'
 import type { DemoState } from '../../domain/model'
 import type { SearchHit } from '../../domain/search'
+import { THEME_LABELS, nextTheme, themeIcon, themeLabel } from '../../domain/theme'
+import type { Appearance } from '../../features/appearance/useAppearance'
 import { GlobalSearch } from './GlobalSearch'
 
 interface AppShellProps {
@@ -14,6 +16,7 @@ interface AppShellProps {
   onResetDemo: () => void
   /** 跳过去的同时把录入面板打开——否则这个入口等于只换了个页 */
   onStartQuoteEntry: () => void
+  appearance: Appearance
   children: ReactNode
 }
 
@@ -26,10 +29,18 @@ export function AppShell({
   pendingMails,
   onResetDemo,
   onStartQuoteEntry,
+  appearance,
   children,
 }: AppShellProps) {
   return (
     <div className="gp-shell">
+      {/*
+        键盘用户第一次 Tab 就能跳过十项导航直达主内容。
+        平时隐藏，聚焦时才浮出来——这是无障碍的标准做法，不是装饰。
+      */}
+      <a className="gp-skip-link" href="#gp-main-content">
+        跳到主内容
+      </a>
       <aside className="gp-rail">
         <div className="gp-brand">
           GamePMer
@@ -84,6 +95,24 @@ export function AppShell({
               恢复示例数据
             </button>
             {/*
+              主题切换。三态循环：跟随系统 → 亮色 → 暗色。
+              图标三态各不相同，不靠颜色单独表意；标签在 system 下额外说明
+              当前实际落在哪一种，否则「跟随系统」四个字看不出现在是亮还是暗。
+            */}
+            <button
+              type="button"
+              className="gp-theme-toggle"
+              onClick={appearance.cycleTheme}
+              aria-label={`切换显示主题，当前${themeLabel(appearance.theme, appearance.resolvedTheme)}`}
+              title={`${themeLabel(appearance.theme, appearance.resolvedTheme)} · 点击切换为${
+                THEME_LABELS[nextTheme(appearance.theme)]
+              }`}
+            >
+              <span className="gp-theme-toggle-icon" aria-hidden="true">
+                {themeIcon(appearance.theme)}
+              </span>
+            </button>
+            {/*
               顶栏这个位置只放一个动作，它必须指向业务的真实起点。
               整条链路是从**需求**开始的：BD 谈下来一条新活或一笔追加，先立案再报价。
               原来这里写「手工录入」并跳去候选收件箱，看不出是在录什么——
@@ -103,7 +132,9 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="gp-content">{children}</main>
+        <main className="gp-content" id="gp-main-content" tabIndex={-1}>
+          {children}
+        </main>
       </div>
     </div>
   )

@@ -18,14 +18,18 @@ import {
 import { PATH_KIND_LABEL, PATH_KIND_ORDER } from '../../domain/projectPaths'
 import type { WorkspaceState, WorkspaceStore } from '../workspace/workspaceStore'
 import { OrgSection } from './OrgSection'
+import { DataOpsPanel } from './DataOpsPanel'
+import { AppearanceSection } from './AppearanceSection'
+import type { Appearance } from '../appearance/useAppearance'
 
 interface SettingsPageProps {
   workspace: WorkspaceState
   store: WorkspaceStore
   onNavigate: (route: RouteKey) => void
+  appearance: Appearance
 }
 
-type Section = 'org' | 'rules' | 'connectors' | 'llm' | 'ops'
+type Section = 'org' | 'rules' | 'connectors' | 'llm' | 'ops' | 'appearance'
 
 const SECTIONS: Array<{ key: Section; label: string; group: string }> = [
   { key: 'org', label: '组织配置', group: '组织' },
@@ -33,6 +37,7 @@ const SECTIONS: Array<{ key: Section; label: string; group: string }> = [
   { key: 'connectors', label: '连接器', group: '集成' },
   { key: 'llm', label: 'LLM 供应商', group: '集成' },
   { key: 'ops', label: '数据与运维', group: '运维' },
+  { key: 'appearance', label: '外观', group: '外观' },
 ]
 
 const STAGE_TEMPLATES = [
@@ -40,7 +45,7 @@ const STAGE_TEMPLATES = [
   { discipline: '3D PBR', stages: ['中模', '高模', '低模', '烘焙', '贴图', 'LOD'] },
 ]
 
-export function SettingsPage({ workspace, store, onNavigate }: SettingsPageProps) {
+export function SettingsPage({ workspace, store, onNavigate, appearance }: SettingsPageProps) {
   const { demo, today } = workspace
   const [section, setSection] = useState<Section>('llm')
   const [providerId, setProviderId] = useState('anthropic')
@@ -73,7 +78,7 @@ export function SettingsPage({ workspace, store, onNavigate }: SettingsPageProps
 
       <div className="gp-settings-body">
         <aside className="gp-card gp-settings-nav" aria-label="设置分组">
-          {['组织', '集成', '运维'].map((group) => (
+          {['组织', '集成', '运维', '外观'].map((group) => (
             <div key={group}>
               <div className="gp-settings-group">{group}</div>
               {SECTIONS.filter((entry) => entry.group === group).map((entry) => (
@@ -93,6 +98,7 @@ export function SettingsPage({ workspace, store, onNavigate }: SettingsPageProps
         </aside>
 
         <section className="gp-card gp-settings-main" aria-label="设置内容">
+          {section === 'appearance' && <AppearanceSection appearance={appearance} />}
           {section === 'llm' && (
             <>
               <header className="gp-card-head">
@@ -420,7 +426,9 @@ export function SettingsPage({ workspace, store, onNavigate }: SettingsPageProps
             </>
           )}
 
-          {section === 'ops' && (
+          {section === 'ops' && <DataOpsPanel demo={demo} store={store} now={`${today}T09:00:00+08:00`} />}
+
+          {false && section === 'ops' && (
             <>
               <header className="gp-card-head">
                 <h2>

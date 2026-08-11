@@ -1,10 +1,84 @@
 <!doctype html>
-<html lang="zh-CN">
+<html
+  lang="zh-CN"
+  data-theme="dark"
+  data-theme-resolved="dark"
+  data-accent="emerald"
+  data-metric-palette="semantic"
+>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f5f3ed" />
+    <meta name="theme-color" content="#060908" />
+    <!-- public/favicon.svg 之前没接上，标签页一直是浏览器默认图标 -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="GamePMer 是面向游戏美术 PM 的内网工作台：项目、资产与阶段排期，客户反馈重排，报价与变更，结项与归档。"
+    />
     <title>GamePMer 制作工作台</title>
+    <script>
+      /*
+       * 防首屏闪烁：在 CSS 加载前先把持久化的外观偏好写到 html 上。
+       * 放在这里而不是 React 里，是因为 React 挂载已经晚于首次绘制，
+       * 用户会看到默认主题闪一下再跳到自己的选择。
+       *
+       * 存储键与默认值必须与 src/domain/theme.ts 保持一致。
+       * html 标签上已经写死了暗色默认值，因此本脚本失败时也不会没有主题。
+       */
+      ;(function () {
+        var root = document.documentElement
+        var theme = 'dark'
+        var accent = 'emerald'
+        var palette = 'semantic'
+        try {
+          var storedTheme = localStorage.getItem('gamepmer.appearance.theme')
+          if (storedTheme === 'system' || storedTheme === 'light' || storedTheme === 'dark') {
+            theme = storedTheme
+          }
+          var storedAccent = localStorage.getItem('gamepmer.appearance.accent')
+          if (['emerald', 'ocean', 'iris', 'amber', 'sakura'].indexOf(storedAccent) >= 0) {
+            accent = storedAccent
+          }
+          var storedPalette = localStorage.getItem('gamepmer.appearance.metricPalette')
+          if (['semantic', 'cyan', 'original', 'rain', 'chrome'].indexOf(storedPalette) >= 0) {
+            palette = storedPalette
+          }
+          var storedFluid = JSON.parse(
+            localStorage.getItem('gamepmer.appearance.fluid') || 'null',
+          )
+          if (storedFluid) {
+            if (typeof storedFluid.opacity === 'number') {
+              root.style.setProperty('--metric-opacity', String(storedFluid.opacity / 100))
+            }
+            if (typeof storedFluid.blur === 'number') {
+              root.style.setProperty('--metric-blur', storedFluid.blur + 'px')
+            }
+            if (typeof storedFluid.flow === 'number') {
+              root.style.setProperty(
+                '--metric-flow',
+                Math.max(3, Math.round((900 / storedFluid.flow) * 10) / 10) + 's',
+              )
+            }
+          }
+        } catch (error) {
+          /* 隐私模式下 localStorage 会抛错，此时用默认值即可 */
+        }
+        var resolved =
+          theme === 'system'
+            ? window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark'
+            : theme
+        root.dataset.theme = theme
+        root.dataset.themeResolved = resolved
+        root.dataset.accent = accent
+        root.dataset.metricPalette = palette
+        root.style.colorScheme = resolved
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.content = resolved === 'light' ? '#f5f7f5' : '#060908'
+      })()
+    </script>
   </head>
   <body>
     <div id="root"></div>

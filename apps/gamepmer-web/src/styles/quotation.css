@@ -274,7 +274,7 @@
 }
 
 .gp-approval-track li.is-current .gp-approval-no {
-  background: #f3e2c8;
+  background: var(--amber-soft-strong);
   color: var(--amber-ink);
 }
 
@@ -1027,7 +1027,7 @@
 .gp-case.is-scrapped {
   gap: 2px;
   padding: 7px 9px;
-  background: #fff;
+  background: var(--surface-card);
   opacity: 0.85;
 }
 
@@ -1038,7 +1038,7 @@
 .gp-scrapped-delete {
   border-color: var(--danger-border);
   color: var(--danger-ink);
-  background: #fff;
+  background: var(--surface-card);
 }
 
 .gp-scrapped-delete:hover {

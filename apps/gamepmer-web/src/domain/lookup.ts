@@ -6,6 +6,19 @@ export function findProject(state: DemoState, code: string): Project | undefined
   return state.projects.find((project) => project.code === code)
 }
 
+/**
+ * 「在管」的项目：已归档的不算。
+ *
+ * 首页、排期和分析三处页头都写着「N 个在管项目」，原来直接取 `projects.length`，
+ * 于是归档项目也被算成在管。归档意味着证据齐全、已通知出账、这条链已经走完，
+ * PM 手上没有任何关于它的活——把它算进在管数，页头那个数字就是错的。
+ *
+ * 查找类函数（findProject / findAsset）不过滤：归档项目的历史数据仍然要能被追溯到。
+ */
+export function activeProjects(state: DemoState): Project[] {
+  return state.projects.filter((project) => project.status !== 'Archived')
+}
+
 export function findAsset(state: DemoState, assetId: string): Asset | undefined {
   for (const project of state.projects) {
     const asset = project.assets.find((item) => item.id === assetId)

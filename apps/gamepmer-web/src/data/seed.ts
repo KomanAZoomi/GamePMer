@@ -320,6 +320,98 @@ const relay01 = buildAsset('AUR_A_3D_B11', 'RELAY-01', '中继终端', '3D', [
   approved('3D_LOD', 2, '2026-07-16', '2026-07-17', '2026-07-20'),
 ])
 
+// ---------------------------------------------------------------- LMN_D_2D_B07 交接链路
+
+/**
+ * 这个项目专门把「制作完成 → 已交 PM → 已提交客户 → 等待客户 → 客户验收」
+ * 中间那两段摆出来。
+ *
+ * 在它之前，种子里只有 NotStarted / InProduction / AwaitingClient / Approved 四种，
+ * 于是「这几件事不是一回事」这条被反复强调的业务不变量，Demo 打开来一个例子都没有——
+ * 而分不清「已交 PM」和「已提交客户」正是这个产品最想解决的混乱。
+ */
+const vil01 = buildAsset('LMN_D_2D_B07', 'VIL-01', '村长立绘', '2D', [
+  {
+    code: '2D_SKETCH',
+    group: 'grp-2d-a',
+    owner: 'Mei',
+    days: 1,
+    baseline: ['2026-07-20', '2026-07-20'],
+    actual: ['2026-07-20', '2026-07-20'],
+    submittedToClientAt: '2026-07-20',
+    clientApprovedAt: '2026-07-22',
+    status: 'Approved',
+  },
+  {
+    // 团队做完、已经交到 PM 手上，但 PM 还没提交客户。
+    // 这一段最容易被合并进「完成」，它恰恰是 PM 手里的活。
+    code: '2D_DETAIL_50',
+    group: 'grp-2d-a',
+    owner: 'Mei',
+    days: 3,
+    baseline: ['2026-07-21', '2026-07-23'],
+    actual: ['2026-07-21', '2026-07-24'],
+    status: 'HandedToPm',
+  },
+  {
+    code: '2D_FINAL',
+    group: 'grp-2d-a',
+    owner: 'Mei',
+    days: 2,
+    baseline: ['2026-07-27', '2026-07-28'],
+    status: 'NotStarted',
+  },
+])
+
+const vil02 = buildAsset('LMN_D_2D_B07', 'VIL-02', '渔夫立绘', '2D', [
+  {
+    code: '2D_SKETCH',
+    group: 'grp-2d-a',
+    owner: 'Mika',
+    days: 1,
+    baseline: ['2026-07-20', '2026-07-20'],
+    actual: ['2026-07-20', '2026-07-20'],
+    submittedToClientAt: '2026-07-20',
+    clientApprovedAt: '2026-07-21',
+    status: 'Approved',
+  },
+  {
+    // 已提交客户、客户还没开始看。与「等待客户」分开记：
+    // 客户等待的天数从提交那天起算，团队这边已经没有活了。
+    code: '2D_DETAIL_50',
+    group: 'grp-2d-a',
+    owner: 'Mika',
+    days: 3,
+    baseline: ['2026-07-21', '2026-07-23'],
+    actual: ['2026-07-21', '2026-07-23'],
+    submittedToClientAt: '2026-07-24',
+    status: 'SubmittedToClient',
+  },
+  {
+    // 客户反馈已判为范围内 → 挂「待重排」。排期重排确认后这个标记才会摘掉，
+    // 所以它就是「有活等着 PM 去排」的可见信号。
+    code: '2D_FINAL',
+    group: 'grp-2d-a',
+    owner: 'Mika',
+    days: 2,
+    baseline: ['2026-07-27', '2026-07-28'],
+    status: 'NotStarted',
+    flags: ['ScheduleRevisionRequired'],
+  },
+])
+
+// ---------------------------------------------------------------- GLD_A_3D_B02 已归档
+
+/** 走完全程的项目：结项证据齐全、已通知 BD 出账、已归档。终态长什么样要看得见。 */
+const forge01 = buildAsset('GLD_A_3D_B02', 'FORGE-01', '熔炉锤', '3D', [
+  approved('3D_MID', 2, '2026-06-15', '2026-06-16', '2026-06-17'),
+  approved('3D_HIGH', 2, '2026-06-17', '2026-06-18', '2026-06-19'),
+  approved('3D_LOW', 1, '2026-06-19', '2026-06-19', '2026-06-22'),
+  approved('3D_BAKE', 1, '2026-06-22', '2026-06-22', '2026-06-23'),
+  approved('3D_TEXTURE', 2, '2026-06-23', '2026-06-24', '2026-06-26', '2026-06-25'),
+  approved('3D_LOD', 1, '2026-06-25', '2026-06-25', '2026-06-26'),
+])
+
 const projects: Project[] = [
   {
     id: 'prj-nst-a-3d-b24',
@@ -369,6 +461,30 @@ const projects: Project[] = [
     artDirectorName: 'Evan',
     calendarId: CALENDAR_ID,
     assets: [relay01],
+  },
+  {
+    id: 'prj-lmn-d-2d-b07',
+    code: 'LMN_D_2D_B07',
+    name: '潮汐村庄立绘组',
+    client: 'Lumen Games',
+    discipline: '2D',
+    status: 'InProduction',
+    pmName: 'Brandon',
+    artDirectorName: 'Ines',
+    calendarId: CALENDAR_ID,
+    assets: [vil01, vil02],
+  },
+  {
+    id: 'prj-gld-a-3d-b02',
+    code: 'GLD_A_3D_B02',
+    name: '熔炉守卫道具包',
+    client: 'Goldline Interactive',
+    discipline: '3D',
+    status: 'Archived',
+    pmName: 'Brandon',
+    artDirectorName: 'Evan',
+    calendarId: CALENDAR_ID,
+    assets: [forge01],
   },
 ]
 
@@ -508,6 +624,45 @@ const quoteVersions: QuoteVersion[] = [
       decision: 'approve',
       decidedAt: '2026-07-24T17:10:00+08:00',
       note: '客户已口头认可价格。',
+    },
+  },
+  {
+    // 已报给客户、还没回话
+    id: 'Q-032/V01',
+    caseId: 'Q-032',
+    version: 1,
+    submittedBy: 'Ines',
+    submittedAt: '2026-07-24T09:40:00+08:00',
+    scheduleImpactWorkdays: 0,
+    lines: [
+      line('Q-032/L01', 'BANNER-01', '2D_SKETCH', '活动主视觉 · 草图', '两版方向', 2, '2026-08-03', '2026-08-04'),
+      line('Q-032/L02', 'BANNER-01', '2D_FINAL', '活动主视觉 · 完成稿', '含一轮修改', 3, '2026-08-05', '2026-08-07'),
+    ],
+    review: {
+      personId: 'PER-yuki',
+      roles: ['组长'],
+      decision: 'approve',
+      decidedAt: '2026-07-24T11:00:00+08:00',
+      note: '人天与档期都合理。',
+    },
+  },
+  {
+    // 客户嫌贵没接受，等 PM 决定重报还是放弃
+    id: 'Q-028/V01',
+    caseId: 'Q-028',
+    version: 1,
+    submittedBy: 'Evan',
+    submittedAt: '2026-07-18T10:15:00+08:00',
+    scheduleImpactWorkdays: 0,
+    lines: [
+      line('Q-028/L01', 'BOSS-01', '3D_HIGH', 'BOSS 高模', '含两轮结构修改', 8, '2026-08-10', '2026-08-19'),
+    ],
+    review: {
+      personId: 'PER-leo',
+      roles: ['组长', 'BD'],
+      decision: 'approve',
+      decidedAt: '2026-07-18T16:30:00+08:00',
+      note: '人天偏高但结构复杂度确实在这里。',
     },
   },
 ]
@@ -678,6 +833,72 @@ const quoteCases: QuoteCase[] = [
       },
     ],
   },
+  {
+    /*
+     * 已报给客户，球在客户那边。
+     *
+     * 「复核通过」和「报给客户」是两道不同的门：复核过了不等于报出去了，
+     * 报出去了也不等于客户接受。此前种子里没有停在这一步的案件，
+     * 于是「等客户回话」这个状态在 Demo 里看不见。
+     */
+    id: 'Q-032',
+    kind: 'initial',
+    projectCode: 'LMN_E_2D_B09',
+    client: 'Lumen Games',
+    title: '活动主视觉 1 张',
+    requirement: '夏季活动主视觉，草图两版方向 + 完成稿一轮修改。',
+    status: 'SentToClient',
+    affectedAssetIds: ['BANNER-01'],
+    discipline: '2D',
+    directorName: 'Ines',
+    reviewerPersonId: 'PER-yuki',
+    createdAt: '2026-07-23T17:05:00+08:00',
+    activeVersionId: 'Q-032/V01',
+    sentToClientAt: '2026-07-24T14:20:00+08:00',
+    sentToClientBy: 'Liu（BD）',
+    evidence: [
+      {
+        id: 'EV-Q032-1',
+        kind: 'email',
+        label: 'BD 需求邮件',
+        locator: '夏季活动主视觉报价请求',
+        receivedAt: '2026-07-23T17:00:00+08:00',
+        from: 'bd.liu@studio.example',
+      },
+    ],
+  },
+  {
+    /*
+     * 客户没接受。这**不是终态**——PM 要决定重新报价还是彻底放弃，
+     * 所以它必须留在列表里等一个决定，不能自动消失。
+     */
+    id: 'Q-028',
+    kind: 'initial',
+    projectCode: 'GLD_B_3D_B05',
+    client: 'Goldline Interactive',
+    title: 'BOSS 高模 1 个',
+    requirement: '大型 BOSS 高模，含两轮结构修改。',
+    status: 'Rejected',
+    affectedAssetIds: ['BOSS-01'],
+    discipline: '3D',
+    directorName: 'Evan',
+    reviewerPersonId: 'PER-leo',
+    createdAt: '2026-07-17T09:30:00+08:00',
+    activeVersionId: 'Q-028/V01',
+    sentToClientAt: '2026-07-19T10:00:00+08:00',
+    sentToClientBy: 'Leo（BD）',
+    clientRepliedAt: '2026-07-22T11:40:00+08:00',
+    evidence: [
+      {
+        id: 'EV-Q028-1',
+        kind: 'email',
+        label: '客户回复',
+        locator: 'RE: BOSS 高模报价 — 预算不够',
+        receivedAt: '2026-07-22T11:40:00+08:00',
+        from: 'producer@goldline.example',
+      },
+    ],
+  },
 ]
 
 /** 与 CQ-004 报价案件配对的变更单。反馈中心判为范围外时会从 CQ-005 起继续编号。 */
@@ -844,6 +1065,84 @@ const closeoutCases: CloseoutCase[] = [
     openedAt: '2026-07-24T14:00:00+08:00',
     finalPackageOwner: 'Yuki',
     gates: buildGates({}),
+  },
+  {
+    /*
+     * 终态对照：五道门禁全部完成、已通知 BD 出账、已归档。
+     *
+     * 没有它的时候，结项中心的「已归档」分组永远是空的，
+     * 「可出账」也永远是 0——PM 在 Demo 里走不到这条链的尽头，
+     * 也就看不出「证据齐了之后会发生什么」。
+     */
+    id: 'CO-002',
+    projectCode: 'GLD_A_3D_B02',
+    client: 'Goldline Interactive',
+    status: 'Archived',
+    openedAt: '2026-06-26T09:00:00+08:00',
+    archivedAt: '2026-07-03T16:40:00+08:00',
+    finalPackageOwner: 'Evan',
+    gates: buildGates({
+      'final-package': {
+        at: '2026-06-29T10:20:00+08:00',
+        by: 'Evan',
+        note: '交付件、源文件、贴图与 LOD 清单齐全',
+        evidence: [
+          {
+            id: 'EV-CO002-pkg',
+            kind: 'path',
+            label: '最终包路径',
+            locator: '\\\\NAS-ART\\Final\\GLD_A_3D_B02\\v1',
+            receivedAt: '2026-06-29T10:20:00+08:00',
+            from: 'Evan',
+          },
+        ],
+      },
+      'client-final': {
+        at: '2026-06-30T14:05:00+08:00',
+        by: 'Brandon',
+        note: '客户邮件确认最终包，无未关闭反馈',
+        evidence: [
+          {
+            id: 'EV-CO002-client',
+            kind: 'email',
+            label: '客户最终确认邮件',
+            locator: 'RE: GLD_A_3D_B02 Final Delivery — Approved',
+            receivedAt: '2026-06-30T14:05:00+08:00',
+            from: 'producer@goldline.example',
+          },
+        ],
+      },
+      'it-backup': {
+        at: '2026-07-02T11:30:00+08:00',
+        by: 'Project Archive',
+        note: 'IT 已执行剪切备份，工作台只登记归档路径',
+        evidence: [
+          {
+            id: 'EV-CO002-it',
+            kind: 'email',
+            label: 'IT 备份回执',
+            locator: 'GLD_A_3D_B02 archive completed',
+            receivedAt: '2026-07-02T11:30:00+08:00',
+            from: 'it.archive@example.internal',
+          },
+        ],
+      },
+      'billing-notified': {
+        at: '2026-07-03T16:40:00+08:00',
+        by: 'Brandon',
+        note: '已通知 BD 出账，报价与交付清单随附',
+        evidence: [
+          {
+            id: 'EV-CO002-billing',
+            kind: 'email',
+            label: '出账通知草稿',
+            locator: 'GLD_A_3D_B02 — 可出账',
+            receivedAt: '2026-07-03T16:40:00+08:00',
+            from: 'Brandon',
+          },
+        ],
+      },
+    }),
   },
 ]
 
@@ -1290,6 +1589,75 @@ const feedbackBatches: FeedbackBatch[] = [
         scope: 'in-scope',
         status: 'Closed',
         ownerName: 'Lin',
+        estimatedReworkDays: 1,
+      },
+    ],
+  },
+  {
+    /*
+     * 判定后的三条出路各一条：范围内返修中、无需修改、已重新提交。
+     *
+     * 「无需修改」是后来补上的一条出路——客户说的那条其实不用改，
+     * 既不该进返修，也不该走追加报价。在这批数据之前它一个样例都没有，
+     * 于是 Demo 里这条路存在但没人看得见。
+     *
+     * 三条都已判定，不进「待分流」，所以不影响首页那条待分流计数。
+     */
+    id: 'F-021',
+    projectCode: 'LMN_D_2D_B07',
+    client: 'Lumen Games',
+    receivedAt: '2026-07-24T16:10:00+08:00',
+    feedbackDrivePath: '\\\\NAS-ART\\Feedback\\LMN_D_2D_B07\\F-021_20260724',
+    summary: '渔夫立绘细化稿反馈：斗笠形状要改、配色确认无需调整、袖口已按上轮意见改好。',
+    clientWaitWorkdays: 1,
+    evidence: [
+      {
+        id: 'EV-F021-mail',
+        kind: 'email',
+        label: '客户反馈邮件',
+        locator: 'Re: LMN_D_2D_B07 / VIL-02 Detail Review',
+        receivedAt: '2026-07-24T16:10:00+08:00',
+        from: 'art.lead@lumen.example',
+      },
+    ],
+    items: [
+      {
+        // 判为范围内 → 阶段挂「待重排」，等 PM 在排期管理里确认重排
+        id: 'F-021/ITEM-01',
+        batchId: 'F-021',
+        assetId: 'VIL-02',
+        stageId: 'VIL-02/2D_DETAIL_50',
+        title: '斗笠形状改宽檐',
+        originalText: '斗笠现在偏窄，请改成宽檐，遮到肩线位置。',
+        scope: 'in-scope',
+        status: 'InRework',
+        ownerName: 'Mika',
+        estimatedReworkDays: 1,
+      },
+      {
+        // 无需修改：看过了，确认当前稿就是对的。不进返修，也不进追加报价
+        id: 'F-021/ITEM-02',
+        batchId: 'F-021',
+        assetId: 'VIL-02',
+        stageId: 'VIL-02/2D_DETAIL_50',
+        title: '整体配色偏冷',
+        originalText: '整体配色是不是偏冷了一点？',
+        scope: 'no-change',
+        status: 'Closed',
+        ownerName: 'Mika',
+        estimatedReworkDays: 0,
+      },
+      {
+        // 已按意见改完并重新提交，等客户再看一次
+        id: 'F-021/ITEM-03',
+        batchId: 'F-021',
+        assetId: 'VIL-02',
+        stageId: 'VIL-02/2D_DETAIL_50',
+        title: '袖口收紧',
+        originalText: '袖口比上一版好，但还可以再收一点。',
+        scope: 'in-scope',
+        status: 'Resubmitted',
+        ownerName: 'Mika',
         estimatedReworkDays: 1,
       },
     ],

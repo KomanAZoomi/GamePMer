@@ -73,6 +73,7 @@ import {
 import { EMPTY_CALENDAR } from '../../domain/workCalendar'
 import { projectWorkItems, summarizeMetrics, type HomeMetrics, type WorkItem } from '../../domain/workItems'
 import { LocalDemoRepository, type DemoRepository } from '../../data/LocalDemoRepository'
+import { createAcceptanceScenarioState } from '../../data/acceptanceScenario'
 
 /**
  * 工作台 Store。
@@ -185,6 +186,9 @@ export interface WorkspaceStore {
   removeProjectPath(entryId: string): void
   saveApiKey(providerId: string, key: string): void
   disposeInsight(input: Omit<DisposeInsightInput, 'actor' | 'now'>): void
+  loadAcceptanceScenario(): void
+  /** 只接收已经通过备份包校验的完整状态，整体替换当前 Demo。 */
+  replaceDemo(demo: DemoState): void
   resetDemo(): void
   /** 清空业务数据，保留制作组、工作日历与成员——没有它们工作台没法用 */
   clearBusinessData(): void
@@ -205,7 +209,7 @@ function initialState(demo: DemoState, today: string): WorkspaceState {
     demo,
     today,
     selectedWorkItemId: first?.id,
-    selectedProjectCode: first?.projectCode ?? DEFAULT_PROJECT,
+    selectedProjectCode: first?.projectCode ?? demo.projects[0]?.code ?? DEFAULT_PROJECT,
     selectedStageId: first?.stageId,
     axisScale: 'day',
     selectedCandidateId: demo.candidates.find((entry) => entry.status === 'NeedsReview')?.id,
@@ -641,6 +645,14 @@ export function createWorkspaceStore(
       })
       repository.save(demo)
       state = { ...state, demo }
+      emit()
+    },
+    loadAcceptanceScenario() {
+      state = initialState(repository.replace(createAcceptanceScenarioState()), clock.today())
+      emit()
+    },
+    replaceDemo(demo) {
+      state = initialState(repository.replace(demo), clock.today())
       emit()
     },
     resetDemo() {

@@ -50,15 +50,250 @@
   gap: var(--space-4);
 }
 
+/*
+ * 流体指标卡。
+ *
+ * 技术手法来自 kaogong：::before 放一层被 blur 糊开的多点径向渐变场，
+ * 用 transform 漂移做出流动感，全程纯 CSS 无图片；::after 承载指针高光。
+ *
+ * 材质预设与 kaogong 一样可切换（见本文件下方的 data-metric-palette 段），
+ * 透明度、模糊和流速也可调。唯一不让步的是第四张「可能延期」：
+ * 它在所有预设下都走暖色，边框与注释保持琥珀——材质可以换，状态不能被换糊涂。
+ */
 .gp-metric {
+  --pointer-x: 78%;
+  --pointer-y: 18%;
+  --metric-rx: 0deg;
+  --metric-ry: 0deg;
+  --metric-lift: 0px;
+  --fluid-a: rgb(var(--accent-rgb) / 46%);
+  --fluid-b: rgb(var(--accent-rgb) / 26%);
+  --fluid-c: rgb(var(--accent-rgb) / 14%);
+  position: relative;
   display: grid;
   gap: 2px;
   padding: var(--space-4) var(--space-5);
+  overflow: hidden;
+  isolation: isolate;
+  transform: perspective(900px) translateY(var(--metric-lift)) rotateX(var(--metric-rx))
+    rotateY(var(--metric-ry));
+  transform-origin: 50% 70%;
+  transition: transform 420ms var(--ease-out), box-shadow 420ms var(--ease-out),
+    border-color 320ms var(--ease-out);
 }
 
+/* 流体场：藏在内容后面，四张卡相位与时长都不同，避免齐步走 */
+.gp-metric::before {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  inset: -32%;
+  background:
+    radial-gradient(ellipse 46% 70% at 82% 28%, var(--fluid-a) 0 22%, transparent 68%),
+    radial-gradient(ellipse 52% 74% at 68% 90%, var(--fluid-b) 0 24%, transparent 70%),
+    radial-gradient(ellipse 40% 62% at 44% 20%, var(--fluid-c) 0 20%, transparent 68%);
+  opacity: var(--metric-opacity, 1);
+  filter: blur(var(--metric-blur, 26px));
+  animation: gpMetricDrift var(--metric-flow, 9s) cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite
+    alternate;
+  will-change: transform;
+}
+
+/* 指针高光：跟随鼠标位置，离开后归位到静止点 */
+.gp-metric::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: radial-gradient(
+    circle at var(--pointer-x) var(--pointer-y),
+    rgb(255 255 255 / 10%) 0 4%,
+    transparent 32%
+  );
+  opacity: 0.75;
+  transition: opacity 300ms var(--ease-out);
+}
+
+.gp-metric:hover {
+  --metric-lift: -3px;
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-raised), var(--glow-accent);
+}
+
+.gp-metric:hover::after {
+  opacity: 1;
+}
+
+/* 四张卡各自的相位与时长：质数化错开，长时间也不会同步 */
+.gp-metric:nth-child(1)::before {
+  animation-delay: -0.4s;
+  animation-duration: calc(var(--metric-flow, 9s) * 1);
+}
+
+.gp-metric:nth-child(2)::before {
+  animation-delay: -2.3s;
+  animation-duration: calc(var(--metric-flow, 9s) * 1.22);
+  transform-origin: 66% 68%;
+}
+
+.gp-metric:nth-child(3)::before {
+  animation-delay: -4.7s;
+  animation-duration: calc(var(--metric-flow, 9s) * 1.44);
+  transform-origin: 84% 44%;
+}
+
+.gp-metric:nth-child(4)::before {
+  animation-delay: -6.1s;
+  animation-duration: calc(var(--metric-flow, 9s) * 1.11);
+  transform-origin: 38% 56%;
+}
+
+/* 警示卡：边框与底色同时表意，不只靠流体场。流体色见文件下方的统一覆盖 */
 .gp-metric.is-risk {
   border-color: var(--amber-border);
   background: var(--amber-soft);
+}
+
+.gp-metric.is-risk:hover {
+  border-color: var(--amber);
+  box-shadow: var(--shadow-raised), 0 0 24px rgb(var(--amber-rgb) / 18%);
+}
+
+
+/* ================================================================
+ * 指标卡材质预设
+ *
+ * 每套给前三张卡三个**互相区分得开**的色相——四张卡都用同一个强调色的
+ * 深浅变化会显得很单调，这是第一版的问题。第四张「可能延期」在所有预设里
+ * 都保持暖色，边框与注释也仍是琥珀：材质可以换，状态不能被换糊涂。
+ *
+ * 只改 --fluid-a/b/c 三个变量，漂移、指针高光、倾斜等行为全部共用。
+ * ================================================================ */
+
+/* ---- 青蓝 ---- */
+html[data-metric-palette='cyan'] .gp-metric:nth-child(1) {
+  --fluid-a: rgb(54 245 223 / 46%);
+  --fluid-b: rgb(0 168 202 / 30%);
+  --fluid-c: rgb(35 93 168 / 18%);
+}
+
+html[data-metric-palette='cyan'] .gp-metric:nth-child(2) {
+  --fluid-a: rgb(64 200 232 / 34%);
+  --fluid-b: rgb(38 118 190 / 22%);
+  --fluid-c: rgb(24 62 122 / 14%);
+}
+
+html[data-metric-palette='cyan'] .gp-metric:nth-child(3) {
+  --fluid-a: rgb(96 160 208 / 24%);
+  --fluid-b: rgb(52 96 150 / 16%);
+  --fluid-c: rgb(28 54 96 / 10%);
+}
+
+/* ---- 霓虹 ---- */
+html[data-metric-palette='original'] .gp-metric:nth-child(1) {
+  --fluid-a: rgb(255 74 169 / 44%);
+  --fluid-b: rgb(255 136 73 / 30%);
+  --fluid-c: rgb(170 73 255 / 20%);
+}
+
+html[data-metric-palette='original'] .gp-metric:nth-child(2) {
+  --fluid-a: rgb(170 73 255 / 34%);
+  --fluid-b: rgb(96 92 240 / 22%);
+  --fluid-c: rgb(255 74 169 / 12%);
+}
+
+html[data-metric-palette='original'] .gp-metric:nth-child(3) {
+  --fluid-a: rgb(120 118 220 / 24%);
+  --fluid-b: rgb(86 76 168 / 16%);
+  --fluid-c: rgb(150 90 200 / 10%);
+}
+
+/* ---- 雨夜 ---- */
+html[data-metric-palette='rain'] .gp-metric:nth-child(1) {
+  --fluid-a: rgb(46 102 255 / 44%);
+  --fluid-b: rgb(255 105 63 / 26%);
+  --fluid-c: rgb(71 33 172 / 20%);
+}
+
+html[data-metric-palette='rain'] .gp-metric:nth-child(2) {
+  --fluid-a: rgb(45 93 225 / 32%);
+  --fluid-b: rgb(38 59 104 / 24%);
+  --fluid-c: rgb(77 42 157 / 14%);
+}
+
+html[data-metric-palette='rain'] .gp-metric:nth-child(3) {
+  --fluid-a: rgb(58 90 150 / 22%);
+  --fluid-b: rgb(34 52 92 / 16%);
+  --fluid-c: rgb(60 44 110 / 10%);
+}
+
+/* ---- 铬金属 ---- */
+html[data-metric-palette='chrome'] .gp-metric:nth-child(1) {
+  --fluid-a: rgb(244 255 255 / 34%);
+  --fluid-b: rgb(140 164 160 / 26%);
+  --fluid-c: rgb(52 66 62 / 20%);
+}
+
+html[data-metric-palette='chrome'] .gp-metric:nth-child(2) {
+  --fluid-a: rgb(206 220 216 / 24%);
+  --fluid-b: rgb(112 132 128 / 18%);
+  --fluid-c: rgb(40 52 48 / 14%);
+}
+
+html[data-metric-palette='chrome'] .gp-metric:nth-child(3) {
+  --fluid-a: rgb(168 184 180 / 18%);
+  --fluid-b: rgb(88 104 100 / 13%);
+  --fluid-c: rgb(34 44 41 / 9%);
+}
+
+/* ---- 语义（默认）：前三张改用三个不同色相，不再是同色深浅 ---- */
+html[data-metric-palette='semantic'] .gp-metric:nth-child(2),
+.gp-metric:nth-child(2) {
+  --fluid-a: rgb(125 142 163 / 34%);
+  --fluid-b: rgb(90 112 138 / 22%);
+  --fluid-c: rgb(58 78 102 / 14%);
+}
+
+html[data-metric-palette='semantic'] .gp-metric:nth-child(3),
+.gp-metric:nth-child(3) {
+  --fluid-a: rgb(143 174 157 / 30%);
+  --fluid-b: rgb(102 138 120 / 20%);
+  --fluid-c: rgb(70 100 86 / 12%);
+}
+
+/*
+ * 风险卡在所有预设里都走暖色。
+ * 放在最后，优先级高于上面各套预设，确保「可能延期」永远读得出是警示。
+ */
+.gp-metric.is-risk {
+  --fluid-a: rgb(var(--amber-rgb) / 46%) !important;
+  --fluid-b: rgb(var(--amber-rgb) / 28%) !important;
+  --fluid-c: rgb(var(--danger-rgb) / 18%) !important;
+}
+
+@keyframes gpMetricDrift {
+  0% {
+    transform: translate3d(-2.5%, 1%, 0) rotate(-2.2deg) scale(1.02);
+  }
+
+  48% {
+    transform: translate3d(1%, -2%, 0) rotate(0.7deg) scale(1.07);
+  }
+
+  100% {
+    transform: translate3d(3.5%, 2.5%, 0) rotate(2.5deg) scale(1.04);
+  }
+}
+
+/* 降低动态效果时：留住配色层次，去掉漂移与倾斜 */
+@media (prefers-reduced-motion: reduce) {
+  .gp-metric {
+    transform: none;
+  }
+
+  .gp-metric::before {
+    animation: none;
+  }
 }
 
 .gp-metric-label {
@@ -195,6 +430,120 @@
   text-align: center;
 }
 
+/*
+ * 阶段流有两种视图：
+ *
+ * 「层叠」是默认——当前阶段接近正面，前后阶段侧立层叠在两侧，
+ * 一眼能看出「现在在第几阶段、前后各还有多少」。手法移植自 kaogong 的 fan-view。
+ *
+ * 「平铺」保留原有的横向滚动列表，用于一次比对全部阶段的日期。
+ *
+ * 刻意**没有**移植 kaogong 的 3D 环绕转盘和自动播放：转盘首尾相接会暗示
+ * 阶段可循环，而「下一阶段等上一阶段客户验收」是串行规则；自动播放则会让
+ * 一个需要人判断的业务视图自己动起来。
+ */
+
+/*
+ * min-width: 0 不能省。
+ *
+ * 视口是 .gp-deck 这个 grid 的子项，grid item 默认 min-width: auto，
+ * 会把 flex 轨道的 max-content 宽度当成下限——六张 140px 的卡片直接把视口
+ * 从 554px 顶到 904px，内容溢出卡片边框，还会把标题栏一起拉长，
+ * 把「层叠」按钮推出可视区，只能刷新页面才切得回去。
+ *
+ * 层叠视图下卡片是绝对定位、不参与固有宽度，所以这个坑只在平铺时暴露。
+ * 回归测试：e2e/stage-deck.spec.ts
+ */
+.gp-deck-viewport {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+.gp-deck-viewport.is-flat {
+  /* 装不下时由轨道自己横向滚动，不外溢给页面 */
+  overflow-x: auto;
+}
+
+.gp-deck-viewport.is-flat .gp-deck-track {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  min-width: 0;
+  overflow-x: visible;
+}
+
+.gp-deck-viewport.is-stack {
+  padding: var(--space-5) 0;
+  overflow: hidden;
+  perspective: 1280px;
+  cursor: grab;
+}
+
+.gp-deck-viewport.is-stack.is-dragging {
+  cursor: grabbing;
+}
+
+.gp-deck-viewport.is-stack .gp-deck-track {
+  position: relative;
+  height: 208px;
+  margin: 0 auto;
+  padding: 0;
+  transform-style: preserve-3d;
+  outline: none;
+}
+
+.gp-deck-viewport.is-stack .gp-deck-card {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 156px;
+  margin-left: -78px;
+  transform: translate3d(var(--card-x, 0), var(--card-y, 0), var(--card-z, 0))
+    rotateY(var(--card-rotate, 0)) scale(var(--card-scale, 1));
+  transform-origin: 18% 88%;
+  opacity: var(--card-opacity, 1);
+  backface-visibility: hidden;
+  box-shadow: var(--shadow-raised);
+  cursor: pointer;
+}
+
+/* 拖拽时缩短过渡，让卡片跟手；松手后才回到长缓动 */
+.gp-deck-viewport.is-stack.is-dragging .gp-deck-card {
+  transition: none;
+}
+
+/* 键盘操作时焦点环要落在整条轨道上 */
+.gp-deck-viewport.is-stack .gp-deck-track:focus-visible {
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-md);
+}
+
+/* 当前观察到的那张：提亮并加强调色辉光，与「正式选中的阶段」区分开 */
+.gp-deck-viewport.is-stack .gp-deck-card.is-focused {
+  box-shadow: var(--shadow-float), var(--glow-accent);
+}
+
+.gp-deck-viewport.is-stack .gp-deck-card:not(.is-focused) {
+  filter: saturate(0.6) brightness(0.86);
+}
+
+/*
+ * 侧立的卡片保留「阶段序号 + 名称 + 状态」，隐去日期和负责人。
+ * 完全藏掉会失去前后文，全部显示又会在侧立透视下糊成一团——
+ * 只留能定位的三行是这两者之间的平衡点。
+ */
+.gp-deck-viewport.is-stack .gp-deck-card:not(.is-focused) .gp-deck-dates,
+.gp-deck-viewport.is-stack .gp-deck-card:not(.is-focused) .gp-deck-owner {
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out);
+}
+
+.gp-deck-viewport.is-stack .gp-deck-card .gp-deck-dates,
+.gp-deck-viewport.is-stack .gp-deck-card .gp-deck-owner {
+  transition: opacity 300ms var(--ease-out);
+}
+
 .gp-deck-track {
   display: flex;
   gap: var(--space-3);
@@ -211,7 +560,60 @@
   border: 1px solid var(--border-default);
   border-top: 3px solid var(--bar-baseline);
   border-radius: var(--radius-md);
-  background: var(--surface-card);
+  background: var(--panel-bg);
+  transition: transform 680ms var(--ease-out), opacity 420ms var(--ease-out),
+    filter 420ms var(--ease-out), box-shadow 500ms var(--ease-out);
+}
+
+/* 视图切换与阶段流本身的动效在降级模式下一并关掉 */
+@media (prefers-reduced-motion: reduce) {
+  .gp-deck-card {
+    transition: none;
+  }
+}
+
+/* ---- 视图切换按钮 ---- */
+
+.gp-deck-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.gp-deck-views {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+.gp-deck-view {
+  padding: 3px var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+
+.gp-deck-view:hover {
+  color: var(--text-primary);
+}
+
+.gp-deck-view.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: var(--weight-bold);
+}
+
+.gp-deck-focused {
+  color: var(--accent-ink);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
 }
 
 .gp-deck-card.is-done {
@@ -299,7 +701,13 @@
   overflow-x: auto;
 }
 
+/*
+ * min-width: 0 是 flex/grid 子项能收缩的前提。
+ * 这一列装的是 MECH-01、NST_A_3D_B24 这类纯拉丁编号——换 Geist 之后比
+ * 系统字体宽约 8%，没有收口就会顶出 3px。
+ */
 .gp-timeline-labels {
+  min-width: 0;
   border-right: 1px solid var(--border-faint);
 }
 
@@ -313,21 +721,31 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  min-width: 0;
   height: 34px;
   padding: 0 var(--space-5);
   border-bottom: 1px solid var(--border-faint);
 }
 
+/*
+ * 资产编号是这一行的主标识，不参与收缩——把它截成「MECH-...」等于没有标识。
+ * 让右边的项目编号先让位：它在右侧智能详情里还能完整看到。
+ */
 .gp-timeline-label strong {
+  flex: 0 0 auto;
   color: var(--text-primary);
   font-size: var(--text-xs);
   white-space: nowrap;
 }
 
 .gp-timeline-label span {
+  flex: 0 1 auto;
+  min-width: 0;
   color: var(--text-faint);
   font-size: var(--text-2xs);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gp-timeline-grid {
@@ -342,6 +760,16 @@
   border-bottom: 1px solid var(--border-faint);
 }
 
+/*
+ * 这一格是等宽数字的例外。
+ *
+ * 全站开了 `font-variant-numeric: tabular-nums`，但日期轴用的是
+ * `grid-auto-columns: 1fr`——1fr 的自动最小值就是内容的 min-content 宽度，
+ * 所以字一变宽，轨道就撑不回去：1280 下整条轴多出 33px 顶出卡片。
+ *
+ * 而且这里等宽本来就买不到东西：每个日期各自居中在一条等宽轨道里，
+ * 对齐是网格给的，不是字宽给的。等宽数字解决的是「靠字形宽度对齐」的场景。
+ */
 .gp-axis-day {
   display: grid;
   place-content: center;
@@ -349,6 +777,7 @@
   border-left: 1px solid var(--border-faint);
   color: var(--text-muted);
   font-size: 11px;
+  font-variant-numeric: normal;
   text-align: center;
 }
 
@@ -358,7 +787,7 @@
 }
 
 .gp-axis-day.is-today {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--text-inverse);
   font-weight: var(--weight-bold);
 }
@@ -407,36 +836,42 @@
   text-overflow: clip;
 }
 
+/* 底色和字色成对来自令牌层，不要只改一边——对比度是在令牌层算好的 */
 .gp-timeline-bar.is-plan {
   background: var(--bar-baseline);
+  color: var(--bar-baseline-ink);
 }
 
 .gp-timeline-bar.is-active {
   background: var(--bar-current);
+  color: var(--bar-current-ink);
 }
 
 .gp-timeline-bar.is-done {
-  background: var(--accent-ink);
+  background: var(--bar-done);
+  color: var(--bar-done-ink);
 }
 
 .gp-timeline-bar.is-wait {
   background: var(--bar-wait);
-  color: var(--amber-ink);
+  color: var(--bar-wait-ink);
 }
 
 .gp-timeline-bar.is-feedback {
   background: var(--bar-feedback);
+  color: var(--bar-feedback-ink);
 }
 
 .gp-timeline-bar.is-risk {
   background: var(--danger);
+  color: var(--bar-risk-ink);
 }
 
 .gp-today-line {
   position: absolute;
   top: 0;
   bottom: 0;
-  z-index: 3;
+  z-index: var(--z-raised);
   width: 2px;
   background: var(--accent-strong);
 }
@@ -685,5 +1120,111 @@
 
   .gp-taskboard-scroll {
     max-height: 520px;
+  }
+}
+
+/* ================================================================
+ * 任务看板 / 时间线 / 智能详情的质感
+ *
+ * 这三块之前只继承了面板底色，缺少「当前在哪一条」的视觉落点。
+ * 补的都是状态指示与入场动效，不改任何信息层级和文案。
+ * ================================================================ */
+
+/* ---- 任务看板：当前条目要有明确落点 ---- */
+
+.gp-task-row {
+  transition: background 180ms var(--ease-out), border-color 180ms var(--ease-out),
+    box-shadow 220ms var(--ease-out);
+}
+
+.gp-task-row.is-active {
+  box-shadow: var(--shadow-card), var(--glow-accent);
+}
+
+/* 分组计数用强调色底，扫一眼就知道哪组积压最多 */
+.gp-group-head span:last-child {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--accent-softer);
+  color: var(--accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 跨项目时间线：今天线加辉光，条目 hover 抬起 ---- */
+
+.gp-axis-day.is-today {
+  box-shadow: 0 0 12px rgb(var(--accent-rgb) / 35%);
+}
+
+.gp-axis-weekday {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- 智能详情：换选中项时给一个短入场，避免内容瞬间跳变 ---- */
+
+.gp-detail {
+  animation: gpDetailEnter 420ms var(--ease-out);
+}
+
+.gp-detail .gp-pill {
+  animation: gpTagPop 380ms var(--ease-out) backwards;
+}
+
+.gp-detail .gp-pill:nth-child(2) {
+  animation-delay: 45ms;
+}
+
+.gp-detail .gp-pill:nth-child(3) {
+  animation-delay: 90ms;
+}
+
+.gp-detail .gp-pill:nth-child(4) {
+  animation-delay: 135ms;
+}
+
+/*
+ * 入场只能往里收，不能往外挪。
+ * 原来是 translateX(8px) 滑进来，但详情卡的宽度就等于它所在的栅格列宽，
+ * 任何向右的位移都会顶出列外——`.gp-content` 是 overflow:auto，
+ * 于是每换一次选中项，底部就闪一下横向滚动条。
+ * 缩放起手是唯一两个轴都不会溢出的写法：0.99 对 312px 的卡片只内收 3px。
+ */
+@keyframes gpDetailEnter {
+  from {
+    opacity: 0.4;
+    transform: scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes gpTagPop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 最新动态：时间戳等宽对齐，状态点带呼吸 */
+.gp-activity time {
+  font-variant-numeric: tabular-nums;
+}
+
+.gp-activity li:first-child .gp-activity-dot {
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 14%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gp-detail,
+  .gp-detail .gp-pill {
+    animation: none;
   }
 }

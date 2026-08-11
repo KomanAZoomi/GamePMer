@@ -1,4 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { createDemoState } from '../src/data/seed'
+
+/** 从种子推导而不是写死：加一条示例数据不该让这条用例失败 */
+const ARCHIVED_IN_SEED = createDemoState().closeoutCases.filter(
+  (entry) => entry.status === 'Archived',
+).length
 
 /**
  * 结项、IT 备份与 BD 出账端到端。
@@ -74,7 +80,10 @@ test('登记 IT 回执 → 解锁出账 → 生成草稿 → 归档', async ({ p
   // 归档是收到出账回执后的独立一步
   await page.getByRole('button', { name: '收到出账回执，归档项目' }).click()
   await expect(page.getByLabel('出账资料包').getByRole('heading', { name: '已归档' })).toBeVisible()
-  await expect(page.getByRole('button', { name: /已归档 1/ })).toBeVisible()
+  // 种子里本来就有一个走完全程的归档案件，这一步再归档一个
+  await expect(
+    page.getByRole('button', { name: new RegExp(`已归档 ${ARCHIVED_IN_SEED + 1}`) }),
+  ).toBeVisible()
 })
 
 test('退回门禁会连带作废它后面的所有门禁', async ({ page }) => {

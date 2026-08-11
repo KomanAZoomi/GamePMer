@@ -172,8 +172,15 @@
   background: var(--surface-muted);
 }
 
+/*
+ * 必须显式给列宽。不写 grid-template-columns 时列按 max-content 算，
+ * 子项的**盒子**会撑到内容宽度并越出容器；父级的 overflow:hidden 只是
+ * 把越出的部分裁掉，盒子本身仍然出界，负责人名字长一点就会顶到隔壁列。
+ * minmax(0, 1fr) 把列锁在容器内，子项各自的 ellipsis 才真正生效。
+ */
 .gp-combo-stage {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   color: var(--text-secondary);
   font-size: var(--text-xs);
@@ -182,15 +189,28 @@
   text-overflow: ellipsis;
 }
 
+/* 父级的 ellipsis 管不到 grid 子项，子项要自己收口 */
 .gp-combo-stage small {
+  min-width: 0;
   color: var(--text-faint);
   font-size: var(--text-2xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gp-combo-project,
 .gp-combo-days {
+  min-width: 0;
   color: var(--text-muted);
   font-size: var(--text-2xs);
+}
+
+/* 项目编号比列宽长时省略号收口，不要把整列顶开 */
+.gp-combo-project {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gp-combo-days {
@@ -260,7 +280,7 @@
   border: 1px dashed var(--danger);
   background: repeating-linear-gradient(
     135deg,
-    rgba(180, 85, 60, 0.16) 0 6px,
+    var(--danger-soft) 0 6px,
     transparent 6px 12px
   );
   color: var(--danger-ink);
@@ -270,7 +290,7 @@
   border: 1px dashed var(--amber-border);
   background: repeating-linear-gradient(
     135deg,
-    rgba(200, 128, 47, 0.12) 0 6px,
+    var(--amber-soft) 0 6px,
     transparent 6px 12px
   );
   color: var(--amber-ink);
@@ -481,8 +501,8 @@
 }
 
 .gp-pill.is-final-delivery {
-  background: #e8eef5;
-  color: #3c5570;
+  background: var(--cat-slate-soft);
+  color: var(--cat-slate-ink);
 }
 
 .gp-pill.is-client-feedback {
@@ -534,12 +554,15 @@
   font-weight: var(--weight-heavy);
 }
 
+/* 实心块上的字色跟着底色走，不用全局的 --text-inverse */
 .gp-conflict.is-blocking .gp-conflict-sev {
-  background: var(--danger);
+  background: var(--danger-fill);
+  color: var(--ink-on-danger);
 }
 
 .gp-conflict.is-warning .gp-conflict-sev {
-  background: var(--amber);
+  background: var(--amber-fill);
+  color: var(--ink-on-amber);
 }
 
 .gp-conflict strong {
@@ -801,8 +824,8 @@
 }
 
 .gp-btn-primary:disabled:hover {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--accent-fill);
+  background: var(--accent-fill);
 }
 
 /* ---------------------------------------------------------------- 宽屏 */

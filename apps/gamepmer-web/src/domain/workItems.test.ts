@@ -74,7 +74,14 @@ describe('summarizeMetrics', () => {
   })
 
   it('已完成只统计客户已验收的阶段', () => {
-    expect(metrics.approved).toBe(8)
+    // 从种子数出来，而不是抄一个数字进来：这条守的是「口径是 Approved」，
+    // 不是「种子里正好有 N 个已验收阶段」
+    const approvedStages = state.projects
+      .flatMap((project) => project.assets)
+      .flatMap((asset) => asset.stages)
+      .filter((stage) => stage.status === 'Approved').length
+    expect(approvedStages).toBeGreaterThan(0)
+    expect(metrics.approved).toBe(approvedStages)
   })
 
   it('可能延期与已逾期分开统计', () => {

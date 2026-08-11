@@ -1,0 +1,44 @@
+/*
+ * 自托管字体：Geist Variable（拉丁子集）。
+ *
+ * 为什么不用整包的 index.css：
+ * 它声明了 latin / latin-ext / cyrillic / cyrillic-ext / vietnamese 五套子集，
+ * 浏览器虽然只下载命中的那一套，但构建产物会把十个 woff2 全部拷进 dist。
+ * 这里只声明实际会用到的拉丁子集（sans 28KB + mono 22KB），
+ * 内网部署不该带六份永远不会被请求的字体。
+ *
+ * 为什么是可变字体：
+ * 设计令牌里有 --weight-medium: 550 这个非标准字重。静态字体渲染不出 550，
+ * 浏览器只能靠合成（伪粗体）凑，字形会变形；可变字体的 wght 轴能真实渲染。
+ *
+ * 为什么不给汉字换字体：
+ * CJK 字体动辄 5–10MB，内网加载成本太高，且不能外链 CDN。
+ * Geist 不含汉字字形，所以中文会自动落到下一级的系统中文字体——
+ * 拉丁字母和数字用 Geist，汉字用系统栈，正是想要的分工。
+ *
+ * 许可：Geist 为 OFL-1.1，允许自托管与内网分发。
+ */
+
+@font-face {
+  font-family: 'Geist Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../../node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Geist Mono Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('../../node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2')
+    format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}

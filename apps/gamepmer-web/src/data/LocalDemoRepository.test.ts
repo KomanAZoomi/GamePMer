@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { DEMO_SCHEMA_VERSION } from '../domain/model'
 import { DEMO_STORAGE_KEY, LocalDemoRepository, isDemoState, type StorageLike } from './LocalDemoRepository'
 import { createDemoState } from './seed'
+import { createAcceptanceScenarioState } from './acceptanceScenario'
 
 function fakeStorage(seed: Record<string, string> = {}): StorageLike {
   const map = new Map(Object.entries(seed))
@@ -43,6 +44,15 @@ describe('LocalDemoRepository', () => {
     const repository = new LocalDemoRepository(fakeStorage({ [DEMO_STORAGE_KEY]: '{ 不是 JSON' }))
     expect(repository.load().projects.length).toBeGreaterThan(0)
   })
+})
+
+it('replace 将一份已校验状态落盘并能重新读取', () => {
+  const storage = fakeStorage()
+  const repository = new LocalDemoRepository(storage)
+
+  repository.replace(createAcceptanceScenarioState())
+
+  expect(repository.load().projects.map((item) => item.code)).toContain('SKF_A_3D_B52')
 })
 
 describe('isDemoState', () => {

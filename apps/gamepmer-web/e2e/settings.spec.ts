@@ -79,12 +79,19 @@ test('连接器如实标注审批门槛，并给替代路径', async ({ page }) 
   await expect(list.getByText(/替代路径：/).first()).toBeVisible()
 })
 
-test('成员与角色点名兼多角的人', async ({ page }) => {
+/*
+ * 成员与角色、制作组、工作日历三块都在「组织配置」里，没有独立的导航分区。
+ * 这条用例以前找的是一个叫「成员与角色」的分区和 .gp-merge-note——
+ * 前者从来没有过，后者是报价页复核轨的类名。断言改回这一页真实的结构。
+ */
+test('组织配置里点名兼多角的人，并说明容量是共享的', async ({ page }) => {
   await page.goto('/#/settings')
-  await section(page, '成员与角色').click()
+  await section(page, '组织配置').click()
 
-  await expect(page.getByLabel('成员与角色')).toBeVisible()
-  await expect(page.locator('.gp-merge-note').getByText(/只需确认一次/)).toBeVisible()
+  // exact：不加会同时命中「新成员姓名」等输入框
+  await expect(page.getByLabel('成员', { exact: true })).toBeVisible()
+  await expect(page.getByText(/组长兼 BD 时报价只需确认一次/)).toBeVisible()
+  // 容量不挂在单个项目下，这条是排期与负载分析的前提
   await expect(page.getByText(/跨项目共享资源/)).toBeVisible()
 })
 

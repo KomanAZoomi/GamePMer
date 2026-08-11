@@ -179,7 +179,7 @@
 }
 
 .gp-gate-track li.is-current .gp-gate-no {
-  background: #f3e2c8;
+  background: var(--amber-soft-strong);
   color: var(--amber-ink);
 }
 
@@ -257,9 +257,17 @@
   gap: var(--space-3);
 }
 
+/*
+ * 这两个落在 180px 的固定列里。只写 min-width: 0 不够——那只约束它们自己的
+ * 盒子；内部的 grid 列若不显式声明，仍按 max-content 算，会被 <select> 里
+ * 最长的那条选项文本（「口头/当面确认（非正式）」）撑到 183px 顶出去。
+ * minmax(0, 1fr) 把内部列锁回容器宽度。
+ */
 .gp-gate-form label,
 .gp-gate-note-field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 4px;
 }
 

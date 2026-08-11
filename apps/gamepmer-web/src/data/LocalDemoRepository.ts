@@ -11,6 +11,8 @@ import { createBlankState, createDemoState } from './seed'
 export interface DemoRepository {
   load(): DemoState
   save(state: DemoState): void
+  /** 用于已完成边界校验的完整状态替换；不支持集合级合并。 */
+  replace(state: DemoState): DemoState
   reset(): DemoState
   /** 清空业务数据，保留组织配置。用于把演示数据换成自己的真实业务。 */
   clear(): DemoState
@@ -75,6 +77,11 @@ export class LocalDemoRepository implements DemoRepository {
 
   save(state: DemoState): void {
     this.storage.setItem(DEMO_STORAGE_KEY, JSON.stringify(state))
+  }
+
+  replace(state: DemoState): DemoState {
+    this.save(state)
+    return state
   }
 
   reset(): DemoState {

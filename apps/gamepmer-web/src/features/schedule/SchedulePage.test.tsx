@@ -3,7 +3,19 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { App } from '../../App'
 import { LocalDemoRepository, type StorageLike } from '../../data/LocalDemoRepository'
+import { createDemoState } from '../../data/seed'
 import { createWorkspaceStore } from '../workspace/workspaceStore'
+
+/*
+ * 阶段总数从种子推导，不写死。
+ * 写死的话每加一个示例项目就要回来改一次数字，而改完并不能证明任何事——
+ * 这里要守的是「显示数与总数一致、筛选后只剩该项目的阶段」。
+ */
+const ALL_STAGES = createDemoState()
+  .projects.flatMap((project) => project.assets)
+  .flatMap((asset) => asset.stages)
+const TOTAL_STAGES = ALL_STAGES.length
+const HLC_STAGES = ALL_STAGES.filter((stage) => stage.assetId.startsWith('CHAR-')).length
 
 function memoryStorage(): StorageLike {
   const map = new Map<string, string>()
@@ -98,8 +110,10 @@ describe('冲突检查', () => {
     await renderSchedule()
     expect(screen.getByText(/0 项阻断/)).toBeInTheDocument()
     const panel = screen.getByLabelText('冲突检查')
-    expect(within(panel).getByText('前置未获验收')).toBeInTheDocument()
-    expect(within(panel).getByText('制作组满载无缓冲')).toBeInTheDocument()
+    // 用 getAllByText：要守的是「这一类预警出得来」，不是「全站只有一条」。
+    // 种子里但凡多一个前置没验收的阶段，单数版就会误报失败。
+    expect(within(panel).getAllByText('前置未获验收').length).toBeGreaterThan(0)
+    expect(within(panel).getAllByText('制作组满载无缓冲').length).toBeGreaterThan(0)
   })
 
   it('待分流反馈的容量影响只作提示，不计入已排人天', async () => {
@@ -122,10 +136,12 @@ describe('筛选', () => {
 
   it('按项目筛选后阶段计数同步更新', async () => {
     const { user } = await renderSchedule()
-    expect(screen.getByText('显示 32 / 32 个阶段')).toBeInTheDocument()
+    expect(screen.getByText(`显示 ${TOTAL_STAGES} / ${TOTAL_STAGES} 个阶段`)).toBeInTheDocument()
 
     await user.selectOptions(screen.getByLabelText('按项目筛选'), 'HLC_B_2D_B18')
-    expect(screen.getByText('显示 6 / 32 个阶段')).toBeInTheDocument()
+    expect(
+      screen.getByText(`显示 ${HLC_STAGES} / ${TOTAL_STAGES} 个阶段`),
+    ).toBeInTheDocument()
   })
 
   it('只看有风险时留下带标记的阶段', async () => {
@@ -172,7 +188,7 @@ describe('筛选', () => {
     await user.selectOptions(screen.getByLabelText('按项目筛选'), 'HLC_B_2D_B18')
     await user.click(screen.getByRole('button', { name: '清除筛选' }))
 
-    expect(screen.getByText('显示 32 / 32 个阶段')).toBeInTheDocument()
+    expect(screen.getByText(`显示 ${TOTAL_STAGES} / ${TOTAL_STAGES} 个阶段`)).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '清除筛选' })).toBeNull()
   })
 })

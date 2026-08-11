@@ -135,13 +135,13 @@
 }
 
 .gp-pill.is-kind-quote-request {
-  background: #e8eef5;
-  color: #3c5570;
+  background: var(--cat-slate-soft);
+  color: var(--cat-slate-ink);
 }
 
 .gp-pill.is-kind-it-receipt {
-  background: #f0ecf5;
-  color: #58496d;
+  background: var(--cat-plum-soft);
+  color: var(--cat-plum-ink);
 }
 
 /* ---------------------------------------------------------------- 识别结果 */

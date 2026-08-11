@@ -176,56 +176,58 @@ export function FeedbackPage({ workspace, store, onNavigate }: FeedbackPageProps
             <span className="gp-count">{batch.items.length}</span>
           </header>
 
-          <table className="gp-item-table">
-            <thead>
-              <tr>
-                <th>序号</th>
-                <th>资产 / 阶段</th>
-                <th>修改内容</th>
-                <th>范围判断</th>
-                <th>负责人</th>
-                <th>预估</th>
-                <th>处理状态</th>
-              </tr>
-            </thead>
-            <tbody>
-              {batch.items.map((item, index) => (
-                <tr
-                  key={item.id}
-                  className={item.id === selected.id ? 'is-active' : undefined}
-                  onClick={() => store.selectFeedbackItem(item.id)}
-                >
-                  <td>{String(index + 1).padStart(2, '0')}</td>
-                  <td>
-                    {item.assetId} / {item.stageId.split('/')[1]}
-                  </td>
-                  <td className="gp-item-title">
-                    <button type="button" onClick={() => store.selectFeedbackItem(item.id)}>
-                      {item.title}
-                    </button>
-                  </td>
-                  <td>
-                    <span
-                      className={`gp-pill ${
-                        item.scope === 'in-scope'
-                          ? 'is-plan'
-                          : item.scope === 'out-of-scope'
-                            ? 'is-feedback'
-                            : item.scope === 'no-change'
-                              ? 'is-no-change'
-                              : 'is-plain'
-                      }`}
-                    >
-                      {SCOPE_LABELS[item.scope]}
-                    </span>
-                  </td>
-                  <td>{item.ownerName}</td>
-                  <td>{item.estimatedReworkDays} 工作日</td>
-                  <td>{STATUS_LABELS[item.status]}</td>
+          <div className="gp-item-scroll">
+            <table className="gp-item-table">
+              <thead>
+                <tr>
+                  <th>序号</th>
+                  <th>资产 / 阶段</th>
+                  <th>修改内容</th>
+                  <th>范围判断</th>
+                  <th>负责人</th>
+                  <th>预估</th>
+                  <th>处理状态</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {batch.items.map((item, index) => (
+                  <tr
+                    key={item.id}
+                    className={item.id === selected.id ? 'is-active' : undefined}
+                    onClick={() => store.selectFeedbackItem(item.id)}
+                  >
+                    <td>{String(index + 1).padStart(2, '0')}</td>
+                    <td>
+                      {item.assetId} / {item.stageId.split('/')[1]}
+                    </td>
+                    <td className="gp-item-title">
+                      <button type="button" onClick={() => store.selectFeedbackItem(item.id)}>
+                        {item.title}
+                      </button>
+                    </td>
+                    <td>
+                      <span
+                        className={`gp-pill ${
+                          item.scope === 'in-scope'
+                            ? 'is-plan'
+                            : item.scope === 'out-of-scope'
+                              ? 'is-feedback'
+                              : item.scope === 'no-change'
+                                ? 'is-no-change'
+                                : 'is-plain'
+                        }`}
+                      >
+                        {SCOPE_LABELS[item.scope]}
+                      </span>
+                    </td>
+                    <td>{item.ownerName}</td>
+                    <td>{item.estimatedReworkDays} 工作日</td>
+                    <td>{STATUS_LABELS[item.status]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {draft && (
             <DraftPreview

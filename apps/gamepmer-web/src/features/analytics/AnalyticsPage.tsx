@@ -15,6 +15,7 @@ import {
   type Insight,
 } from '../../domain/analytics'
 import { VERDICT_LABEL, dispositionIssues } from '../../domain/insightDisposition'
+import { activeProjects } from '../../domain/lookup'
 import type { DemoState } from '../../domain/model'
 import { capacityMatrix, weekStartsFrom } from '../../domain/capacity'
 import { QUOTE_KIND_LABEL, QUOTE_STATUS_LABEL, activeVersion, quoteTotals } from '../../domain/quotation'
@@ -186,7 +187,7 @@ export function AnalyticsPage({ workspace, store, onNavigate }: AnalyticsPagePro
         <div>
           <h1>智能分析</h1>
           <p>
-            {today} · {demo.projects.length} 个在管项目 ·{' '}
+            {today} · {activeProjects(demo).length} 个在管项目 ·{' '}
             {demo.projects.reduce((sum, p) => sum + p.assets.length, 0)} 个资产 ·{' '}
             {outcomes.length} 个已完成阶段进入统计
           </p>

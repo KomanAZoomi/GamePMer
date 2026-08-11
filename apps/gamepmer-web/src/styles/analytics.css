@@ -107,7 +107,7 @@
   display: block;
   color: var(--text-primary);
   font-size: var(--text-sm);
-  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .gp-health-project span {
@@ -149,11 +149,11 @@
 }
 
 .is-client-wait {
-  background: #d8c39c;
+  background: var(--cat-sand);
 }
 
 .is-rework {
-  background: #8fae9d;
+  background: var(--cat-sage);
 }
 
 .is-team-delay {
@@ -161,7 +161,7 @@
 }
 
 .is-dependency {
-  background: #7d8ea3;
+  background: var(--cat-slate);
 }
 
 .gp-cause-dot {
@@ -174,8 +174,8 @@
 }
 
 .gp-pill.is-cause-client-wait {
-  background: #f2e9d8;
-  color: #6d5a34;
+  background: var(--cat-sand-soft);
+  color: var(--cat-sand-ink);
 }
 
 .gp-pill.is-cause-rework {
@@ -189,8 +189,8 @@
 }
 
 .gp-pill.is-cause-dependency {
-  background: #e8eef5;
-  color: #3c5570;
+  background: var(--cat-slate-soft);
+  color: var(--cat-slate-ink);
 }
 
 .gp-attribution {

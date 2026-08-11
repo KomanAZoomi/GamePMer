@@ -96,8 +96,10 @@ describe('filterOptions', () => {
   const options = filterOptions(state)
 
   it('列出全部项目与制作组', () => {
-    expect(options.projects).toHaveLength(4)
-    expect(options.groups).toHaveLength(3)
+    // 从种子推导而不是写死数字：这里要守的是「一个不漏」，不是「正好 N 个」。
+    // 写死的话每加一个示例项目就要来改一次，而改完并不能证明什么。
+    expect(options.projects).toHaveLength(state.projects.length)
+    expect(options.groups).toHaveLength(state.productionGroups.length)
   })
 
   it('负责人去重并排序', () => {
@@ -120,7 +122,17 @@ describe('isFilterActive', () => {
 
 describe('countStages', () => {
   it('给出显示数与总数', () => {
-    expect(countStages(state, EMPTY_FILTER)).toEqual({ shown: 32, total: 32 })
-    expect(countStages(state, { ...EMPTY_FILTER, groupId: 'grp-2d-a' }).shown).toBe(6)
+    const allStages = state.projects
+      .flatMap((project) => project.assets)
+      .flatMap((asset) => asset.stages)
+    // 无筛选时显示数必须等于总数，且两者都等于种子里真实的阶段条数
+    expect(countStages(state, EMPTY_FILTER)).toEqual({
+      shown: allStages.length,
+      total: allStages.length,
+    })
+    // 按组筛选后只剩该组的阶段
+    expect(countStages(state, { ...EMPTY_FILTER, groupId: 'grp-2d-a' }).shown).toBe(
+      allStages.filter((stage) => stage.productionGroupId === 'grp-2d-a').length,
+    )
   })
 })

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { RouteKey } from '../../app/navigation'
 import { capacityBreakdown, capacityMatrix, weekStartsFrom } from '../../domain/capacity'
 import { checkSchedule, summarizeConflicts } from '../../domain/conflicts'
+import { activeProjects } from '../../domain/lookup'
 import { MILESTONE_LABELS, collectMilestones } from '../../domain/milestones'
 import {
   EMPTY_FILTER,
@@ -73,7 +74,7 @@ export function SchedulePage({ workspace, store, onNavigate }: SchedulePageProps
         <div>
           <h1>排期管理与团队档期</h1>
           <p>
-            {today}（周{weekdayLabel(today)}）· {demo.projects.length} 个在管项目 ·{' '}
+            {today}（周{weekdayLabel(today)}）· {activeProjects(demo).length} 个在管项目 ·{' '}
             {demo.productionGroups.length} 个制作组 · 检出{' '}
             <b className={summary.blocking > 0 ? 'gp-over' : undefined}>{summary.blocking} 项阻断</b> 与{' '}
             <b className={summary.warning > 0 ? 'gp-warn' : undefined}>{summary.warning} 项预警</b>
