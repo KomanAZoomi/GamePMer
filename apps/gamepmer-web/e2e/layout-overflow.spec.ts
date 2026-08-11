@@ -112,21 +112,38 @@ test('智能详情入场动画不把卡片顶出栅格列', async ({ page }) => 
   expect(worst, `详情卡在入场过程中最多顶出列外 ${worst}px`).toBeLessThanOrEqual(TOLERANCE)
 })
 
-for (const width of [1280, 1440]) {
-  test.describe(`版面在 ${width}px 不溢出`, () => {
-    test.use({ viewport: { width, height: 1000 } })
+for (const width of [1280, 1440, 1920]) {
+  for (const theme of ['dark', 'light'] as const) {
+    const themeName = theme === 'dark' ? '暗色' : '亮色'
 
-    for (const [route, name] of ROUTES) {
-      test(`${name}`, async ({ page }) => {
-        await page.goto(`/#/${route}`)
-        await page.waitForLoadState('networkidle')
+    test.describe(`版面在 ${width}px ${themeName}不溢出`, () => {
+      test.use({ viewport: { width, height: 1000 } })
 
-        const hits = await findOverflow(page)
-        const report = hits
-          .map((h) => `${h.kind} ${h.el}${h.of ? ' 越出 ' + h.of : ''} +${h.px}px`)
-          .join('\n')
-        expect(hits, `${name} 有元素溢出：\n${report}`).toEqual([])
+      test.beforeEach(async ({ page }) => {
+        // 两套主题的字重、内边距和边框都不同，宽度敏感的地方要分别量。
+        // 偏好是裸字符串存的，写完必须刷新才走防闪烁脚本；
+        // 暗色又是 `:root` 默认值，不断言 data-theme-resolved 的话，
+        // 切换失败会安静地退回暗色，亮色那一半就白跑了。
+        await page.goto('/#/tasks')
+        await page.evaluate((value) => {
+          localStorage.setItem('gamepmer.appearance.theme', value)
+        }, theme)
+        await page.reload()
+        await expect(page.locator('html')).toHaveAttribute('data-theme-resolved', theme)
       })
-    }
-  })
+
+      for (const [route, name] of ROUTES) {
+        test(`${name}`, async ({ page }) => {
+          await page.goto(`/#/${route}`)
+          await page.waitForLoadState('networkidle')
+
+          const hits = await findOverflow(page)
+          const report = hits
+            .map((h) => `${h.kind} ${h.el}${h.of ? ' 越出 ' + h.of : ''} +${h.px}px`)
+            .join('\n')
+          expect(hits, `${name}（${width}px ${themeName}）有元素溢出：\n${report}`).toEqual([])
+        })
+      }
+    })
+  }
 }
