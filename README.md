@@ -2,7 +2,12 @@
 
 面向游戏美术 PM 的**公司内网 Web 工作台**。
 
-当前交付两条可验收的纵向闭环：
+![任务管理首页](docs/screenshots/01-tasks-dark.png)
+
+> 首次打开的样子，没有摆拍——所有数字都来自内置示例数据。
+> 十个模块 × 暗色/亮色共 20 张截图在 [`docs/screenshots/`](docs/screenshots/)，可用 `npm run shots` 一键重生成。
+
+当前交付七条可验收的纵向闭环：
 
 1. **候选收件箱**：外部消息 → AI 识别 → PM 核验 → 确认后才生成正式记录
 2. **反馈重排**：客户反馈 → 范围分流 → 排期重排 → PM 确认 → 修订与通知草稿
@@ -15,6 +20,28 @@
 
 所有项目、客户、资产和消息均为虚构演示数据。工作台**不接入**真实邮件、企业微信、飞书或文件盘，
 也不执行任何真实的对外操作——这是当前阶段的刻意边界，不是尚未接好的接口。
+
+## 界面
+
+三条主线各一张，其余见 [`docs/screenshots/`](docs/screenshots/)。
+
+| 项目总览与甘特 | 反馈中心 |
+|---|---|
+| [![项目甘特](docs/screenshots/02-projects-dark.png)](docs/screenshots/02-projects-dark.png) | [![反馈中心](docs/screenshots/05-feedback-dark.png)](docs/screenshots/05-feedback-dark.png) |
+| 按资产展开到每个可验收阶段，基准 / 当前 / 实际 / 等待客户四层日期同屏可比 | 「现在在等谁」三栏看板：球在我这、在制作组、还是在客户那边 |
+
+| 结项中心 | 报价与变更 |
+|---|---|
+| [![结项中心](docs/screenshots/07-closeout-dark.png)](docs/screenshots/07-closeout-dark.png) | [![报价与变更](docs/screenshots/06-quotation-dark.png)](docs/screenshots/06-quotation-dark.png) |
+| 五道串行证据门禁，点被挡住的那一步只看得到原因，不能手工打勾绕过 | 六步审批链、版本化报价、冻结说明怎么解冻 |
+
+### 两套主题都是完整方案
+
+不是互相反色。亮色沿用原来的白色与浅暖灰基线，暗色是独立调过的一套。
+
+| 暗色（默认） | 亮色 |
+|---|---|
+| [![智能分析 暗色](docs/screenshots/09-analytics-dark.png)](docs/screenshots/09-analytics-dark.png) | [![智能分析 亮色](docs/screenshots/09-analytics-light.png)](docs/screenshots/09-analytics-light.png) |
 
 ## 已实现的页面
 
@@ -320,7 +347,8 @@ E2E 会自动拉起 dev server（端口 5180），已在跑则复用。
 
 - [产品设计说明](docs/superpowers/specs/2026-07-27-intranet-web-workspace-redesign-design.md) — 当前权威设计基线
 - [实施计划](docs/superpowers/plans/2026-07-27-intranet-web-workspace-redesign.md) — 检查点划分与实施期决策
-- [视觉基线](docs/design-assets/2026-07-27-white-ui/) — 已确认的原型与各检查点截图
+- [界面截图](docs/screenshots/) — 十个模块 × 双主题，对应当前 HEAD，可一键重生成
+- [视觉基线](docs/design-assets/2026-07-27-white-ui/) — 7 月确认的白色原型与各检查点截图（历史留档，不代表现状）
 - [M1 失败复盘](docs/retrospectives/2026-07-16-m1-vibe-coding-retrospective.md) — 本轮流程规范的由来
 - [PRD](docs/PRD.md) — 领域规则仍然有效；平台与发布章节已被上述设计说明取代
 

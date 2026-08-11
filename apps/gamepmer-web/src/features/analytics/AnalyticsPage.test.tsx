@@ -264,6 +264,34 @@ describe('AI 洞察', () => {
   })
 })
 
+describe('同一屏里的项目数不能互相打架', () => {
+  /**
+   * 截图复看时发现的：页头写「5 个在管项目」，健康度徽标写「6 个在管」，
+   * 差的那一个正是已归档的项目，而它就列在下面的表里。
+   *
+   * 表里放归档项目是对的——它的已完成阶段是真实交付数据，抽掉就算不出按期率。
+   * 错的是徽标把「项目数」说成了「在管数」。
+   */
+  it('健康度徽标不把已归档项目算成在管', async () => {
+    const { user } = renderAnalytics()
+    await goto(user)
+
+    const demo = store.getState().demo
+    const total = demo.projects.length
+    const archived = demo.projects.filter((project) => project.status === 'Archived').length
+    expect(archived, '种子里得有归档项目，否则这条用例什么都没守住').toBeGreaterThan(0)
+
+    // 页头只算在管
+    expect(screen.getByText(new RegExp(`${total - archived} 个在管项目`))).toBeInTheDocument()
+
+    // 徽标算全部，并且明说含几个归档
+    const head = screen.getByLabelText('项目健康度').closest('section')!
+    expect(within(head).getByText(new RegExp(`${total} 个项目`))).toBeInTheDocument()
+    expect(within(head).getByText(new RegExp(`含 ${archived} 个已归档`))).toBeInTheDocument()
+    expect(within(head).queryByText(new RegExp(`${total} 个在管`))).not.toBeInTheDocument()
+  })
+})
+
 describe('口径与报价页一致', () => {
   it('只有已开工的追加报价计入项目的变更金额', async () => {
     const { user } = renderAnalytics()

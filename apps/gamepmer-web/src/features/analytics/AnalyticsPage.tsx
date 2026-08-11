@@ -175,6 +175,15 @@ export function AnalyticsPage({ workspace, store, onNavigate }: AnalyticsPagePro
   const attribution = useMemo(() => delayAttribution(demo), [demo])
   const accuracy = useMemo(() => estimateAccuracy(demo), [demo])
   const health = useMemo(() => projectHealth(demo, today), [demo, today])
+  /**
+   * 健康度表刻意把已归档项目也列进来：它们的已完成阶段是真实交付数据，
+   * 抽掉就统计不出按期率。但徽标不能因此写「N 个在管」——
+   * 页头写的是 5 个在管，这里写 6 个在管，同一屏里两个数打架。
+   */
+  const archivedInHealth = useMemo(
+    () => health.filter((row) => row.risk === '已归档').length,
+    [health],
+  )
   const hints = useMemo(() => insights(demo, today), [demo, today])
   const weeks = useMemo(() => weekStartsFrom(today, 6, -3), [today])
   const capacity = useMemo(() => capacityMatrix(demo, weeks, calendar), [demo, weeks, calendar])
@@ -250,7 +259,10 @@ export function AnalyticsPage({ workspace, store, onNavigate }: AnalyticsPagePro
                   项目健康度
                   <small>每一列都来自阶段状态与实际日期，不是手填的</small>
                 </h2>
-                <span className="gp-count">{health.length} 个在管</span>
+                <span className="gp-count">
+                  {health.length} 个项目
+                  {archivedInHealth > 0 ? ` · 含 ${archivedInHealth} 个已归档` : ''}
+                </span>
               </header>
               <div className="gp-analytics-scroll">
                 <table className="gp-health-table" aria-label="项目健康度">
