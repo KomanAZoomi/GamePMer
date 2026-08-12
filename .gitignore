@@ -14,6 +14,12 @@
 # Local brainstorming and design previews
 /.superpowers/
 
+# 第三方产品界面截图：只留在本机作设计过程参考，不进版本库。
+# 这些图的左半幅是别家商业产品的完整界面，仓库以 MIT 发布，
+# 把它们放进来等于替别人的作品做了不属于我们的授权。
+# 2026-08-12 已从全部历史中移除；这条规则防止它们再被 `git add -A` 带回去。
+docs/design-assets/**/screenshots/*-reference-*-comparison*.jpg
+
 # GamePMer runtime data（只在仓库根，不要连累源码目录）
 /data/
 /backups/

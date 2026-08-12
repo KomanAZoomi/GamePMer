@@ -455,7 +455,9 @@ M1 的失败不是代码失败，是「一次做完六大块才交付」。因�
 
 ### C2 — 项目详情与真实甘特（最高风险检查点）
 
-**对照：** `screenshots/04-project-gantt.png` + `screenshots/04-reference-gantt-comparison*.jpg`
+**对照：** `screenshots/04-project-gantt.png`
+（当时还并排对照过一组参考图，因含第三方产品界面截图，已于 2026-08-12 移出仓库，
+见 `THIRD-PARTY-NOTICES.md`）
 
 这是 M1 直接翻车的地方（失败点 4、5），单独成门，不与其他内容混合交付。
 

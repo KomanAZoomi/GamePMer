@@ -356,8 +356,7 @@ E2E 会自动拉起 dev server（端口 5180），已在跑则复用。
 
 源码与文档以 [MIT](LICENSE) 发布。
 
-设计参考截图、字体和依赖各自的权利状态见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)——
-其中 `docs/design-assets/**/screenshots/*-reference-*-comparison*.jpg` 含第三方产品界面截图，
-**不在 MIT 覆盖范围内**。
+设计语言署名、字体和依赖各自的权利状态见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+仓库内不含任何第三方产品的界面截图——设计过程中用过的几张对照图已从全部历史中移除。
 
 仓库内全部项目、客户、人员、邮件和金额均为虚构脱敏数据，不含任何真实凭证。

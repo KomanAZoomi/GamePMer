@@ -32,21 +32,17 @@ GamePMer 的暗色主题、设计令牌组织方式和面板质感直接借鉴�
 字体文件通过 npm 依赖引入，未提交进本仓库；`src/styles/fonts.css` 只声明实际用到的拉丁子集。
 中文字形不由 Geist 提供，落到系统中文字体栈。
 
-## 3. 设计参考截图（**不属于 MIT 覆盖范围**）
+## 3. 设计参考截图（**已移除，不随本仓库分发**）
 
-`docs/design-assets/2026-07-27-white-ui/screenshots/` 下文件名带 `reference-*-comparison` 的
-六张 JPG，左半幅是**第三方商业产品的界面截图**，作为「本方案是否忠实延续了参考图结构」的
-并排对照留档：
+设计过程中曾有六张 `*-reference-*-comparison*.jpg`，左半幅是**第三方商业产品的界面截图**，
+用作「本方案是否忠实延续了参考图结构」的并排对照。
 
-- `04-reference-gantt-comparison.jpg`
-- `04-reference-gantt-comparison-v2.jpg`
-- `04-reference-gantt-comparison-stacked.jpg`
-- `05-reference-feedback-comparison.jpg`
-- `06-reference-quotation-comparison.jpg`
-- `07-reference-closeout-comparison.jpg`
+**2026-08-12 已把它们从全部 Git 历史中移除**，并在 `.gitignore` 里加了规则防止再次进入。
+理由：本仓库以 MIT 发布，而那些截图的著作权属于其原始权利人——
+把它们放在 MIT 仓库里，等于替别人的作品做了不属于我们的授权。
 
-这些截图的著作权属于其原始权利人，本仓库既不主张权利，也不以 MIT 授权他人使用；
-它们只作为设计过程记录保留。任何再分发请自行确认权利状态。
+原图仅保留在维护者本机作为设计过程参考，不随本仓库分发。
+`docs/design-assets/` 下其余截图都是本项目自己的原型与实现，不受此条影响。
 
 ## 4. 运行时与构建依赖
 
